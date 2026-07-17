@@ -1,0 +1,85 @@
+{
+  "patients": [],
+  "departments": [
+    {
+      "id": "lor",
+      "name": "LOR (Quloq-Burun-Tomoq)",
+      "doctorName": "Dr. Shavkatov Rustam",
+      "room": "102-Xona",
+      "price": 150000,
+      "login": "lor",
+      "password": "lor123"
+    },
+    {
+      "id": "nevrologiya",
+      "name": "Nevrologiya",
+      "doctorName": "Dr. Marufov Sanjar",
+      "room": "204-Xona",
+      "price": 180000,
+      "login": "nevro",
+      "password": "nevro123"
+    },
+    {
+      "id": "kardiologiya",
+      "name": "Kardiologiya",
+      "doctorName": "Dr. Aliyeva Madina",
+      "room": "301-Xona",
+      "price": 200000,
+      "login": "kardio",
+      "password": "kardio123"
+    },
+    {
+      "id": "labaratoriya",
+      "name": "Laboratoriya (Tahlillar)",
+      "doctorName": "Dr. Karimboyev Hilol",
+      "room": "105-Xona",
+      "price": 120000,
+      "login": "lab",
+      "password": "lab123"
+    }
+  ],
+  "receptionStaff": [
+    {
+      "id": "rep-1",
+      "name": "Qabulxona xodimi",
+      "login": "qabul",
+      "password": "qabul123"
+    }
+  ],
+  "hospitalRooms": [
+    {
+      "id": "R101",
+      "roomNumber": "101-Palata",
+      "capacity": 2,
+      "pricePerDay": 250000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R102",
+      "roomNumber": "102-Palata",
+      "capacity": 3,
+      "pricePerDay": 200000,
+      "occupiedBeds": 0,
+      "genderType": "Erkak"
+    },
+    {
+      "id": "R103",
+      "roomNumber": "103-Palata (Luks)",
+      "capacity": 1,
+      "pricePerDay": 450000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R104",
+      "roomNumber": "104-Palata",
+      "capacity": 4,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Ayol"
+    }
+  ],
+  "inpatientStays": [],
+  "transactions": []
+}

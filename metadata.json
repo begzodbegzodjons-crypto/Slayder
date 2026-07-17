@@ -1,0 +1,6 @@
+{
+  "name": "DR.Maruf Clinik",
+  "description": "Klinika ish faoliyatini avtomatlashtirish, qabulxona, shifokorlar xonasi va tashqi TV monitor navbat tizimi dasturi.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

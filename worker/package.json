@@ -1,0 +1,1 @@
+{"name":"medical-pro-api","version":"1.0.0","main":"index.ts","dependencies":{"@tidbcloud/serverless":"^0.3.0"},"devDependencies":{"wrangler":"^4.110.0"}}
