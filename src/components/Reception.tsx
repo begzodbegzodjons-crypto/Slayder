@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Patient, DepartmentId, Department, HospitalRoom, InpatientStay, Medication, ClinicTransaction } from '../types';
+import { Patient, DepartmentId, Department, HospitalRoom, InpatientStay, Medication, ClinicTransaction, ExtraService } from '../types';
 import {
   Plus,
   Search,
@@ -20,13 +20,17 @@ import {
   X,
   PlusCircle,
   Calendar,
-  Printer
+  Printer,
+  XCircle,
+  FlaskConical,
+  Activity,
 } from 'lucide-react';
 
 interface ReceptionProps {
   patients: Patient[];
   onAddPatient: (patient: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>) => void;
   onUpdatePaymentStatus: (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => void;
+  onDeletePatient?: (patientId: string) => void;
   departments: Department[];
   hospitalRooms: HospitalRoom[];
   inpatientStays: InpatientStay[];
@@ -39,6 +43,7 @@ export const Reception: React.FC<ReceptionProps> = ({
   patients,
   onAddPatient,
   onUpdatePaymentStatus,
+  onDeletePatient,
   departments,
   hospitalRooms = [],
   inpatientStays = [],
@@ -604,6 +609,90 @@ export const Reception: React.FC<ReceptionProps> = ({
     alert('Bemor muvaffaqiyatli palatadan chiqarildi (discharge) va o\'rin bo\'shatildi.');
   };
 
+  // Add extra service to inpatient stay (analiz, tahlil, qo'shimcha xizmat)
+  const [extraServiceStayId, setExtraServiceStayId] = useState<string | null>(null);
+  const [extraServiceName, setExtraServiceName] = useState('');
+  const [extraServiceAmount, setExtraServiceAmount] = useState(0);
+  const [extraServiceNotes, setExtraServiceNotes] = useState('');
+
+  const handleAddExtraService = (stayId: string) => {
+    if (!extraServiceName.trim() || extraServiceAmount <= 0) {
+      alert('Iltimos, xizmat nomi va summasini kiriting!');
+      return;
+    }
+
+    const newService: ExtraService = {
+      id: 'ES-' + Math.floor(Math.random() * 90000 + 10000),
+      name: extraServiceName.trim(),
+      amount: Number(extraServiceAmount),
+      date: new Date().toISOString().split('T')[0],
+      notes: extraServiceNotes.trim() || undefined,
+    };
+
+    const updatedStays = inpatientStays.map((s) => {
+      if (s.id === stayId) {
+        const currentExtras = s.extraServices || [];
+        const baseCost = s.plannedDays * s.pricePerDay;
+        const extrasTotal = [...currentExtras, newService].reduce((sum, e) => sum + e.amount, 0);
+        const newTotalCost = baseCost + extrasTotal;
+        const newDebt = Math.max(0, newTotalCost - s.amountPaid);
+        return {
+          ...s,
+          extraServices: [...currentExtras, newService],
+          totalCost: newTotalCost,
+          remainingDebt: newDebt,
+        };
+      }
+      return s;
+    });
+
+    onSaveInpatientStays(updatedStays);
+
+    // Add transaction for the extra service
+    const stay = inpatientStays.find((s) => s.id === stayId);
+    if (stay) {
+      addTransaction(
+        'Kirim',
+        Number(extraServiceAmount),
+        "Qo'shimcha xizmat",
+        `${stay.lastName} ${stay.firstName} - ${extraServiceName.trim()} (${stay.roomNumber}-palata)`,
+        stay.patientId,
+        `${stay.lastName} ${stay.firstName}`
+      );
+    }
+
+    setExtraServiceStayId(null);
+    setExtraServiceName('');
+    setExtraServiceAmount(0);
+    setExtraServiceNotes('');
+    alert('Qo\'shimcha xizmat muvaffaqiyatli qo\'shildi va to\'lov hisoblandi!');
+  };
+
+  // Reject/cancel ambulatory patient (rad etish)
+  const handleRejectPatient = (patientId: string) => {
+    const patient = patients.find((p) => p.id === patientId);
+    if (!patient) return;
+
+    if (!window.confirm(
+      `⚠️ DIQQAT! Bemorni rad etish:\n\n${patient.lastName} ${patient.firstName}\nBo'lim: ${getDeptName(patient.departmentId)}\nTo'lov: ${patient.paymentAmount.toLocaleString()} UZS\n\nBu bemor ma'lumotlari va to'lovi butunlay o'chiriladi va hisobotdan chiqariladi.\n\nDavom etasizmi?`
+    )) {
+      return;
+    }
+
+    // If patient was paid, remove their transaction too
+    if (patient.paymentStatus === 'To\'langan' && patient.paymentAmount > 0) {
+      const updatedTx = transactions.filter(
+        (t) => !(t.patientId === patientId && t.category === "Ambulator ko'rik")
+      );
+      onSaveTransactions(updatedTx);
+    }
+
+    if (onDeletePatient) {
+      onDeletePatient(patientId);
+    }
+    alert('Bemor rad etildi va ma\'lumotlari o\'chirildi.');
+  };
+
   // Filter inpatient stays
   const filteredStays = inpatientStays.filter((stay) => {
     const fullName = `${stay.lastName} ${stay.firstName} ${stay.middleName || ''}`.toLowerCase();
@@ -1079,12 +1168,24 @@ export const Reception: React.FC<ReceptionProps> = ({
                               </span>
                             </td>
                             <td className="py-4 px-4 text-right">
-                              <button
-                                onClick={() => printTicket(patient)}
-                                className="px-2.5 py-1.5 bg-[#f0fdf4] hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 rounded-lg font-black text-[10px] transition-all cursor-pointer"
-                              >
-                                🖨️ Chipta
-                              </button>
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  onClick={() => printTicket(patient)}
+                                  className="px-2.5 py-1.5 bg-[#f0fdf4] hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 rounded-lg font-black text-[10px] transition-all cursor-pointer"
+                                >
+                                  🖨️ Chipta
+                                </button>
+                                {patient.status === 'Kutmoqda' && onDeletePatient && (
+                                  <button
+                                    onClick={() => handleRejectPatient(patient.id)}
+                                    className="px-2.5 py-1.5 bg-red-50 hover:bg-red-600 text-red-600 hover:text-white border border-red-200 rounded-lg font-black text-[10px] transition-all cursor-pointer flex items-center gap-1"
+                                    title="Bemorni rad etish va o'chirish"
+                                  >
+                                    <XCircle className="h-3 w-3" />
+                                    Rad etish
+                                  </button>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1718,13 +1819,21 @@ export const Reception: React.FC<ReceptionProps> = ({
                                 </div>
 
                                 {/* Expanded stay action panel */}
-                                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+                                <div className="flex justify-end gap-3 pt-3 border-t border-slate-100 flex-wrap">
                                   <button
                                     onClick={() => printInpatientInvoice(stay)}
                                     className="px-4 py-2 bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-700 border border-blue-200 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-xs"
                                   >
                                     <Printer className="h-3.5 w-3.5" />
                                     <span>XPrinter Chop Etish</span>
+                                  </button>
+
+                                  <button
+                                    onClick={() => setExtraServiceStayId(extraServiceStayId === stay.id ? null : stay.id)}
+                                    className="px-4 py-2 bg-purple-50 hover:bg-purple-600 hover:text-white text-purple-700 border border-purple-200 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-xs"
+                                  >
+                                    <FlaskConical className="h-3.5 w-3.5" />
+                                    <span>Qo'shimcha Xizmat</span>
                                   </button>
 
                                   {activeStay && (
@@ -1737,6 +1846,78 @@ export const Reception: React.FC<ReceptionProps> = ({
                                     </button>
                                   )}
                                 </div>
+
+                                {/* Extra service form */}
+                                {extraServiceStayId === stay.id && (
+                                  <div className="mt-3 p-4 bg-purple-50/50 rounded-2xl border border-purple-200">
+                                    <h4 className="text-xs font-black text-purple-800 mb-3 flex items-center gap-1.5">
+                                      <Activity className="h-4 w-4" />
+                                      Qo'shimcha Xizmat (Tahlil, Analiz, Muolaja)
+                                    </h4>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Xizmat nomi *</label>
+                                        <input
+                                          type="text"
+                                          value={extraServiceName}
+                                          onChange={(e) => setExtraServiceName(e.target.value)}
+                                          placeholder="Masalan: Qon tahlili, MRT, UZI..."
+                                          className="w-full px-3 py-2 text-xs border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 bg-white font-bold"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Summa (UZS) *</label>
+                                        <input
+                                          type="number"
+                                          value={extraServiceAmount}
+                                          onChange={(e) => setExtraServiceAmount(Number(e.target.value))}
+                                          placeholder="150000"
+                                          className="w-full px-3 py-2 text-xs border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 bg-white font-bold"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-600 mb-1">Izoh</label>
+                                        <input
+                                          type="text"
+                                          value={extraServiceNotes}
+                                          onChange={(e) => setExtraServiceNotes(e.target.value)}
+                                          placeholder="Qo'shimcha ma'lumot..."
+                                          className="w-full px-3 py-2 text-xs border border-purple-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 bg-white font-bold"
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="flex justify-end gap-2 mt-3">
+                                      <button
+                                        onClick={() => { setExtraServiceStayId(null); setExtraServiceName(''); setExtraServiceAmount(0); setExtraServiceNotes(''); }}
+                                        className="px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
+                                      >
+                                        Bekor
+                                      </button>
+                                      <button
+                                        onClick={() => handleAddExtraService(stay.id)}
+                                        className="px-4 py-1.5 text-xs font-black bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-all flex items-center gap-1"
+                                      >
+                                        <PlusCircle className="h-3.5 w-3.5" />
+                                        Qo'shish
+                                      </button>
+                                    </div>
+
+                                    {/* Show existing extra services */}
+                                    {stay.extraServices && stay.extraServices.length > 0 && (
+                                      <div className="mt-3 pt-3 border-t border-purple-200">
+                                        <p className="text-[10px] font-bold text-purple-700 mb-2">Mavjud qo'shimcha xizmatlar:</p>
+                                        <div className="space-y-1">
+                                          {stay.extraServices.map((svc, idx) => (
+                                            <div key={idx} className="flex items-center justify-between text-xs bg-white px-3 py-1.5 rounded-lg border border-purple-100">
+                                              <span className="font-bold text-slate-700">{svc.name}</span>
+                                              <span className="font-bold text-purple-700">{svc.amount.toLocaleString()} UZS</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
 
                               </div>
                             )}

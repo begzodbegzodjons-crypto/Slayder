@@ -70,7 +70,7 @@ export interface InpatientStay {
   checkInDate: string; // ISO or YYYY-MM-DD
   plannedDays: number;
   pricePerDay: number;
-  totalCost: number; // plannedDays * pricePerDay
+  totalCost: number; // plannedDays * pricePerDay + extraServices
   amountPaid: number;
   remainingDebt: number; // totalCost - amountPaid
   status: 'Davolanmoqda' | 'Yakunlangan';
@@ -80,6 +80,15 @@ export interface InpatientStay {
   diagnosis?: string;
   prescriptions?: Medication[];
   dailyTreatments?: DailyTreatment[];
+  extraServices?: ExtraService[];
+}
+
+export interface ExtraService {
+  id: string;
+  name: string;
+  amount: number;
+  date: string;
+  notes?: string;
 }
 
 export interface DailyTreatment {

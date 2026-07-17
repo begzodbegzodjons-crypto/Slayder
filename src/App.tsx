@@ -411,6 +411,12 @@ export default function App() {
     alert("Arxiv o'chirilmaydi!");
   };
 
+  // Delete/reject a patient (rad etish)
+  const handleDeletePatient = (patientId: string) => {
+    const updated = patients.filter((p) => p.id !== patientId);
+    savePatientsList(updated);
+  };
+
   // Open the HDMI TV queue monitor in a separate tab
   const handleOpenMonitorWindow = () => {
     const monitorUrl = window.location.origin + '?view=monitor';
@@ -474,6 +480,7 @@ export default function App() {
             patients={patients}
             onAddPatient={handleAddPatient}
             onUpdatePaymentStatus={handleUpdatePaymentStatus}
+            onDeletePatient={handleDeletePatient}
             departments={departments}
             hospitalRooms={hospitalRooms}
             inpatientStays={inpatientStays}
