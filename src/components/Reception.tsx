@@ -146,6 +146,7 @@ export const Reception: React.FC<ReceptionProps> = ({
 
   // Bemor tanlanganda (duplicate patient), barcha maydonlarni avtomatik to'ldirish
   const handleSelectExistingPatient = (existingPatient: Patient) => {
+    // Bemorning shaxsiy ma'lumotlarini avtomatik to'ldirish
     setFirstName(existingPatient.firstName);
     setMiddleName(existingPatient.middleName || '');
     setPhone(existingPatient.phone);
@@ -153,6 +154,16 @@ export const Reception: React.FC<ReceptionProps> = ({
     setGender(existingPatient.gender);
     setPreviousVisitId(existingPatient.id);
     setDuplicatePatientSelected(existingPatient);
+    // Bo'lim va narxni ham avvalgi tashrifdan o'tkazish
+    if (existingPatient.departmentId) {
+      setDepartmentId(existingPatient.departmentId);
+      const dept = DEPARTMENTS.find((d) => d.id === existingPatient.departmentId);
+      if (dept) {
+        setCustomPrice(dept.price);
+        setSelectedServices([]);
+        setManualPriceOverride(false);
+      }
+    }
   };
 
   // Bemor tanlashni bekor qilish
