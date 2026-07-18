@@ -178,6 +178,52 @@ export const Reception: React.FC<ReceptionProps> = ({
     setGender('Erkak');
   };
 
+  // QIDIRUV FUNKSIYASI - bemorlarni familiya yoki ism bo'yicha qidirish
+  // Forma to'ldirishdan oldin mavjud bemorni topish uchun
+  const [patientSearch, setPatientSearch] = useState<string>('');
+  const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
+
+  // Qidiruv natijalari - faqat Yakunlangan/Bekor qilingan bemorlar
+  const searchResults = useMemo(() => {
+    if (!patientSearch.trim() || patientSearch.trim().length < 2) return [];
+    const search = patientSearch.trim().toLowerCase();
+    return patients.filter((p) => {
+      const fullName = `${p.lastName} ${p.firstName} ${p.middleName || ''}`.toLowerCase();
+      const phoneMatch = p.phone.replace(/\s+/g, '').includes(search.replace(/\s+/g, ''));
+      const nameMatch = fullName.includes(search);
+      const idMatch = p.id.toLowerCase().includes(search);
+      // Faqat Yakunlangan yoki Bekor qilingan bemorlar (faol navbatdagilar emas)
+      const isEligible = p.status === 'Yakunlangan' || p.status === 'Bekor qilingan';
+      return isEligible && (nameMatch || phoneMatch || idMatch);
+    }).slice(0, 10); // ko'pi bilan 10 ta
+  }, [patientSearch, patients]);
+
+  // Qidiruv natijasidan bemor tanlash - formani avtomatik to'ldirish
+  const handleSelectFromSearch = (existingPatient: Patient) => {
+    // Bemorning shaxsiy ma'lumotlarini avtomatik to'ldirish
+    setLastName(existingPatient.lastName);
+    setFirstName(existingPatient.firstName);
+    setMiddleName(existingPatient.middleName || '');
+    setPhone(existingPatient.phone);
+    setBirthDate(existingPatient.birthDate);
+    setGender(existingPatient.gender);
+    setPreviousVisitId(existingPatient.id);
+    setDuplicatePatientSelected(existingPatient);
+    // Bo'lim va narxni ham avvalgi tashrifdan o'tkazish
+    if (existingPatient.departmentId) {
+      setDepartmentId(existingPatient.departmentId);
+      const dept = DEPARTMENTS.find((d) => d.id === existingPatient.departmentId);
+      if (dept) {
+        setCustomPrice(dept.price);
+        setSelectedServices([]);
+        setManualPriceOverride(false);
+      }
+    }
+    // Qidiruvni tozalash
+    setPatientSearch('');
+    setShowSearchResults(false);
+  };
+
   // Search/Filter states for ambulatory queue
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
@@ -1012,6 +1058,108 @@ export const Reception: React.FC<ReceptionProps> = ({
                 <Plus className="h-5 w-5 stroke-[2.5]" />
               </div>
               <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Ambulator Navbatga Bemor</h2>
+            </div>
+
+            {/* QIDIRUV FUNKSIYASI - avval ro'yxatdan o'tgan bemorni topish */}
+            <div className="mb-4 relative">
+              <label className="block text-[10px] font-black text-blue-600 mb-1.5 uppercase tracking-wide flex items-center gap-1">
+                <Search className="h-3 w-3" />
+                🔍 BEMOR QIDIRISH (avval kelgan bemorni topish)
+              </label>
+              <input
+                type="text"
+                placeholder="Familiya, ism, ID yoki telefon bo'yicha qidiring..."
+                value={patientSearch}
+                onChange={(e) => {
+                  setPatientSearch(e.target.value);
+                  setShowSearchResults(true);
+                }}
+                onFocus={() => setShowSearchResults(true)}
+                onBlur={() => setTimeout(() => setShowSearchResults(false), 200)}
+                autoComplete="off"
+                className={`w-full px-3.5 py-3 text-sm border rounded-xl focus:outline-none focus:ring-4 focus:ring-blue-500/10 bg-blue-50/30 text-slate-800 font-bold placeholder-slate-400 transition-all ${
+                  searchResults.length > 0 && showSearchResults
+                    ? 'border-blue-500'
+                    : 'border-blue-200 focus:border-blue-500'
+                }`}
+              />
+              {/* Qidiruv natijalari dropdown */}
+              {showSearchResults && patientSearch.trim().length >= 2 && (
+                <div className="mt-1 bg-white border-2 border-blue-300 rounded-xl shadow-xl overflow-hidden z-20 relative">
+                  {searchResults.length === 0 ? (
+                    <div className="px-3 py-4 text-center">
+                      <p className="text-xs font-bold text-slate-500">
+                        ❌ "{patientSearch}" bo'yicha bemor topilmadi
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                        Yangi bemor sifatida quyidagi formaga ma'lumotlarni kiritishingiz mumkin
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-gradient-to-r from-blue-50 to-sky-50 px-3 py-2 border-b border-blue-200">
+                        <p className="text-[10px] font-black text-blue-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <Search className="h-3 w-3" />
+                          {searchResults.length} ta bemor topildi — ustiga bosing
+                        </p>
+                        <p className="text-[9px] text-blue-600 font-bold mt-0.5">
+                          Bemorni tanlasangiz, forma avtomatik to'ldiriladi
+                        </p>
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        {searchResults.map((p) => (
+                          <div
+                            key={p.id}
+                            onClick={() => handleSelectFromSearch(p)}
+                            className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-slate-100 last:border-b-0 transition-all cursor-pointer group"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-black text-slate-900 truncate group-hover:text-blue-700">
+                                  {p.lastName} {p.firstName} {p.middleName || ''}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                  <span className="text-[9px] text-slate-500 font-bold">ID: {p.id}</span>
+                                  <span className="text-[9px] text-slate-400">•</span>
+                                  <span className="text-[9px] text-slate-500 font-bold">📞 {p.phone}</span>
+                                </div>
+                                <p className="text-[9px] text-slate-600 mt-0.5">
+                                  📅 Oxirgi tashrif: {new Date(p.createdAt).toLocaleDateString('ru-RU')} • {getDeptName(p.departmentId)}
+                                </p>
+                                {p.diagnosis && (
+                                  <p className="text-[9px] text-slate-500 mt-0.5 italic truncate">
+                                    📋 {p.diagnosis.substring(0, 50)}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="shrink-0 text-right flex flex-col items-end gap-1">
+                                <span className="inline-block text-[8px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase">
+                                  {p.status}
+                                </span>
+                                {p.visitCount && p.visitCount > 1 && (
+                                  <span className="text-[8px] text-purple-600 font-black bg-purple-50 px-1.5 py-0.5 rounded">
+                                    {p.visitCount} marta
+                                  </span>
+                                )}
+                                <span className="text-[9px] text-blue-600 font-black opacity-0 group-hover:opacity-100 transition-opacity">
+                                  Tanlash →
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Ajratuvchi chiziq */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className="flex-1 h-px bg-slate-200"></div>
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Yoki yangi bemor kiritish</span>
+              <div className="flex-1 h-px bg-slate-200"></div>
             </div>
 
             <form onSubmit={handleAmbulatorySubmit} className="space-y-4">
