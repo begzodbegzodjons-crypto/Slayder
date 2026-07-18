@@ -32,6 +32,7 @@ interface ReceptionProps {
   onAddPatient: (patient: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>) => void;
   onUpdatePaymentStatus: (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => void;
   onDeletePatient?: (patientId: string) => void;
+  onRefundPatient?: (patientId: string, refundAmount: number, reason: string) => void;
   departments: Department[];
   hospitalRooms: HospitalRoom[];
   inpatientStays: InpatientStay[];
@@ -45,6 +46,7 @@ export const Reception: React.FC<ReceptionProps> = ({
   onAddPatient,
   onUpdatePaymentStatus,
   onDeletePatient,
+  onRefundPatient,
   departments,
   hospitalRooms = [],
   inpatientStays = [],
@@ -739,24 +741,69 @@ export const Reception: React.FC<ReceptionProps> = ({
     const patient = patients.find((p) => p.id === patientId);
     if (!patient) return;
 
-    if (!window.confirm(
-      `⚠️ DIQQAT! Bemorni rad etish:\n\n${patient.lastName} ${patient.firstName}\nBo'lim: ${getDeptName(patient.departmentId)}\nTo'lov: ${patient.paymentAmount.toLocaleString()} UZS\n\nBu bemor ma'lumotlari va to'lovi butunlay o'chiriladi va hisobotdan chiqariladi.\n\nDavom etasizmi?`
-    )) {
+    // Bemor qayta kelgan (returning) bo'lsa, uning eski tarixi saqlanib qoladi
+    // Faqat o'sha oxirgi yangi ko'rik rad etiladi va to'lovi qaytariladi
+    const isReturning = patient.isReturning || (patient.previousVisitId ? true : false);
+    const historyCount = patient.patientHistory?.length || 0;
+
+    const confirmMsg = isReturning
+      ? `⚠️ RAD ETISH (Qayta tashrif)\n\n` +
+        `Bemor: ${patient.lastName} ${patient.firstName}\n` +
+        `Bo'lim: ${getDeptName(patient.departmentId)}\n` +
+        `To'lov: ${patient.paymentAmount.toLocaleString()} UZS\n` +
+        `Tashrif #: ${patient.visitCount || 1}\n` +
+        `Avvalgi tashriflar: ${historyCount} ta (SAQLANIB QOLADI)\n\n` +
+        `✅ Faqat o'sha oxirgi ko'rik rad etiladi\n` +
+        `✅ To'lov qaytariladi va hisobotlardan o'chiriladi\n` +
+        `✅ Bemorning eski tarixi ma'lumotlari o'chmaydi\n\n` +
+        `Davom etasizmi?`
+      : `⚠️ RAD ETISH\n\n` +
+        `Bemor: ${patient.lastName} ${patient.firstName}\n` +
+        `Bo'lim: ${getDeptName(patient.departmentId)}\n` +
+        `To'lov: ${patient.paymentAmount.toLocaleString()} UZS\n\n` +
+        `✅ O'sha ko'rik rad etiladi\n` +
+        `✅ To'lov qaytariladi va hisobotlardan o'chiriladi\n\n` +
+        `Davom etasizmi?`;
+
+    if (!window.confirm(confirmMsg)) {
       return;
     }
 
-    // If patient was paid, remove their transaction too
+    // 1. To'lov qaytarish (refund) - to'langan bo'lsa, to'lovni qaytarish
     if (patient.paymentStatus === 'To\'langan' && patient.paymentAmount > 0) {
-      const updatedTx = transactions.filter(
-        (t) => !(t.patientId === patientId && t.category === "Ambulator ko'rik")
-      );
-      onSaveTransactions(updatedTx);
+      if (onRefundPatient) {
+        // To'lov qaytarish funksiyasini chaqiramiz - bu avtomatik:
+        // - bemor holatini "Bekor qilingan" ga o'zgartiradi
+        // - refundStatus, refundedAmount, refundedAt, refundedReason ni o'rnatadi
+        // - kassaga "To'lov qaytarildi" chiqim tranzaksiyasini qo'shadi
+        onRefundPatient(patientId, patient.paymentAmount, 'Bemor rad etildi - ko\'rik bekor qilindi');
+      } else {
+        // Fallback: agar onRefundPatient bo'lmasa, eski usul bilan
+        // to'lov tranzaksiyasini o'chiramiz va bemorni o'chirib tashlaymiz
+        const updatedTx = transactions.filter(
+          (t) => !(t.patientId === patientId && t.category === "Ambulator ko'rik")
+        );
+        onSaveTransactions(updatedTx);
+        if (onDeletePatient) {
+          onDeletePatient(patientId);
+        }
+      }
+    } else {
+      // To'lov qilmagan bemor - oddiygina o'chirib tashlaymiz
+      if (onDeletePatient) {
+        onDeletePatient(patientId);
+      }
     }
 
-    if (onDeletePatient) {
-      onDeletePatient(patientId);
-    }
-    alert('Bemor rad etildi va ma\'lumotlari o\'chirildi.');
+    alert(
+      `✅ RAD ETILDI\n\n` +
+      `Bemor: ${patient.lastName} ${patient.firstName}\n` +
+      (patient.paymentStatus === 'To\'langan'
+        ? `To'lov qaytarildi: ${patient.paymentAmount.toLocaleString()} UZS\n` +
+          `Hisobotlar va kassadan o'chirildi.`
+        : `To'lov qilmagan bemor o'chirildi.`) +
+      (isReturning ? `\n\nBemorning ${historyCount} ta avvalgi tashrifi saqlanib qoldi.` : '')
+    );
   };
 
   // Filter inpatient stays

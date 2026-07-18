@@ -457,6 +457,73 @@ export default function App() {
     savePatientsList(updated);
   };
 
+  // To'lov qaytarish (refund) - bemor to'lov qilgan, lekin davolanishdan bosh tortgan
+  // Bu funksiya:
+  // 1. Bemor holatini "Bekor qilingan" ga o'zgartiradi
+  // 2. refundStatus = 'Qaytarildi' qiladi
+  // 3. Kassaga Chiqim (xarajat) tranzaksiyasini qo'shadi - "To'lov qaytarildi" kategoriyasi
+  // 4. Barcha hisobotlarda avtomatik aks etadi
+  const handleRefundPatient = (
+    patientId: string,
+    refundAmount: number,
+    reason: string
+  ) => {
+    const patient = patients.find((p) => p.id === patientId);
+    if (!patient) {
+      alert('Bemor topilmadi!');
+      return;
+    }
+
+    if (patient.paymentStatus !== 'To\'langan') {
+      alert('Ushbu bemor to\'lov qilmagan! To\'lov qaytarib bo\'lmaydi.');
+      return;
+    }
+
+    if (refundAmount <= 0 || refundAmount > patient.paymentAmount) {
+      alert(
+        `Noto'g'ri summa! To'lov qaytarish summasi 0 dan katta va ${patient.paymentAmount.toLocaleString()} UZS dan oshmasligi kerak.`
+      );
+      return;
+    }
+
+    // 1. Bemor ma'lumotlarini yangilash
+    const updatedPatients = patients.map((p) => {
+      if (p.id === patientId) {
+        return {
+          ...p,
+          status: 'Bekor qilingan' as const,
+          refundStatus: (refundAmount === p.paymentAmount ? 'Qaytarildi' : 'Qisman') as 'Qaytarildi' | 'Qisman',
+          refundedAmount: refundAmount,
+          refundedAt: new Date().toISOString(),
+          refundedReason: reason.trim(),
+        };
+      }
+      return p;
+    });
+    savePatientsList(updatedPatients);
+
+    // 2. Kassaga Chiqim (xarajat) tranzaksiyasini qo'shish
+    const todayDate = new Date().toISOString().split('T')[0];
+    const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+    const getDeptNameLocal = (id: string) => departments.find((d) => d.id === id)?.name || id;
+
+    const refundTx: ClinicTransaction = {
+      id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+      type: 'Chiqim',
+      amount: refundAmount,
+      category: "To'lov qaytarildi",
+      description: `${patient.lastName} ${patient.firstName} - ${getDeptNameLocal(patient.departmentId)} bo'limi uchun to'lov qaytarildi. Sabab: ${reason.trim() || 'Ko\'rsatilmagan'}`,
+      date: todayDate,
+      time: todayTime,
+      createdAt: new Date().toISOString(),
+      patientId: patient.id,
+      patientName: `${patient.lastName} ${patient.firstName}`,
+    };
+
+    const updatedTx = [refundTx, ...transactions];
+    saveTransactionsList(updatedTx);
+  };
+
   // Open the HDMI TV queue monitor in a separate tab
   const handleOpenMonitorWindow = () => {
     const monitorUrl = window.location.origin + '?view=monitor';
@@ -521,6 +588,7 @@ export default function App() {
             onAddPatient={handleAddPatient}
             onUpdatePaymentStatus={handleUpdatePaymentStatus}
             onDeletePatient={handleDeletePatient}
+            onRefundPatient={handleRefundPatient}
             departments={departments}
             hospitalRooms={hospitalRooms}
             inpatientStays={inpatientStays}
