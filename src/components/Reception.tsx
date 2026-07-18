@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Patient, DepartmentId, Department, HospitalRoom, InpatientStay, Medication, ClinicTransaction, ExtraService } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Patient, DepartmentId, Department, HospitalRoom, InpatientStay, Medication, ClinicTransaction, ExtraService, DepartmentService } from '../types';
 import {
   Plus,
   Search,
@@ -24,6 +24,7 @@ import {
   XCircle,
   FlaskConical,
   Activity,
+  ListChecks,
 } from 'lucide-react';
 
 interface ReceptionProps {
@@ -121,6 +122,48 @@ export const Reception: React.FC<ReceptionProps> = ({
   const [departmentId, setDepartmentId] = useState<DepartmentId>('');
   const [paymentStatus, setPaymentStatus] = useState<'To\'langan' | 'Kutilmoqda'>('To\'langan');
   const [customPrice, setCustomPrice] = useState<number>(150000);
+  const [selectedServices, setSelectedServices] = useState<DepartmentService[]>([]);
+  const [manualPriceOverride, setManualPriceOverride] = useState<boolean>(false);
+
+  // Duplicate patient detection - avval ro'yxatdan o'tgan bemorlarni topish
+  const [previousVisitId, setPreviousVisitId] = useState<string | undefined>(undefined);
+  const [duplicatePatientSelected, setDuplicatePatientSelected] = useState<Patient | null>(null);
+
+  // Foydalanuvchi familiya kiritayotganda, avval ro'yxatdan o'tgan bemorlarni topish
+  // (faqat Yakunlangan va Bekor qilingan holatdagi bemorlar - faol navbatdagilar emas)
+  const duplicatePatients = useMemo(() => {
+    if (!lastName.trim() || lastName.trim().length < 2) return [];
+    const search = lastName.trim().toLowerCase();
+    return patients.filter(
+      (p) =>
+        p.lastName.trim().toLowerCase() === search &&
+        (p.status === 'Yakunlangan' || p.status === 'Bekor qilingan') &&
+        !previousVisitId
+    ).slice(0, 8);
+  }, [lastName, patients, previousVisitId]);
+
+  // Bemor tanlanganda (duplicate patient), barcha maydonlarni avtomatik to'ldirish
+  const handleSelectExistingPatient = (existingPatient: Patient) => {
+    setFirstName(existingPatient.firstName);
+    setMiddleName(existingPatient.middleName || '');
+    setPhone(existingPatient.phone);
+    setBirthDate(existingPatient.birthDate);
+    setGender(existingPatient.gender);
+    setPreviousVisitId(existingPatient.id);
+    setDuplicatePatientSelected(existingPatient);
+  };
+
+  // Bemor tanlashni bekor qilish
+  const handleClearDuplicateSelection = () => {
+    setPreviousVisitId(undefined);
+    setDuplicatePatientSelected(null);
+    setLastName('');
+    setFirstName('');
+    setMiddleName('');
+    setPhone('+998');
+    setBirthDate('');
+    setGender('Erkak');
+  };
 
   // Search/Filter states for ambulatory queue
   const [searchQuery, setSearchQuery] = useState('');
@@ -140,10 +183,41 @@ export const Reception: React.FC<ReceptionProps> = ({
 
   const handleDeptChange = (deptId: DepartmentId) => {
     setDepartmentId(deptId);
+    setSelectedServices([]); // Clear services when department changes
     const dept = DEPARTMENTS.find((d) => d.id === deptId);
     if (dept) {
       setCustomPrice(dept.price);
+      setManualPriceOverride(false);
     }
+  };
+
+  // Helper: compute total price based on department base + selected services
+  const computeTotalPrice = (dept: Department | undefined, services: DepartmentService[]): number => {
+    if (!dept) return 0;
+    const base = dept.price || 0;
+    const servicesTotal = services.reduce((sum, s) => sum + (s.price || 0), 0);
+    return base + servicesTotal;
+  };
+
+  // Toggle service selection
+  const toggleServiceSelection = (service: DepartmentService) => {
+    const exists = selectedServices.find((s) => s.id === service.id);
+    let newSelected: DepartmentService[];
+    if (exists) {
+      newSelected = selectedServices.filter((s) => s.id !== service.id);
+    } else {
+      newSelected = [...selectedServices, service];
+    }
+    setSelectedServices(newSelected);
+    const dept = DEPARTMENTS.find((d) => d.id === departmentId);
+    setCustomPrice(computeTotalPrice(dept, newSelected));
+    setManualPriceOverride(false);
+  };
+
+  // Watch for manual price edits
+  const handlePriceChange = (value: number) => {
+    setCustomPrice(value);
+    setManualPriceOverride(true);
   };
 
   const handleAmbulatorySubmit = (e: React.FormEvent) => {
@@ -153,22 +227,8 @@ export const Reception: React.FC<ReceptionProps> = ({
       return;
     }
 
-    // Check if patient with the same name and phone already exists
-    const exactMatch = patients.find(
-      (p) =>
-        p.firstName.trim().toLowerCase() === firstName.trim().toLowerCase() &&
-        p.lastName.trim().toLowerCase() === lastName.trim().toLowerCase() &&
-        p.phone.trim().replace(/\s+/g, '') === phone.trim().replace(/\s+/g, '')
-    );
-
-    if (exactMatch) {
-      const confirmRegister = window.confirm(
-        `⚠️ DIQQAT! Tizimda ushbu bemor allaqachon mavjud!\n\nIsmi: ${exactMatch.lastName} ${exactMatch.firstName}\nTelefon: ${exactMatch.phone}\nQayd etilgan vaqti: ${new Date(exactMatch.createdAt).toLocaleDateString('uz-UZ')}\n\nUshbu bemorga yangi navbat (ambulator ko'rik) berishni davom ettirishni xohlaysizmi?`
-      );
-      if (!confirmRegister) {
-        return;
-      }
-    }
+    // Eski duplicate check olib tashlandi - endi familiya kiritganda
+    // avtomatik dropdown chiqadi va foydalanuvchi bemorni tanlaydi
 
     const currentDeptId = departmentId || (DEPARTMENTS[0]?.id || '');
     const selectedDept = DEPARTMENTS.find((d) => d.id === currentDeptId);
@@ -185,6 +245,8 @@ export const Reception: React.FC<ReceptionProps> = ({
       doctorName,
       paymentStatus,
       paymentAmount: customPrice,
+      selectedServices: selectedServices.length > 0 ? selectedServices : undefined,
+      previousVisitId,
     });
 
     // Save transaction if paid
@@ -230,6 +292,10 @@ export const Reception: React.FC<ReceptionProps> = ({
     setPhone('+998');
     setGender('Erkak');
     setPaymentStatus('To\'langan');
+    setSelectedServices([]);
+    setManualPriceOverride(false);
+    setPreviousVisitId(undefined);
+    setDuplicatePatientSelected(null);
     if (DEPARTMENTS.length > 0) {
       setCustomPrice(DEPARTMENTS[0].price);
       setDepartmentId(DEPARTMENTS[0].id);
@@ -891,17 +957,115 @@ export const Reception: React.FC<ReceptionProps> = ({
             </div>
 
             <form onSubmit={handleAmbulatorySubmit} className="space-y-4">
-              {/* Last Name */}
-              <div>
+              {/* Last Name - DUPLICATE DETECTION */}
+              <div className="relative">
                 <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-wide">FAMILIYASI *</label>
                 <input
                   type="text"
                   required
                   placeholder="Masalan: Karimov"
                   value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-3.5 py-3 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold placeholder-slate-400 transition-all"
+                  onChange={(e) => {
+                    setLastName(e.target.value);
+                    // Foydalanuvchi yozishni o'zgartirsa, tanlangan bemorni bekor qilamiz
+                    if (previousVisitId) {
+                      setPreviousVisitId(undefined);
+                      setDuplicatePatientSelected(null);
+                    }
+                  }}
+                  autoComplete="off"
+                  className={`w-full px-3.5 py-3 text-sm border rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 bg-[#f8fafc] text-slate-800 font-bold placeholder-slate-400 transition-all ${
+                    duplicatePatientSelected
+                      ? 'border-emerald-500 bg-emerald-50/50 focus:border-emerald-500'
+                      : duplicatePatients.length > 0
+                      ? 'border-amber-400 focus:border-amber-500'
+                      : 'border-slate-200 focus:border-emerald-500'
+                  }`}
                 />
+
+                {/* Tanlangan bemor badge */}
+                {duplicatePatientSelected && (
+                  <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <UserCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-black text-emerald-800 truncate">
+                          ✅ {duplicatePatientSelected.lastName} {duplicatePatientSelected.firstName}
+                        </p>
+                        <p className="text-[9px] text-emerald-600 font-bold">
+                          Tashrif #{(duplicatePatientSelected.visitCount || 1) + 1} • Avvalgi: {new Date(duplicatePatientSelected.createdAt).toLocaleDateString('ru-RU')}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleClearDuplicateSelection}
+                      className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-all cursor-pointer shrink-0"
+                      title="Bemor tanlashni bekor qilish"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+
+                {/* AVVAL RO'YXATDAN O'TGAN BEMORLAR TAKLIFLARI - familiya yozilgan tagidan chiqadi */}
+                {!duplicatePatientSelected && duplicatePatients.length > 0 && (
+                  <div className="mt-2 bg-white border-2 border-amber-300 rounded-xl shadow-xl overflow-hidden z-10 relative">
+                    <div className="bg-gradient-to-r from-amber-50 to-amber-100/50 px-3 py-2 border-b border-amber-200">
+                      <p className="text-[10px] font-black text-amber-800 uppercase tracking-wider flex items-center gap-1.5">
+                        <Search className="h-3 w-3" />
+                        🔍 {duplicatePatients.length} ta avval ro'yxatdan o'tgan bemor topildi
+                      </p>
+                      <p className="text-[9px] text-amber-600 font-bold mt-0.5">
+                        Bemorni tanlang — ma'lumotlar avtomatik to'ldiriladi va tarixi saqlanadi
+                      </p>
+                    </div>
+                    <div className="max-h-56 overflow-y-auto">
+                      {duplicatePatients.map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSelectExistingPatient(p)}
+                          className="w-full text-left px-3 py-2.5 hover:bg-emerald-50 border-b border-slate-100 last:border-b-0 transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-black text-slate-900 truncate group-hover:text-emerald-700">
+                                {p.lastName} {p.firstName} {p.middleName || ''}
+                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span className="text-[9px] text-slate-500 font-bold">ID: {p.id}</span>
+                                <span className="text-[9px] text-slate-400">•</span>
+                                <span className="text-[9px] text-slate-500 font-bold">📞 {p.phone}</span>
+                              </div>
+                              <p className="text-[9px] text-slate-600 mt-0.5">
+                                📅 Oxirgi tashrif: {new Date(p.createdAt).toLocaleDateString('ru-RU')}
+                              </p>
+                              {p.diagnosis && (
+                                <p className="text-[9px] text-slate-500 mt-0.5 italic truncate">
+                                  📋 {p.diagnosis.substring(0, 50)}
+                                </p>
+                              )}
+                            </div>
+                            <div className="shrink-0 text-right flex flex-col items-end gap-1">
+                              <span className="inline-block text-[8px] font-black bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded uppercase">
+                                {p.status}
+                              </span>
+                              {p.visitCount && p.visitCount > 1 && (
+                                <span className="text-[8px] text-purple-600 font-black bg-purple-50 px-1.5 py-0.5 rounded">
+                                  {p.visitCount} marta
+                                </span>
+                              )}
+                              <span className="text-[9px] text-emerald-600 font-black opacity-0 group-hover:opacity-100 transition-opacity">
+                                Tanlash →
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* First Name */}
@@ -984,6 +1148,94 @@ export const Reception: React.FC<ReceptionProps> = ({
                 </select>
               </div>
 
+              {/* Department Services Selection */}
+              {(() => {
+                const currentDept = DEPARTMENTS.find((d) => d.id === departmentId);
+                const deptServices = currentDept?.services || [];
+                if (deptServices.length === 0) return null;
+
+                const basePrice = currentDept?.price || 0;
+                const servicesTotal = selectedServices.reduce((sum, s) => sum + (s.price || 0), 0);
+                const grandTotal = basePrice + servicesTotal;
+
+                return (
+                  <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/40 p-4 rounded-2xl border border-emerald-200/70 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-emerald-200/50">
+                      <div className="flex items-center gap-1.5">
+                        <ListChecks className="h-4 w-4 text-emerald-600" />
+                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider">
+                          {currentDept?.name} - Qo'shimcha Xizmatlar
+                        </span>
+                      </div>
+                      <span className="text-[9px] font-bold text-emerald-700 bg-white px-2 py-0.5 rounded border border-emerald-200">
+                        {selectedServices.length} ta tanlandi
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-1.5 max-h-44 overflow-y-auto pr-1">
+                      {deptServices.map((svc) => {
+                        const isSelected = !!selectedServices.find((s) => s.id === svc.id);
+                        return (
+                          <button
+                            key={svc.id}
+                            type="button"
+                            onClick={() => toggleServiceSelection(svc)}
+                            className={`flex items-center justify-between gap-2 p-2.5 rounded-xl border transition-all cursor-pointer text-left ${
+                              isSelected
+                                ? 'bg-emerald-600 border-emerald-600 text-white shadow-sm'
+                                : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50/40'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                              <div className={`h-4 w-4 rounded border-2 flex items-center justify-center shrink-0 ${
+                                isSelected ? 'bg-white border-white' : 'border-slate-300'
+                              }`}>
+                                {isSelected && (
+                                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                )}
+                              </div>
+                              <span className="text-xs font-bold truncate">{svc.name}</span>
+                            </div>
+                            <span className={`text-xs font-black shrink-0 ${
+                              isSelected ? 'text-white' : 'text-emerald-700'
+                            }`}>
+                              +{svc.price.toLocaleString()} UZS
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Price breakdown */}
+                    <div className="bg-white p-3 rounded-xl border border-emerald-100 space-y-1.5">
+                      <div className="flex justify-between text-[10px] font-bold text-slate-600">
+                        <span>Bo'lim bazaviy narxi:</span>
+                        <span className="text-slate-900 font-extrabold">{basePrice.toLocaleString()} UZS</span>
+                      </div>
+                      {selectedServices.length > 0 && (
+                        <div className="space-y-1">
+                          {selectedServices.map((s) => (
+                            <div key={s.id} className="flex justify-between text-[10px] font-bold text-emerald-700">
+                              <span className="truncate pr-2">+ {s.name}</span>
+                              <span className="shrink-0">{s.price.toLocaleString()} UZS</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <div className="flex justify-between text-xs font-black text-emerald-900 pt-1.5 border-t border-emerald-100">
+                        <span>Jami summa:</span>
+                        <span>{grandTotal.toLocaleString()} UZS</span>
+                      </div>
+                      {manualPriceOverride && (
+                        <p className="text-[9px] text-amber-600 italic font-bold pt-1">
+                          ⚠️ Narx qo'lda o'zgartirilgan - avtomatik hisob-kitob faol emas
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Payment Section */}
               <div className="bg-[#f0fdf4] p-4 rounded-2xl border border-emerald-100 space-y-3.5">
                 <div className="flex justify-between items-center">
@@ -998,7 +1250,7 @@ export const Reception: React.FC<ReceptionProps> = ({
                   <input
                     type="number"
                     value={customPrice}
-                    onChange={(e) => setCustomPrice(parseInt(e.target.value) || 0)}
+                    onChange={(e) => handlePriceChange(parseInt(e.target.value) || 0)}
                     className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-white text-slate-800 font-extrabold transition-all"
                   />
                 </div>

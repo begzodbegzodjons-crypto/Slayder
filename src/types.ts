@@ -1,5 +1,11 @@
 export type DepartmentId = string;
 
+export interface DepartmentService {
+  id: string;
+  name: string;
+  price: number;
+}
+
 export interface Department {
   id: DepartmentId;
   name: string;
@@ -8,12 +14,26 @@ export interface Department {
   price: number;
   login: string; // Shifokor kirish logini
   password: string; // Shifokor kirish paroli
+  services?: DepartmentService[]; // Bo'limga oid qo'shimcha xizmat turlari
 }
 
 export interface Medication {
   name: string;
   dosage: string; // e.g. "1 mahal ovqatdan keyin"
   days: string; // e.g. "10 kun"
+}
+
+// Bemorning oldingi tashrifi haqida qisqacha ma'lumot
+export interface PatientVisit {
+  visitId: string; // Patient ID of that visit
+  visitDate: string; // Tashrif sanasi (ISO)
+  departmentId: string;
+  departmentName: string;
+  doctorName: string;
+  diagnosis?: string;
+  prescriptions?: Medication[];
+  paymentAmount: number;
+  status: string;
 }
 
 export interface Patient {
@@ -38,6 +58,18 @@ export interface Patient {
   complaints?: string;
   testResults?: string;
   prescriptions?: Medication[];
+  // Qabulxonada tanlangan qo'shimcha xizmatlar (bo'lim xizmatlari)
+  selectedServices?: DepartmentService[];
+  // To'lov qaytarish (refund) ma'lumotlari
+  refundStatus?: 'Qaytarilmagan' | 'Qaytarildi' | 'Qisman';
+  refundedAmount?: number;
+  refundedAt?: string;
+  refundedReason?: string;
+  // Bemorning qayta tashrifi (returning visit) ma'lumotlari
+  isReturning?: boolean; // Qayta kelgan bemor (avval ko'rilgan)
+  previousVisitId?: string; // Avvalgi tashrif ID si
+  visitCount?: number; // Tashriflar soni (1 = birinchi marta, 2+ = qayta kelgan)
+  patientHistory?: PatientVisit[]; // Bemorning barcha tashriflari tarixi
 }
 
 export type UserRole = 'admin' | 'reception' | 'doctor';
@@ -118,4 +150,3 @@ export interface ReceptionStaff {
   login: string;
   password: string;
 }
-

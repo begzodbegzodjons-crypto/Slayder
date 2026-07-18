@@ -6,7 +6,7 @@ import { TvMonitor } from './components/TvMonitor';
 import { Reports } from './components/Reports';
 import { LoginPage } from './components/LoginPage';
 import { AdminPanel } from './components/AdminPanel';
-import { Patient, Department, UserSession, HospitalRoom, InpatientStay, ClinicTransaction, ReceptionStaff } from './types';
+import { Patient, Department, UserSession, HospitalRoom, InpatientStay, ClinicTransaction, ReceptionStaff, PatientVisit } from './types';
 import { INITIAL_PATIENTS, DEPARTMENTS, INITIAL_ROOMS, INITIAL_STAYS } from './data';
 import { Monitor, ShieldCheck } from 'lucide-react';
 
@@ -286,6 +286,8 @@ export default function App() {
   };
 
   // Add new patient registered from reception
+  // Agar bemor avval ro'yxatdan o'tgan bo'lsa (previousVisitId bilan kelsa),
+  // avvalgi tashrif ma'lumotlari yangi tashrifning patientHistory ga qo'shiladi
   const handleAddPatient = (
     newPatientData: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>
   ) => {
@@ -298,12 +300,50 @@ export default function App() {
     const nextId = `P-${maxIdNumber + 1}`;
     const nextQueueNumber = patients.length > 0 ? Math.max(...patients.map((p) => p.queueNumber)) + 1 : 1;
 
+    // Agar bemor avvalgi tashrifga asoslangan bo'lsa (returning patient),
+    // avvalgi tashriflarni patientHistory ga to'plash
+    let patientHistory: PatientVisit[] | undefined;
+    let isReturning = false;
+    let visitCount = 1;
+    let previousVisitId: string | undefined;
+
+    // newPatientData.previousVisitId ni tekshirish
+    const dataPreviousVisitId = (newPatientData as any).previousVisitId;
+    if (dataPreviousVisitId) {
+      previousVisitId = dataPreviousVisitId;
+      isReturning = true;
+      // Avvalgi bemorni topish
+      const previousPatient = patients.find((p) => p.id === dataPreviousVisitId);
+      if (previousPatient) {
+        // Avvalgi tashrif ma'lumotlarini PatientVisit ga aylantirish
+        const previousVisit: PatientVisit = {
+          visitId: previousPatient.id,
+          visitDate: previousPatient.createdAt,
+          departmentId: previousPatient.departmentId,
+          departmentName: departments.find((d) => d.id === previousPatient.departmentId)?.name || previousPatient.departmentId,
+          doctorName: previousPatient.doctorName,
+          diagnosis: previousPatient.diagnosis,
+          prescriptions: previousPatient.prescriptions,
+          paymentAmount: previousPatient.paymentAmount,
+          status: previousPatient.status,
+        };
+        // Avvalgi bemorning ham tarixi bo'lishi mumkin - ularni ham qo'shamiz
+        const previousHistory = previousPatient.patientHistory || [];
+        patientHistory = [previousVisit, ...previousHistory];
+        visitCount = patientHistory.length + 1;
+      }
+    }
+
     const newPatient: Patient = {
       ...newPatientData,
       id: nextId,
       queueNumber: nextQueueNumber,
       status: 'Kutmoqda',
       createdAt: new Date().toISOString(),
+      isReturning,
+      previousVisitId,
+      visitCount,
+      patientHistory,
     };
 
     const updated = [...patients, newPatient];
