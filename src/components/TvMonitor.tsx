@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Patient, DepartmentId, Department } from '../types';
 import { DEPARTMENTS as STATIC_DEPARTMENTS } from '../data';
-import { Tv, Volume2, VolumeX, AlertCircle, Clock, Bell, Maximize2, Minimize2, ZoomIn, ZoomOut } from 'lucide-react';
+import { Tv, Volume2, VolumeX, AlertCircle, Clock, Bell, Maximize2, Minimize2, ZoomIn, ZoomOut, Eraser } from 'lucide-react';
 
 interface TvMonitorProps {
   patients: Patient[];
@@ -20,6 +20,8 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
   const [zoomLevel, setZoomLevel] = useState<number>(1.0); // 0.8 to 1.5
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
   const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+  // Monitor tozalash - vizual ko'rinishni tozalaydi, bazodan hech narsa o'chirmaydi
+  const [isMonitorCleared, setIsMonitorCleared] = useState<boolean>(false);
 
 
   // Sync fullscreen state with native browser fullscreen
@@ -314,13 +316,15 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
   };
 
   // Next waiting list (exclude active called ones and completed ones)
-  const waitingQueue = localPatients
+  // Agar monitor tozalangan bo'lsa, bo'sh ro'yxat ko'rsatamiz (bazodan o'chirmaymiz)
+  const waitingQueue = isMonitorCleared ? [] : localPatients
     .filter((p) => p.status === 'Kutmoqda')
     .sort((a, b) => a.queueNumber - b.queueNumber)
     .slice(0, 20);
 
   // Unified list of patients to display in the main center board: shows active 'Qabulda' first, then 'Kutmoqda'
-  const displayPatients = localPatients
+  // Agar monitor tozalangan bo'lsa, faqat faol qabuldagi bemorni ko'rsatamiz (navbatni tozalaymiz)
+  const displayPatients = isMonitorCleared ? [] : localPatients
     .filter((p) => p.status === 'Qabulda' || p.status === 'Kutmoqda')
     .sort((a, b) => {
       if (a.status === 'Qabulda' && b.status !== 'Qabulda') return -1;
@@ -340,15 +344,38 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
     }
   };
 
+  // Agar monitor tozalangan bo'lsa, faol bemor ham ko'rinmaydi
+  const displayActiveCalled = isMonitorCleared ? null : activeCalled;
+
+  // Monitor tozalash funksiyasi - faqat vizual ko'rinishni tozalaydi
+  // Bazodan hech narsa o'chmaydi! Bemorlar, to'lovlar, tarix — hammasi saqlanib qoladi
+  const handleClearMonitor = () => {
+    if (!isMonitorCleared) {
+      if (window.confirm(
+        '🧹 NAVBAT MONITORINI TOZALASH\n\n' +
+        'Bu amal faqat monitor ekranidagi navbat ro\'yxatini tozalaydi.\n\n' +
+        '✅ Bemorlar ma\'lumotlari bazada saqlanib qoladi\n' +
+        '✅ To\'lovlar va tarix o\'chirilmaydi\n' +
+        '✅ Hisobotlar o\'zgarishsiz qoladi\n\n' +
+        'Monitor tozalansinmi?'
+      )) {
+        setIsMonitorCleared(true);
+      }
+    } else {
+      // Qayta ko'rsatish
+      setIsMonitorCleared(false);
+    }
+  };
+
   // Dynamic ticker content to show patients and queue numbers on the moving footer
   const getDynamicTickerText = () => {
     const parts = [
       "🌟 DR.MARUF CLINIK SHIFOKORLARI SIZGA MUSTAHKAM SOG'LIK TILAYDI!",
     ];
 
-    if (activeCalled) {
+    if (displayActiveCalled) {
       parts.push(
-        `📣 HOZIRGI QABULDAGI BEMOR: NAVBAT #${activeCalled.queueNumber} - ${activeCalled.lastName.toUpperCase()} ${activeCalled.firstName.toUpperCase()} (${getDeptName(activeCalled.departmentId).toUpperCase()} xona: ${getRoomNumber(activeCalled.departmentId)})`
+        `📣 HOZIRGI QABULDAGI BEMOR: NAVBAT #${displayActiveCalled.queueNumber} - ${displayActiveCalled.lastName.toUpperCase()} ${displayActiveCalled.firstName.toUpperCase()} (${getDeptName(displayActiveCalled.departmentId).toUpperCase()} xona: ${getRoomNumber(displayActiveCalled.departmentId)})`
       );
     }
 
@@ -391,6 +418,27 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
           </button>
         </div>
 
+        {/* Monitor tozalash tugmasi (inline mode uchun) */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearMonitor}
+            className={`px-3 py-1.5 rounded-xl transition-all border text-xxs font-bold cursor-pointer flex items-center gap-1.5 ${
+              isMonitorCleared
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-300'
+            }`}
+            title={isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : 'Monitor ekranini tozalash (baza o\'zgartirilmaydi)'}
+          >
+            <Eraser className="h-3.5 w-3.5" />
+            {isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : '🧹 Monitorni tozalash'}
+          </button>
+          {isMonitorCleared && (
+            <span className="text-[10px] text-emerald-600 font-bold italic">
+              ✅ Monitor tozalandi — baza o'zgartirilmadi
+            </span>
+          )}
+        </div>
+
         {/* Small preview block */}
         <div className="bg-slate-50 text-slate-800 rounded-2xl p-5 font-sans relative overflow-hidden border border-slate-200/80 shadow-inner">
           <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 mb-4 text-xxs font-mono text-slate-400">
@@ -412,13 +460,13 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
           <div className="grid grid-cols-3 gap-3">
             {/* Active called */}
             <div className="col-span-2 bg-white p-4 rounded-xl border border-slate-150 text-center flex flex-col justify-center shadow-sm">
-              {activeCalled ? (
+              {displayActiveCalled ? (
                 <div className="space-y-1">
                   <div className="text-[10px] font-bold text-emerald-600 tracking-wider">CHAQIRILAYOTGAN BEMOR</div>
-                  <div className="text-2xl font-extrabold text-emerald-700">#{activeCalled.queueNumber}</div>
-                  <div className="text-xs font-bold truncate text-slate-850">{activeCalled.lastName} {activeCalled.firstName}</div>
+                  <div className="text-2xl font-extrabold text-emerald-700">#{displayActiveCalled.queueNumber}</div>
+                  <div className="text-xs font-bold truncate text-slate-850">{displayActiveCalled.lastName} {activeCalled.firstName}</div>
                   <div className="text-xxs text-slate-400 font-medium">
-                    {getDeptName(activeCalled.departmentId)} ({getRoomNumber(activeCalled.departmentId)})
+                    {getDeptName(displayActiveCalled.departmentId)} ({getRoomNumber(activeCalled.departmentId)})
                   </div>
                 </div>
               ) : (
@@ -558,6 +606,22 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
             )}
           </button>
 
+          {/* Monitor tozalash tugmasi - faqat vizual ko'rinishni tozalaydi, bazodan o'chirmaydi */}
+          <button
+            onClick={handleClearMonitor}
+            className={`p-3 rounded-xl transition-all border shadow-xs cursor-pointer flex items-center gap-2 font-bold text-xs ${
+              isMonitorCleared
+                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+                : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-300'
+            }`}
+            title={isMonitorCleared ? 'Navbatni qayta ko\'rsatish (baza o\'zgartirilmagan)' : 'Monitor ekranini tozalash (baza o\'zgartirilmaydi)'}
+          >
+            <Eraser className="h-5 w-5" />
+            <span className="hidden md:inline">
+              {isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : 'Monitorni tozalash'}
+            </span>
+          </button>
+
           <div className="bg-emerald-50 border border-emerald-200 px-5 py-2.5 rounded-xl text-emerald-800 flex items-center space-x-2 font-mono text-base font-black shadow-sm">
             <Clock className="h-5 w-5 text-emerald-600 animate-spin-slow" />
             <span>
@@ -574,9 +638,9 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
       >
         
         {/* UPPER BANNER SECTION */}
-        {activeCalled ? (
+        {displayActiveCalled ? (
           (() => {
-            const activeColors = getDeptColorInfo(activeCalled.departmentId);
+            const activeColors = getDeptColorInfo(displayActiveCalled.departmentId);
             return (
               <div
                 className={`bg-white border rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative transition-all duration-300 overflow-hidden ${
@@ -602,7 +666,7 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
                       NAVBAT RAQAMI
                     </span>
                     <span className={`text-6xl md:text-7xl font-black block py-4 px-4 rounded-2xl ${activeColors.badgeBg} ${activeColors.badgeText} shadow-md tracking-tight`}>
-                      #{activeCalled.queueNumber}
+                      #{displayActiveCalled.queueNumber}
                     </span>
                   </div>
                 </div>
@@ -613,7 +677,7 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
                     QABULGA TAKLIF ETILADI
                   </span>
                   <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight uppercase">
-                    {activeCalled.lastName} {activeCalled.firstName} {activeCalled.middleName || ''}
+                    {displayActiveCalled.lastName} {displayActiveCalled.firstName} {displayActiveCalled.middleName || ''}
                   </h2>
                 </div>
 
@@ -624,7 +688,7 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
                       KABINET / YO'NALISH
                     </span>
                     <span className="text-xl font-black block">
-                      {getDeptName(activeCalled.departmentId).toUpperCase()}
+                      {getDeptName(displayActiveCalled.departmentId).toUpperCase()}
                     </span>
                   </div>
 
@@ -633,7 +697,7 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
                       XONA
                     </span>
                     <span className="text-3xl font-black block text-slate-900">
-                      {getRoomNumber(activeCalled.departmentId)}
+                      {getRoomNumber(displayActiveCalled.departmentId)}
                     </span>
                   </div>
                 </div>
