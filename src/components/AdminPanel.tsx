@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Department, Patient, HospitalRoom, ClinicTransaction, InpatientStay, ReceptionStaff } from '../types';
-import { Plus, Edit2, Trash2, Shield, DollarSign, Users, CheckCircle, Clock, Key, RotateCcw, Save, X, Bed, ShieldAlert } from 'lucide-react';
+import { Department, Patient, HospitalRoom, ClinicTransaction, InpatientStay, ReceptionStaff, DepartmentService } from '../types';
+import { Plus, Edit2, Trash2, Shield, DollarSign, Users, CheckCircle, Clock, Key, RotateCcw, Save, X, Bed, ShieldAlert, Stethoscope, ListChecks } from 'lucide-react';
 import { Reports } from './Reports';
 
 interface AdminPanelProps {
@@ -60,6 +60,81 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [showAddRoomForm, setShowAddRoomForm] = useState(false);
   const [roomError, setRoomError] = useState('');
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+
+  // Department Services management states
+  const [servicesDeptId, setServicesDeptId] = useState<string | null>(null);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [newServicePrice, setNewServicePrice] = useState<number>(0);
+  const [editingServiceId, setEditingServiceId] = useState<string | null>(null);
+  const [serviceError, setServiceError] = useState('');
+
+  // Add or update a department service
+  const handleSaveService = (deptId: string) => {
+    setServiceError('');
+    if (!newServiceName.trim()) {
+      setServiceError('Xizmat nomini kiriting!');
+      return;
+    }
+    if (newServicePrice <= 0) {
+      setServiceError('Xizmat narxi 0 dan katta bo\'lishi kerak!');
+      return;
+    }
+
+    const updatedDepts = departments.map((d) => {
+      if (d.id === deptId) {
+        const currentServices = d.services || [];
+        if (editingServiceId) {
+          const updatedServices = currentServices.map((s) =>
+            s.id === editingServiceId
+              ? { ...s, name: newServiceName.trim(), price: Number(newServicePrice) }
+              : s
+          );
+          return { ...d, services: updatedServices };
+        } else {
+          const newService: DepartmentService = {
+            id: 'SVC-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+            name: newServiceName.trim(),
+            price: Number(newServicePrice),
+          };
+          return { ...d, services: [...currentServices, newService] };
+        }
+      }
+      return d;
+    });
+    setDepartments(updatedDepts);
+
+    setNewServiceName('');
+    setNewServicePrice(0);
+    setEditingServiceId(null);
+    setServiceError('');
+  };
+
+  const handleEditService = (deptId: string, service: DepartmentService) => {
+    setServicesDeptId(deptId);
+    setNewServiceName(service.name);
+    setNewServicePrice(service.price);
+    setEditingServiceId(service.id);
+    setServiceError('');
+  };
+
+  const handleDeleteService = (deptId: string, serviceId: string) => {
+    if (!window.confirm('Haqiqatdan ham ushbu xizmat turini o\'chirmoqchisiz?')) return;
+    const updatedDepts = departments.map((d) => {
+      if (d.id === deptId) {
+        const currentServices = d.services || [];
+        return { ...d, services: currentServices.filter((s) => s.id !== serviceId) };
+      }
+      return d;
+    });
+    setDepartments(updatedDepts);
+  };
+
+  const cancelServiceForm = () => {
+    setNewServiceName('');
+    setNewServicePrice(0);
+    setEditingServiceId(null);
+    setServiceError('');
+  };
 
   const handleAddRoom = (e: React.FormEvent) => {
     e.preventDefault();
@@ -492,6 +567,136 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       <span className="font-mono text-slate-500">Login: <strong className="text-emerald-700 font-extrabold">{dept.login}</strong></span>
                     </div>
                     <span className="font-mono text-slate-500">Parol: <strong className="text-emerald-700 font-extrabold">{dept.password}</strong></span>
+                  </div>
+
+                  {/* Department Services Management Section */}
+                  <div className="border-t border-slate-200 pt-3 space-y-3">
+                    <div className="flex justify-between items-center">
+                      <h5 className="text-[10px] font-black text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                        <Stethoscope className="h-3 w-3 text-emerald-600" />
+                        Xizmat Turlari ({(dept.services || []).length})
+                      </h5>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (servicesDeptId === dept.id) {
+                            cancelServiceForm();
+                            setServicesDeptId(null);
+                          } else {
+                            cancelServiceForm();
+                            setServicesDeptId(dept.id);
+                          }
+                        }}
+                        className="text-[10px] font-black px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg hover:bg-emerald-100 transition-all cursor-pointer flex items-center gap-1"
+                      >
+                        <Plus className="h-2.5 w-2.5" />
+                        {servicesDeptId === dept.id ? 'Yopish' : 'Xizmat Qo\'shish'}
+                      </button>
+                    </div>
+
+                    {/* Existing services list */}
+                    {(dept.services || []).length > 0 && (
+                      <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                        {(dept.services || []).map((svc) => (
+                          <div
+                            key={svc.id}
+                            className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-[10px] font-bold"
+                          >
+                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                              <ListChecks className="h-3 w-3 text-emerald-600 shrink-0" />
+                              <span className="text-slate-800 truncate">{svc.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className="text-emerald-700 font-black bg-emerald-50 px-1.5 py-0.5 rounded">
+                                {svc.price.toLocaleString()} UZS
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleEditService(dept.id, svc)}
+                                className="text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer"
+                                title="Tahrirlash"
+                              >
+                                <Edit2 className="h-3 w-3" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteService(dept.id, svc.id)}
+                                className="text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                                title="O'chirish"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add/Edit service form */}
+                    {servicesDeptId === dept.id && (
+                      <div className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-3 space-y-2">
+                        <div className="text-[9px] font-black text-emerald-800 uppercase tracking-wider">
+                          {editingServiceId ? 'Xizmatni Tahrirlash' : 'Yangi Xizmat Qo\'shish'}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 mb-1 uppercase">Xizmat Nomi *</label>
+                            <input
+                              type="text"
+                              value={newServiceName}
+                              onChange={(e) => setNewServiceName(e.target.value)}
+                              placeholder="Masalan: Burun yuvish"
+                              className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-500 mb-1 uppercase">Narxi (UZS) *</label>
+                            <input
+                              type="number"
+                              value={newServicePrice}
+                              onChange={(e) => setNewServicePrice(Number(e.target.value) || 0)}
+                              placeholder="25000"
+                              min={0}
+                              className="w-full px-2 py-1.5 text-xs border border-slate-200 rounded-lg bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        {serviceError && (
+                          <p className="text-[9px] font-bold text-rose-600 bg-rose-50 p-1.5 rounded border border-rose-100">
+                            ⚠️ {serviceError}
+                          </p>
+                        )}
+
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSaveService(dept.id)}
+                            className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black transition-colors cursor-pointer flex items-center justify-center gap-1"
+                          >
+                            <Save className="h-3 w-3" />
+                            {editingServiceId ? 'Saqlash' : 'Qo\'shish'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              cancelServiceForm();
+                              setServicesDeptId(null);
+                            }}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <X className="h-3 w-3" />
+                            Bekor
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {(!dept.services || dept.services.length === 0) && servicesDeptId !== dept.id && (
+                      <p className="text-[9px] text-slate-400 italic font-bold text-center py-1.5 bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                        Hozircha xizmat turlari kiritilmagan
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
