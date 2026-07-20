@@ -652,6 +652,7 @@ export default function App() {
             inpatientStays={inpatientStays}
             onSaveInpatientStays={saveInpatientStaysList}
             diagnosisTemplates={diagnosisTemplates}
+            clinicSettings={clinicSettings}
           />
         )}
 

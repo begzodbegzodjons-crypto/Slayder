@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Patient, Medication, UserSession, Department, InpatientStay, DailyTreatment, DiagnosisTemplate } from '../types';
+import { Patient, Medication, UserSession, Department, InpatientStay, DailyTreatment, DiagnosisTemplate, ClinicSettings } from '../types';
 import {
   Stethoscope,
   User,
@@ -30,6 +30,7 @@ interface DoctorCabinetProps {
   inpatientStays: InpatientStay[];
   onSaveInpatientStays: (stays: InpatientStay[]) => void;
   diagnosisTemplates?: DiagnosisTemplate[];
+  clinicSettings?: ClinicSettings;
 }
 
 export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
@@ -41,7 +42,18 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
   inpatientStays = [],
   onSaveInpatientStays,
   diagnosisTemplates = [],
+  clinicSettings,
 }) => {
+  // Default clinic settings
+  const cs: ClinicSettings = clinicSettings || {
+    clinicName: 'DR.Maruf Clinic',
+    clinicPhone: '+998 71 123-45-67',
+    clinicAddress: 'Toshkent, O\'zbekiston',
+    recipeHeader: 'SHIFOKOR RETSEPTi (RECIPE)',
+    recipeFooter: 'Sog\'ayib keting! Qayta ko\'rik: Shifokor tavsiyasiga ko\'ra.',
+    ticketHeader: 'Tashrifingiz uchun rahmat!',
+    ticketFooter: 'Shifokor kabineti eshigi ustidagi monitorni kuzatib boring.',
+  };
   // If role is doctor, active doctor department matches session.doctorId
   // If role is admin, admin can select which doctor's cabinet to view
   const [activeDoctorId, setActiveDoctorId] = useState<string>('');
@@ -179,9 +191,9 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
         </head>
         <body>
           <div class="header">
-            <div class="clinic-name">DR.Maruf Clinic</div>
-            <div style="font-size: 10px;">Tel: +998 71 123-45-67</div>
-            <div style="font-size: 11px; font-weight: bold; margin-top: 5px;">SHIFOKOR RETSEPTi (RECIPE)</div>
+            <div class="clinic-name">${cs.clinicName}</div>
+            <div style="font-size: 10px;">Tel: ${cs.clinicPhone}</div>
+            <div style="font-size: 11px; font-weight: bold; margin-top: 5px;">${cs.recipeHeader}</div>
           </div>
 
           <div>
@@ -221,13 +233,12 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
           </div>
 
           <div class="stamp">
-            DR. MARUF CLINIC<br>
-            M.O'
+            ${cs.clinicName.toUpperCase()}<br>
+            ${cs.clinicAddress}
           </div>
 
           <div class="footer">
-            Sog'ayib keting!<br>
-            Qayta ko'rik: Shifokor tavsiyasiga ko'ra.
+            ${cs.recipeFooter}
           </div>
 
           <button onclick="window.print(); window.close();">Retseptni Chop Etish (XPrinter 80mm)</button>
@@ -404,7 +415,7 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
           </style>
         </head>
         <body>
-          <div class="title">DR.Maruf Clinic</div>
+          <div class="title">${cs.clinicName}</div>
           <div class="subtitle">KUNLIK SHIFO VA MUOLAJA VARAQASI</div>
 
           <div class="info">
@@ -432,8 +443,8 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
 
           <div class="footer">
             Ushbu varaqadagi muolajalar faqat belgilangan kunga tegishli.<br>
-            Sog'ayib ketishingizni tilaymiz!<br>
-            DR.Maruf Clinic ERP
+            ${cs.recipeFooter}<br>
+            ${cs.clinicName}
           </div>
 
           <button onclick="window.print(); window.close();">XPrinterda Chop etish</button>
@@ -497,7 +508,7 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
           </style>
         </head>
         <body>
-          <div class="title">DR.Maruf Clinic</div>
+          <div class="title">${cs.clinicName}</div>
           <div class="subtitle">STATSIONAR DAVOLANISH KRONOLOGIYASI</div>
 
           <div class="info">
@@ -515,7 +526,7 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
 
           <div class="footer">
             Klinika Statsionar Bo'limi Hisoboti.<br>
-            DR.Maruf Clinic ERP
+            ${cs.clinicName}
           </div>
 
           <button onclick="window.print(); window.close();">XPrinterda Chop etish</button>
