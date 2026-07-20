@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Patient, Medication, UserSession, Department, InpatientStay, DailyTreatment } from '../types';
+import { Patient, Medication, UserSession, Department, InpatientStay, DailyTreatment, DiagnosisTemplate } from '../types';
 import {
   Stethoscope,
   User,
@@ -29,6 +29,7 @@ interface DoctorCabinetProps {
   departments: Department[];
   inpatientStays: InpatientStay[];
   onSaveInpatientStays: (stays: InpatientStay[]) => void;
+  diagnosisTemplates?: DiagnosisTemplate[];
 }
 
 export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
@@ -39,6 +40,7 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
   departments,
   inpatientStays = [],
   onSaveInpatientStays,
+  diagnosisTemplates = [],
 }) => {
   // If role is doctor, active doctor department matches session.doctorId
   // If role is admin, admin can select which doctor's cabinet to view
@@ -749,6 +751,41 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
                   <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-wide">
                     3. YAKUNIY TASHXIS (DIAGNOSIS) *
                   </label>
+
+                  {/* Kasallik shablonlari dropdown — faqat shu bo'lim uchun */}
+                  {(() => {
+                    const deptTemplates = diagnosisTemplates.filter((t) => t.departmentId === currentDoctorId);
+                    if (deptTemplates.length === 0) return null;
+                    return (
+                      <div className="mb-2">
+                        <label className="block text-[9px] font-bold text-emerald-700 mb-1 uppercase tracking-wide">
+                          💊 Kasallikni tanlang — dorilar avtomatik to'ldiriladi ({activeDept?.name})
+                        </label>
+                        <select
+                          onChange={(e) => {
+                            if (!e.target.value) return;
+                            const template = deptTemplates.find((t) => t.id === e.target.value);
+                            if (template) {
+                              setDiagnosis(template.name);
+                              if (template.medications.length > 0) {
+                                setMedsList(template.medications.map(m => ({ ...m })));
+                              }
+                            }
+                          }}
+                          value=""
+                          className="w-full px-3 py-2.5 text-xs border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-emerald-50/30 text-slate-800 font-bold transition-all cursor-pointer"
+                        >
+                          <option value="">-- {activeDept?.name} bo'limi kasallik shabloni tanlang --</option>
+                          {deptTemplates.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name} ({t.medications.length} ta dori)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })()}
+
                   <input
                     type="text"
                     placeholder="Klinik yoki yakuniy tashxisni yozing..."
