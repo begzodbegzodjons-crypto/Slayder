@@ -18,7 +18,9 @@ import {
   Clock,
   Activity,
   Coins,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Eraser,
+  RefreshCw,
 } from 'lucide-react';
 
 interface DoctorCabinetProps {
@@ -259,9 +261,27 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
     printWindow.document.close();
   };
 
-  const waitingPatients = patients.filter(
+  // Navbat ro'yxatini tozalash (vizual - bazadan o'chirmaydi)
+  const [isQueueCleared, setIsQueueCleared] = useState<boolean>(false);
+
+  // Faqat ambulator ko'rik (bazaviy) uchun kelganlar — qo'shimcha xizmatdagilar emas
+  // Bemor faqat bazaviy narx to'lagan bo'lsa yoki selectedServices bo'sh bo'lsa = ambulator ko'rik
+  const allWaitingPatients = patients.filter(
     (p) => currentDoctorId && p.departmentId === currentDoctorId && p.status === 'Kutmoqda'
   );
+
+  // Doktor navbatida faqat ambulator ko'rik bemorlari ko'rinsin
+  // Qoida: agar bemorda selectedServices yo'q yoki bo'sh bo'lsa - bu ambulator ko'rik
+  // Agar selectedServices bor lekin u bazaviy ko'rikni ham o'z ichiga olsa (ya'ni to'lov bazaviy narxdan kam bo'lmasa) - ambulator ko'rik
+  const waitingPatients = isQueueCleared ? [] : allWaitingPatients.filter((p) => {
+    // Bemorning selectedServices'i bo'sh bo'lsa - bu ambulator ko'rik
+    if (!p.selectedServices || p.selectedServices.length === 0) return true;
+    // Bemorda selectedServices bor, lekin to'lov summasi bo'lim bazaviy narxiga teng bo'lsa - ambulator ko'rik
+    const dept = departments.find((d) => d.id === p.departmentId);
+    if (dept && p.paymentAmount === dept.price) return true;
+    // Boshqa holatda - qo'shimcha xizmat, doktor navbatida ko'rinmaydi
+    return false;
+  });
 
   // Ko'rilgan (Yakunlangan) bemorlar tarixi - shu bo'limda
   const completedPatients = patients.filter(
@@ -658,14 +678,61 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
             <div className="bg-gradient-to-br from-amber-50/90 to-amber-100/30 p-6 rounded-3xl border border-amber-100 shadow-[0_20px_40px_rgba(245,158,11,0.03)]">
               <h3 className="text-sm font-black text-slate-900 mb-4 pb-3 border-b border-amber-200/50 flex items-center justify-between">
                 <span>Navbatda Kutayotganlar</span>
-                <span className="bg-amber-100 text-amber-900 border border-amber-200 text-xs px-2.5 py-1 rounded-xl font-black">
-                  {waitingPatients.length} nafar
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="bg-amber-100 text-amber-900 border border-amber-200 text-xs px-2.5 py-1 rounded-xl font-black">
+                    {waitingPatients.length} nafar
+                  </span>
+                  {/* Navbatni tozalash tugmasi - vizual, bazadan o'chirmaydi */}
+                  {waitingPatients.length > 0 && !isQueueCleared && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(
+                          '🧹 NAVBAT RO\'YXATINI TOZALASH\n\n' +
+                          'Bu amal faqat shu ekrandagi navbat ro\'yxatini tozalaydi.\n\n' +
+                          '✅ Bemorlar ma\'lumotlari bazada saqlanadi\n' +
+                          '✅ To\'lovlar va tarix o\'chirilmaydi\n' +
+                          '✅ Hisobotlar o\'zgarishsiz qoladi\n' +
+                          '✅ Qabulxona panelida bemorlar ko\'rinaveradi\n\n' +
+                          'Navbat tozalansinmi?'
+                        )) {
+                          setIsQueueCleared(true);
+                        }
+                      }}
+                      className="text-[10px] font-black px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                      title="Navbat ro'yxatini tozalash (baza o'zgartirilmaydi)"
+                    >
+                      <Eraser className="h-3 w-3" />
+                      Tozalash
+                    </button>
+                  )}
+                  {isQueueCleared && (
+                    <button
+                      onClick={() => setIsQueueCleared(false)}
+                      className="text-[10px] font-black px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 hover:border-emerald-600 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+                      title="Navbatni qayta ko'rsatish"
+                    >
+                      <RefreshCw className="h-3 w-3" />
+                      Qayta ko'rsatish
+                    </button>
+                  )}
+                </div>
               </h3>
 
               {waitingPatients.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-slate-400 font-bold text-xs">Sizning bo'limingizda kutayotgan bemorlar yo'q.</p>
+                  {isQueueCleared ? (
+                    <>
+                      <p className="text-emerald-600 font-bold text-xs">🧹 Navbat tozalandi</p>
+                      <p className="text-[10px] text-slate-400 mt-2 font-semibold italic">
+                        ✅ Bemorlar bazada saqlanib qoldi — qabulxona va hisobotlarda ko'rinaveradi.
+                      </p>
+                      <p className="text-[10px] text-emerald-600 mt-1 font-bold">
+                        Yuqoridagi "Qayta ko'rsatish" tugmasi orqali qayta ko'rishingiz mumkin.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-slate-400 font-bold text-xs">Sizning bo'limingizda kutayotgan bemorlar yo'q.</p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
