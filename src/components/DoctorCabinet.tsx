@@ -1007,6 +1007,84 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* XPrinter chop etish tugmasi */}
+                <div className="pt-4 border-t border-slate-100">
+                  <button
+                    onClick={() => {
+                      const p = historyPatient;
+                      if (!p) return;
+                      const printWindow = window.open('', '_blank', 'width=350,height=550');
+                      if (!printWindow) { alert('Tashqi oyna ochish bloklandi.'); return; }
+                      const cleanMeds = p.prescriptions || [];
+                      const servicesHtml = p.selectedServices && p.selectedServices.length > 0
+                        ? p.selectedServices.map((s) => `• ${s.name} — ${s.price.toLocaleString()} UZS`).join('<br>')
+                        : '';
+                      printWindow.document.write(`
+                        <html>
+                          <head>
+                            <title>Ko'rik Tarixi - ${p.lastName} ${p.firstName}</title>
+                            <style>
+                              body { font-family: 'Courier New', monospace; padding: 15px; width: 290px; margin: 0 auto; color: #000; font-size: 15px; font-weight: bold; line-height: 1.5; }
+                              .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 12px; }
+                              .clinic-name { font-size: 18px; font-weight: bold; }
+                              .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin: 10px 0 5px 0; padding-bottom: 2px; text-transform: uppercase; font-size: 14px; }
+                              .info { margin: 8px 0; line-height: 1.5; }
+                              .footer { font-size: 13px; font-weight: bold; text-align: center; border-top: 1px dashed #000; padding-top: 10px; margin-top: 15px; }
+                              button { display: block; width: 100%; padding: 10px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+                              @media print { button { display: none; } }
+                            </style>
+                          </head>
+                          <body>
+                            <div class="header">
+                              <div class="clinic-name">${cs.clinicName}</div>
+                              <div style="font-size: 13px;">Tel: ${cs.clinicPhone}</div>
+                              <div style="font-size: 14px; font-weight: bold; margin-top: 5px;">${cs.recipeHeader}</div>
+                            </div>
+                            <div class="info">
+                              <strong>Sana:</strong> ${new Date(p.completedAt || p.createdAt).toLocaleDateString('uz-UZ')}<br>
+                              <strong>Shifokor:</strong> ${p.doctorName}<br>
+                              <strong>Bo'lim:</strong> ${activeDept?.name || ''}<br>
+                              <strong>Xona:</strong> ${activeDept?.room || ''}<br>
+                            </div>
+                            <div class="section-title">Bemor Ma'lumotlari</div>
+                            <div class="info">
+                              <strong>F.I.SH:</strong> ${p.lastName} ${p.firstName} ${p.middleName || ''}<br>
+                              <strong>ID:</strong> ${p.id}<br>
+                              <strong>Tel:</strong> ${p.phone}<br>
+                              <strong>Jinsi:</strong> ${p.gender}
+                            </div>
+                            ${p.complaints ? `<div class="section-title">Shikoyatlar</div><div class="info">${p.complaints}</div>` : ''}
+                            ${p.testResults ? `<div class="section-title">Tahlil Natijalari</div><div class="info">${p.testResults}</div>` : ''}
+                            <div class="section-title">Tashxis</div>
+                            <div class="info">${p.diagnosis || 'Kiritilmagan'}</div>
+                            ${cleanMeds.length > 0 ? `
+                              <div class="section-title">Tayinlangan Dorilar (Rx)</div>
+                              <ol style="margin: 0; padding-left: 20px;">
+                                ${cleanMeds.map((med) => `<li style="margin-bottom: 10px;"><div style="font-size: 16px; font-weight: bold;">${med.name}</div><div style="font-size: 14px; font-weight: bold;">↪ ${med.dosage} (${med.days})</div></li>`).join('')}
+                              </ol>
+                            ` : ''}
+                            ${servicesHtml ? `<div class="section-title">Tanlangan Xizmatlar</div><div class="info">${servicesHtml}</div>` : ''}
+                            ${p.patientHistory && p.patientHistory.length > 0 ? `
+                              <div class="section-title">Avvalgi Tashriflar (${p.patientHistory.length} ta)</div>
+                              <div class="info" style="font-size: 13px;">
+                                ${p.patientHistory.map((v, i) => `${i + 1}. ${new Date(v.visitDate).toLocaleDateString('ru-RU')} — ${v.departmentName} — ${v.diagnosis || 'Tashxissiz'}`).join('<br>')}
+                              </div>
+                            ` : ''}
+                            <div class="footer">${cs.recipeFooter}</div>
+                            <button onclick="window.print(); window.close();">XPrinterda Chop Etish</button>
+                            <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
+                          </body>
+                        </html>
+                      `);
+                      printWindow.document.close();
+                    }}
+                    className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Printer className="h-4 w-4" />
+                    XPrinterda Ko'rik Tarixini Chop Etish
+                  </button>
+                </div>
               </div>
             </div>
           )}
