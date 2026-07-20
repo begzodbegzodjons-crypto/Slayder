@@ -228,6 +228,8 @@ export const Reception: React.FC<ReceptionProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  // Sana filtri - default bugun
+  const [queueDateFilter, setQueueDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Print ticket success flash alert
   const [printedPatient, setPrintedPatient] = useState<Patient | null>(null);
@@ -363,7 +365,7 @@ export const Reception: React.FC<ReceptionProps> = ({
     setTimeout(() => setPrintedPatient(null), 10000);
   };
 
-  // Ambulatory Filters
+  // Ambulatory Filters - sana bo'yicha filtr (default bugun)
   const filteredPatients = patients.filter((patient) => {
     const fullName = `${patient.lastName} ${patient.firstName} ${patient.middleName || ''}`.toLowerCase();
     const matchesSearch =
@@ -375,8 +377,43 @@ export const Reception: React.FC<ReceptionProps> = ({
     const matchesDept = deptFilter === 'all' || patient.departmentId === deptFilter;
     const matchesPayment = paymentFilter === 'all' || patient.paymentStatus === paymentFilter;
 
-    return matchesSearch && matchesDept && matchesPayment;
+    // Sana filtri - bemor createdAt sanasi queueDateFilter ga teng bo'lishi kerak
+    const patientDate = new Date(patient.createdAt).toISOString().split('T')[0];
+    const matchesDate = patientDate === queueDateFilter;
+
+    return matchesSearch && matchesDept && matchesPayment && matchesDate;
   });
+
+  // Bo'lim prefiksli navbat raqami (LOR-01, KARDIO-01, NEVRO-01)
+  const getDeptPrefix = (deptId: string): string => {
+    const dept = DEPARTMENTS.find((d) => d.id === deptId);
+    if (!dept) return 'GEN';
+    // Bo'lim nomidan prefiks olish
+    const name = dept.name.toUpperCase();
+    if (name.includes('LOR')) return 'LOR';
+    if (name.includes('NEVRO')) return 'NEVRO';
+    if (name.includes('KARDIO')) return 'KARDIO';
+    if (name.includes('LAB') || name.includes('TAHLIL')) return 'LAB';
+    // Fallback - birinchi 3 harf
+    return name.substring(0, 3);
+  };
+
+  // Bo'lim va sana bo'yicha ketma-ket navbat raqami
+  const getDisplayQueueNumber = (patient: Patient): string => {
+    const prefix = getDeptPrefix(patient.departmentId);
+    // Shu sanada va shu bo'limda bemorgacha ro'yxatdan o'tganlar soni
+    const patientDate = new Date(patient.createdAt).toISOString().split('T')[0];
+    const sameDaySameDept = patients.filter(
+      (p) => {
+        const pDate = new Date(p.createdAt).toISOString().split('T')[0];
+        return pDate === patientDate && p.departmentId === patient.departmentId;
+      }
+    );
+    // Bemorning o'zini topish
+    const idx = sameDaySameDept.findIndex((p) => p.id === patient.id);
+    const num = idx >= 0 ? idx + 1 : 1;
+    return `${prefix}-${String(num).padStart(2, '0')}`;
+  };
 
   const getDeptName = (id: DepartmentId) => {
     return DEPARTMENTS.find((d) => d.id === id)?.name || id;
@@ -1508,18 +1545,40 @@ export const Reception: React.FC<ReceptionProps> = ({
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100">
                 <div>
-                  <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Bugungi Ambulator Navbatlar</h2>
-                  <p className="text-xs text-slate-500 font-bold">Jami: <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{patients.length} nafar</span></p>
+                  <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Ambulator Navbatlar</h2>
+                  <p className="text-xs text-slate-500 font-bold">Jami: <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{filteredPatients.length} nafar</span></p>
                 </div>
 
                 <div className="flex items-center space-x-2 text-xs">
                   <span className="px-3 py-1.5 bg-blue-600 text-white rounded-xl font-extrabold shadow-sm">
-                    Kutayotgan: {patients.filter(p => p.status === 'Kutmoqda').length}
+                    Kutayotgan: {filteredPatients.filter(p => p.status === 'Kutmoqda').length}
                   </span>
                   <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-extrabold shadow-sm">
-                    Tugallangan: {patients.filter(p => p.status === 'Yakunlangan').length}
+                    Tugallangan: {filteredPatients.filter(p => p.status === 'Yakunlangan').length}
                   </span>
                 </div>
+              </div>
+
+              {/* Sana filtri */}
+              <div className="mb-4 bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 flex items-center gap-3 flex-wrap">
+                <label className="text-[10px] font-black text-emerald-700 uppercase tracking-wide flex items-center gap-1">
+                  📅 Sana bo'yicha filtr:
+                </label>
+                <input
+                  type="date"
+                  value={queueDateFilter}
+                  onChange={(e) => setQueueDateFilter(e.target.value)}
+                  className="px-3 py-2 text-xs border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-white text-slate-800 font-bold cursor-pointer"
+                />
+                <button
+                  onClick={() => setQueueDateFilter(new Date().toISOString().split('T')[0])}
+                  className="px-3 py-2 text-[10px] font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition-all cursor-pointer"
+                >
+                  Bugungi sana
+                </button>
+                <span className="text-[10px] text-slate-500 font-bold">
+                  Tanlangan sanada: {filteredPatients.length} ta bemor
+                </span>
               </div>
 
               {/* Search and Filters */}
@@ -1594,8 +1653,8 @@ export const Reception: React.FC<ReceptionProps> = ({
                         return (
                           <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors bg-white font-semibold">
                             <td className="py-4 px-4">
-                              <span className="inline-flex items-center justify-center h-7 w-7 rounded-lg bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200">
-                                #{patient.queueNumber}
+                              <span className="inline-flex items-center justify-center h-7 px-2 rounded-lg bg-emerald-50 text-emerald-800 font-black text-xs border border-emerald-200 whitespace-nowrap">
+                                {getDisplayQueueNumber(patient)}
                               </span>
                             </td>
                             <td className="py-4 px-4">
