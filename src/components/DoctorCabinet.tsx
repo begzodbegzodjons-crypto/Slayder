@@ -59,7 +59,7 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
   const [activeDoctorId, setActiveDoctorId] = useState<string>('');
 
   // Primary Sub-Tab: 'ambulatory' (Ambulator Qabul) vs 'inpatient_wards' (Yotib Davolanayotganlar)
-  const [activeSubTab, setActiveSubTab] = useState<'ambulatory' | 'inpatient_wards'>('ambulatory');
+  const [activeSubTab, setActiveSubTab] = useState<'ambulatory' | 'inpatient_wards' | 'history'>('ambulatory');
 
   useEffect(() => {
     if (session) {
@@ -174,15 +174,18 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
               width: 290px;
               margin: 0 auto;
               color: #000;
-              font-size: 13px;
-              line-height: 1.4;
+              font-size: 15px;
+              font-weight: bold;
+              line-height: 1.5;
             }
             .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 12px; }
-            .clinic-name { font-size: 16px; font-weight: bold; }
-            .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin: 10px 0 5px 0; padding-bottom: 2px; text-transform: uppercase; }
-            .med-item { margin-bottom: 10px; padding-left: 10px; }
-            .footer { border-top: 1px dashed #000; padding-top: 10px; margin-top: 20px; text-align: center; font-size: 11px; }
-            .stamp { float: right; border: 2px solid #000; padding: 10px; margin-top: 15px; font-weight: bold; text-transform: uppercase; font-size: 10px; }
+            .clinic-name { font-size: 18px; font-weight: bold; }
+            .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin: 10px 0 5px 0; padding-bottom: 2px; text-transform: uppercase; font-size: 14px; }
+            .med-item { margin-bottom: 12px; padding-left: 10px; }
+            .med-name { font-size: 16px; font-weight: bold; color: #000; }
+            .med-dose { font-size: 14px; font-weight: bold; color: #000; }
+            .footer { border-top: 1px dashed #000; padding-top: 10px; margin-top: 20px; text-align: center; font-size: 13px; font-weight: bold; }
+            .stamp { float: right; border: 2px solid #000; padding: 10px; margin-top: 15px; font-weight: bold; text-transform: uppercase; font-size: 12px; }
             button { display: block; width: 100%; padding: 10px; margin-top: 25px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
             @media print {
               button { display: none; }
@@ -219,16 +222,16 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
             <div class="section-title">Tayinlangan Dorilar (Rx)</div>
             <ol style="margin: 0; padding-left: 20px;">
               ${cleanMeds.map((med) => `
-                <li style="margin-bottom: 8px;">
-                  <strong>${med.name}</strong><br>
-                  <span style="font-size: 11px; color: #333;">↪ Qabul qilish: ${med.dosage} (${med.days})</span>
+                <li class="med-item" style="margin-bottom: 10px;">
+                  <div class="med-name">${med.name}</div>
+                  <div class="med-dose">↪ Qabul qilish: ${med.dosage} (${med.days})</div>
                 </li>
               `).join('')}
             </ol>
           ` : ''}
 
           <div class="section-title">Shifokor tavsiyalari</div>
-          <div style="font-size: 11px;">
+          <div style="font-size: 13px; font-weight: bold;">
             Suyuqlik ko'p ichilsin, dori-darmonlar belgilangan vaqtda qat'iy rejimda olinsin.
           </div>
 
@@ -259,6 +262,19 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
   const waitingPatients = patients.filter(
     (p) => currentDoctorId && p.departmentId === currentDoctorId && p.status === 'Kutmoqda'
   );
+
+  // Ko'rilgan (Yakunlangan) bemorlar tarixi - shu bo'limda
+  const completedPatients = patients.filter(
+    (p) => currentDoctorId && p.departmentId === currentDoctorId && p.status === 'Yakunlangan'
+  ).sort((a, b) => {
+    const da = new Date(a.completedAt || a.createdAt).getTime();
+    const db = new Date(b.completedAt || b.createdAt).getTime();
+    return db - da;
+  });
+
+  // Tarix ko'rish uchun tanlangan bemor
+  const [historyPatientId, setHistoryPatientId] = useState<string | null>(null);
+  const historyPatient = completedPatients.find((p) => p.id === historyPatientId);
 
   // ==========================================
   // 2. STATSIONAR PALATALAR PORTAL LOGIC & STATES
@@ -589,6 +605,17 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
             <span>📈 Ambulator Ko'rik</span>
           </button>
           <button
+            onClick={() => setActiveSubTab('history')}
+            className={`flex-1 lg:flex-none px-5 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+              activeSubTab === 'history'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/10'
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            <span>📋 Ko'rilgan Bemorlar ({completedPatients.length})</span>
+          </button>
+          <button
             onClick={() => setActiveSubTab('inpatient_wards')}
             className={`flex-1 lg:flex-none px-5 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
               activeSubTab === 'inpatient_wards'
@@ -875,6 +902,200 @@ export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
                   </button>
                 </div>
 
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ==========================================
+          SUB-TAB: KO'RILGAN BEMORLAR TARIXI
+          ========================================== */}
+      {activeSubTab === 'history' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Bemor tarixi modal */}
+          {historyPatient && (
+            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setHistoryPatientId(null)}>
+              <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-blue-600" />
+                    Bemor Ko'rik Tarixi
+                  </h3>
+                  <button onClick={() => setHistoryPatientId(null)} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="space-y-4 mt-4">
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-4 rounded-2xl border border-blue-100">
+                    <h4 className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">Bemor ma'lumotlari</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div><span className="text-slate-500 font-bold">F.I.SH:</span><p className="font-black text-slate-900">{historyPatient.lastName} {historyPatient.firstName} {historyPatient.middleName || ''}</p></div>
+                      <div><span className="text-slate-500 font-bold">ID:</span><p className="font-mono font-black text-slate-900">{historyPatient.id}</p></div>
+                      <div><span className="text-slate-500 font-bold">Telefon:</span><p className="font-bold text-slate-900">{historyPatient.phone}</p></div>
+                      <div><span className="text-slate-500 font-bold">Jinsi:</span><p className="font-bold text-slate-900">{historyPatient.gender}</p></div>
+                      <div><span className="text-slate-500 font-bold">Qabul sanasi:</span><p className="font-bold text-slate-900">{new Date(historyPatient.createdAt).toLocaleString('ru-RU')}</p></div>
+                      <div><span className="text-slate-500 font-bold">Yakunlangan:</span><p className="font-bold text-slate-900">{historyPatient.completedAt ? new Date(historyPatient.completedAt).toLocaleString('ru-RU') : '-'}</p></div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/30 p-4 rounded-2xl border border-emerald-100">
+                    <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-2">Bo'lim va shifokor</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div><span className="text-slate-500 font-bold">Bo'lim:</span><p className="font-black text-slate-900">{activeDept?.name}</p></div>
+                      <div><span className="text-slate-500 font-bold">Shifokor:</span><p className="font-bold text-slate-900">{historyPatient.doctorName}</p></div>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-amber-50 to-amber-100/30 p-4 rounded-2xl border border-amber-100">
+                    <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider mb-2">To'lov ma'lumotlari</h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div><span className="text-slate-500 font-bold">Summa:</span><p className="font-black text-slate-900">{historyPatient.paymentAmount.toLocaleString()} UZS</p></div>
+                      <div><span className="text-slate-500 font-bold">Holati:</span><p className="font-black text-emerald-700">{historyPatient.paymentStatus}</p></div>
+                    </div>
+                  </div>
+                  {historyPatient.selectedServices && historyPatient.selectedServices.length > 0 && (
+                    <div className="bg-gradient-to-br from-teal-50 to-teal-100/30 p-4 rounded-2xl border border-teal-100">
+                      <h4 className="text-xs font-black text-teal-800 uppercase tracking-wider mb-2">Tanlangan xizmatlar</h4>
+                      <div className="space-y-1">
+                        {historyPatient.selectedServices.map((svc) => (
+                          <div key={svc.id} className="flex justify-between text-xs bg-white p-2 rounded border border-teal-100">
+                            <span className="font-bold text-slate-800">{svc.name}</span>
+                            <span className="font-black text-teal-700">{svc.price.toLocaleString()} UZS</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/30 p-4 rounded-2xl border border-slate-200">
+                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">Tibbiy ma'lumotlar</h4>
+                    <div className="space-y-3 text-xs">
+                      {historyPatient.complaints && <div><span className="text-slate-500 font-bold block mb-1">Shikoyatlar:</span><p className="text-slate-800 bg-white p-2 rounded border border-slate-100">{historyPatient.complaints}</p></div>}
+                      {historyPatient.testResults && <div><span className="text-slate-500 font-bold block mb-1">Tahlil natijalari:</span><p className="text-slate-800 bg-white p-2 rounded border border-slate-100">{historyPatient.testResults}</p></div>}
+                      {historyPatient.diagnosis && <div><span className="text-slate-500 font-bold block mb-1">Tashxis:</span><p className="font-black text-slate-900 bg-emerald-50 p-2 rounded border border-emerald-100">{historyPatient.diagnosis}</p></div>}
+                      {historyPatient.prescriptions && historyPatient.prescriptions.length > 0 && (
+                        <div>
+                          <span className="text-slate-500 font-bold block mb-1">Retseptlar (Dorilar):</span>
+                          <ul className="list-decimal list-inside text-slate-800 bg-white p-2 rounded border border-slate-100 space-y-1">
+                            {historyPatient.prescriptions.map((med, idx) => (
+                              <li key={idx} className="font-bold"><span className="font-black text-slate-900">{med.name}</span> — {med.dosage} ({med.days})</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {!historyPatient.complaints && !historyPatient.testResults && !historyPatient.diagnosis && (!historyPatient.prescriptions || historyPatient.prescriptions.length === 0) && (
+                        <p className="text-slate-400 italic">Tibbiy ma'lumotlar kiritilmagan</p>
+                      )}
+                    </div>
+                  </div>
+                  {historyPatient.patientHistory && historyPatient.patientHistory.length > 0 && (
+                    <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-4 rounded-2xl border border-purple-100">
+                      <h4 className="text-xs font-black text-purple-800 uppercase tracking-wider mb-2">Avvalgi Tashriflar ({historyPatient.patientHistory.length} ta)</h4>
+                      <div className="space-y-2">
+                        {historyPatient.patientHistory.map((visit, idx) => (
+                          <div key={idx} className="bg-white p-3 rounded-xl border border-purple-100">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-[10px] font-black text-purple-700">Tashrif #{historyPatient.patientHistory!.length - idx}</span>
+                              <span className="text-[10px] text-slate-500 font-bold">{new Date(visit.visitDate).toLocaleString('ru-RU')}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div><span className="text-slate-500 font-bold">Bo'lim:</span><p className="font-bold text-slate-800">{visit.departmentName}</p></div>
+                              <div><span className="text-slate-500 font-bold">Shifokor:</span><p className="font-bold text-slate-800">{visit.doctorName}</p></div>
+                            </div>
+                            {visit.diagnosis && <p className="text-[10px] mt-1 pt-1 border-t border-slate-100"><span className="text-slate-500 font-bold">Tashxis:</span> <span className="font-bold text-slate-900">{visit.diagnosis}</span></p>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Ko'rilgan bemorlar ro'yxati */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+              <div>
+                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-emerald-600" />
+                  {activeDept?.name} — Ko'rilgan Bemorlar Tarixi
+                </h3>
+                <p className="text-xs text-slate-500 font-bold mt-0.5">
+                  Jami: <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{completedPatients.length} nafar</span>
+                </p>
+              </div>
+            </div>
+
+            {completedPatients.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+                <p className="text-sm font-bold text-slate-500">Hozircha ko'rilgan bemorlar yo'q.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="border-b border-slate-200 bg-emerald-50 text-emerald-800 font-black uppercase text-[9px]">
+                      <th className="py-3 px-3">№</th>
+                      <th className="py-3 px-3">Bemor (ID)</th>
+                      <th className="py-3 px-3">Telefon</th>
+                      <th className="py-3 px-3">Qabul sanasi</th>
+                      <th className="py-3 px-3">Yakunlangan</th>
+                      <th className="py-3 px-3">To'lov</th>
+                      <th className="py-3 px-3">Tashxis</th>
+                      <th className="py-3 px-3 text-right">Amal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {completedPatients.map((patient, idx) => (
+                      <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors bg-white font-semibold">
+                        <td className="py-3 px-3 text-slate-700">{idx + 1}</td>
+                        <td className="py-3 px-3">
+                          <div className="font-extrabold text-slate-900">{patient.lastName} {patient.firstName}</div>
+                          <div className="text-[9px] text-slate-400 font-bold mt-0.5">{patient.id}</div>
+                          {patient.isReturning && (
+                            <span className="inline-block text-[8px] font-black bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded uppercase mt-1">
+                              Qayta tashrif #{patient.visitCount || 1}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">{patient.phone}</td>
+                        <td className="py-3 px-3">
+                          <div className="text-[10px] font-bold text-slate-700">{new Date(patient.createdAt).toLocaleDateString('ru-RU')}</div>
+                          <div className="text-[9px] text-slate-500">{new Date(patient.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="text-[10px] font-bold text-slate-700">{patient.completedAt ? new Date(patient.completedAt).toLocaleDateString('ru-RU') : '-'}</div>
+                          <div className="text-[9px] text-slate-500">{patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="font-bold text-slate-950">{patient.paymentAmount.toLocaleString()} UZS</div>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-black border bg-emerald-50 text-emerald-700 border-emerald-200">
+                            {patient.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3">
+                          <div className="text-[10px] text-slate-700 max-w-[200px] truncate" title={patient.diagnosis || ''}>
+                            {patient.diagnosis || <span className="text-slate-400 italic">Kiritilmagan</span>}
+                          </div>
+                          {patient.prescriptions && patient.prescriptions.length > 0 && (
+                            <span className="inline-block text-[8px] font-black bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded mt-1">
+                              💊 {patient.prescriptions.length} ta dori
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-3 text-right">
+                          <button
+                            onClick={() => setHistoryPatientId(patient.id)}
+                            className="px-2 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg font-black text-[9px] transition-all cursor-pointer flex items-center gap-1 ml-auto"
+                          >
+                            <FileText className="h-3 w-3" />
+                            Tafsilot
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
