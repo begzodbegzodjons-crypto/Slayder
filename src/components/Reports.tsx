@@ -20,8 +20,10 @@ import {
   Stethoscope,
   Plus,
   AlertTriangle,
-  CreditCard
+  CreditCard,
+  FileDown,
 } from 'lucide-react';
+import { exportClinicReportToExcel } from '../utils/excelExport';
 
 interface ReportsProps {
   patients: Patient[];
@@ -44,6 +46,26 @@ export const Reports: React.FC<ReportsProps> = ({
 
   // Tabs: Dashboard vs Ambulatory Archive vs Inpatient Archive
   const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'ambulatory' | 'inpatient'>('dashboard');
+
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      await exportClinicReportToExcel({
+        range: selectedRange,
+        patients,
+        departments,
+        inpatientStays,
+        transactions,
+      });
+    } catch (err) {
+      console.error('Excel eksport xatosi:', err);
+      alert('Excel faylni yuklab olishda xatolik yuz berdi.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // ==========================================
   // 1. AMBULATORY ARCHIVE STATES
@@ -576,21 +598,40 @@ export const Reports: React.FC<ReportsProps> = ({
               <p className="text-slate-500 text-[11px] font-bold mt-0.5">Avtomatik sof foyda, xarajatlar va bemorlar hisob-kitoblari</p>
             </div>
             
-            {/* Period selector */}
-            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50">
-              {(['Bugun', 'Haftalik', 'Oylik', 'Yillik'] as const).map((range) => (
-                <button
-                  key={range}
-                  onClick={() => setSelectedRange(range)}
-                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                    selectedRange === range
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  {range}
-                </button>
-              ))}
+            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+              <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50">
+                {(['Bugun', 'Haftalik', 'Oylik', 'Yillik'] as const).map((range) => (
+                  <button
+                    key={range}
+                    onClick={() => setSelectedRange(range)}
+                    className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                      selectedRange === range
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={handleExportExcel}
+                disabled={isExporting}
+                className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2.5 text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                title="Tanlangan davr uchun Excel hisobotini yuklab olish"
+              >
+                {isExporting ? (
+                  <>
+                    <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Yuklanmoqda...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileDown className="h-3.5 w-3.5" />
+                    <span>Excel yuklab olish ({selectedRange})</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
