@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Department, Patient, HospitalRoom, ClinicTransaction, InpatientStay, ReceptionStaff, DepartmentService } from '../types';
-import { Plus, Edit2, Trash2, Shield, DollarSign, Users, CheckCircle, Clock, Key, RotateCcw, Save, X, Bed, ShieldAlert, Stethoscope, ListChecks } from 'lucide-react';
+import { Department, Patient, HospitalRoom, ClinicTransaction, InpatientStay, ReceptionStaff, DepartmentService, DiagnosisTemplate, Medication, ClinicSettings } from '../types';
+import { Plus, Edit2, Trash2, Shield, DollarSign, Users, CheckCircle, Clock, Key, RotateCcw, Save, X, Bed, ShieldAlert, Stethoscope, ListChecks, Pill, Settings } from 'lucide-react';
 import { Reports } from './Reports';
 
 interface AdminPanelProps {
@@ -15,6 +15,10 @@ interface AdminPanelProps {
   inpatientStays: InpatientStay[];
   receptionStaff: ReceptionStaff[];
   setReceptionStaff: (staff: ReceptionStaff[]) => void;
+  diagnosisTemplates?: DiagnosisTemplate[];
+  setDiagnosisTemplates?: (templates: DiagnosisTemplate[]) => void;
+  clinicSettings?: ClinicSettings;
+  setClinicSettings?: (settings: ClinicSettings) => void;
 }
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({
@@ -29,8 +33,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   inpatientStays = [],
   receptionStaff = [],
   setReceptionStaff,
+  diagnosisTemplates = [],
+  setDiagnosisTemplates,
+  clinicSettings,
+  setClinicSettings,
 }) => {
-  const [adminTab, setAdminTab] = useState<'tahlil' | 'departments' | 'rooms'>('tahlil');
+  const [adminTab, setAdminTab] = useState<'tahlil' | 'departments' | 'rooms' | 'diagnoses' | 'settings'>('tahlil');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
 
@@ -438,6 +446,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           }`}
         >
           🛏️ Palata & O'rinlar
+        </button>
+        <button
+          onClick={() => setAdminTab('diagnoses')}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+            adminTab === 'diagnoses'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+          }`}
+        >
+          💊 Kasallik & Dori
+        </button>
+        <button
+          onClick={() => setAdminTab('settings')}
+          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+            adminTab === 'settings'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+          }`}
+        >
+          ⚙️ Sozlamalar
         </button>
       </div>
 
@@ -1235,7 +1263,213 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         </div>
       </div>
       </>
+
       )}
+
+      {/* DIAGNOSIS TEMPLATES TAB */}
+      {adminTab === 'diagnoses' && setDiagnosisTemplates && (
+        <DiagnosisTemplatesManager templates={diagnosisTemplates} onSave={setDiagnosisTemplates} departments={departments} />
+      )}
+
+      {/* CLINIC SETTINGS TAB */}
+      {adminTab === 'settings' && clinicSettings && setClinicSettings && (
+        <ClinicSettingsForm settings={clinicSettings} onSave={setClinicSettings} />
+      )}
+    </div>
+  );
+};
+
+// ============================================
+// DIAGNOSIS TEMPLATES MANAGER
+// ============================================
+const DiagnosisTemplatesManager: React.FC<{
+  templates: DiagnosisTemplate[];
+  onSave: (templates: DiagnosisTemplate[]) => void;
+  departments: Department[];
+}> = ({ templates, onSave, departments }) => {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [diagName, setDiagName] = useState('');
+  const [selectedDeptId, setSelectedDeptId] = useState<string>('');
+  const [filterDeptId, setFilterDeptId] = useState<string>('all');
+  const [meds, setMeds] = useState<Medication[]>([{ name: '', dosage: '', days: '' }]);
+  const [error, setError] = useState('');
+
+  const handleAddMed = () => setMeds([...meds, { name: '', dosage: '', days: '' }]);
+  const handleRemoveMed = (idx: number) => { const n = meds.filter((_, i) => i !== idx); setMeds(n.length > 0 ? n : [{ name: '', dosage: '', days: '' }]); };
+  const handleMedChange = (idx: number, field: keyof Medication, value: string) => { const n = [...meds]; n[idx][field] = value; setMeds(n); };
+  const resetForm = () => { setDiagName(''); setSelectedDeptId(''); setMeds([{ name: '', dosage: '', days: '' }]); setEditingId(null); setShowForm(false); setError(''); };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!diagName.trim()) { setError('Kasallik nomini kiriting!'); return; }
+    if (!selectedDeptId) { setError('Bo\'limni tanlang!'); return; }
+    const cleanMeds = meds.filter((m) => m.name.trim() !== '');
+    if (cleanMeds.length === 0) { setError('Kamida bitta dori kiriting!'); return; }
+    if (editingId) {
+      onSave(templates.map((t) => t.id === editingId ? { ...t, name: diagName.trim(), departmentId: selectedDeptId, medications: cleanMeds } : t));
+    } else {
+      onSave([...templates, { id: 'DIAG-' + Date.now(), name: diagName.trim(), departmentId: selectedDeptId, medications: cleanMeds }]);
+    }
+    resetForm();
+  };
+
+  const handleEdit = (t: DiagnosisTemplate) => { setDiagName(t.name); setSelectedDeptId(t.departmentId || ''); setMeds(t.medications.length > 0 ? t.medications : [{ name: '', dosage: '', days: '' }]); setEditingId(t.id); setShowForm(true); setError(''); };
+  const handleDelete = (id: string) => { if (window.confirm('Haqiqatdan ham o\'chirmoqchisiz?')) onSave(templates.filter((t) => t.id !== id)); };
+  const getDeptName = (deptId: string) => departments.find((d) => d.id === deptId)?.name || 'Noma\'lum';
+  const filteredTemplates = filterDeptId === 'all' ? templates : templates.filter((t) => t.departmentId === filterDeptId);
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl border border-emerald-100 shadow-[0_20px_50px_rgba(16,185,129,0.05)] relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center space-x-3">
+            <div className="bg-emerald-500/10 text-emerald-600 p-3 rounded-2xl"><Pill className="h-6 w-6" /></div>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">Kasallik & Dori Shablonlari</h2>
+              <p className="text-slate-500 text-xs font-bold mt-0.5">Kasallik nomi va dorilar ro'yxatini bo'lim bo'yicha kiriting</p>
+            </div>
+          </div>
+          {!showForm && (
+            <button onClick={() => { resetForm(); setShowForm(true); }} className="flex items-center space-x-1.5 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer">
+              <Plus className="h-4 w-4" /><span>Yangi Kasallik Qo'shish</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="bg-white/95 p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-[10px] font-black text-slate-500 uppercase">Bo'lim bo'yicha:</span>
+          <select value={filterDeptId} onChange={(e) => setFilterDeptId(e.target.value)} className="px-3 py-2 text-xs border border-slate-200 rounded-xl bg-[#f8fafc] text-slate-800 font-bold cursor-pointer">
+            <option value="all">Barcha bo'limlar ({templates.length})</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name} ({templates.filter((t) => t.departmentId === d.id).length})</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Form */}
+      {showForm && (
+        <div className="bg-white/95 p-6 rounded-3xl border border-emerald-100 shadow-md space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-400"></div>
+          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+            <h3 className="text-base font-extrabold text-slate-900">{editingId ? 'Tahrirlash' : 'Yangi Kasallik'}</h3>
+            <button onClick={resetForm} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full cursor-pointer"><X className="h-5 w-5" /></button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Bo'lim Tanlash *</label>
+              <select required value={selectedDeptId} onChange={(e) => setSelectedDeptId(e.target.value)} className="w-full px-3.5 py-3 text-sm border-2 border-emerald-200 rounded-xl bg-emerald-50/30 text-slate-800 font-bold cursor-pointer">
+                <option value="">-- Bo'limni tanlang --</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.doctorName})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">Kasallik / Tashxis Nomi *</label>
+              <input type="text" required value={diagName} onChange={(e) => setDiagName(e.target.value)} placeholder="Masalan: O'tkir bronxit" className="w-full px-3.5 py-3 text-sm border border-slate-200 rounded-xl bg-[#f8fafc] text-slate-800 font-bold" />
+            </div>
+            <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-[10px] font-black text-slate-500 uppercase flex items-center gap-1.5"><Pill className="h-4 w-4 text-emerald-600" />DORILAR RO'YXATI</span>
+                <button type="button" onClick={handleAddMed} className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-3 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 cursor-pointer"><Plus className="h-3.5 w-3.5" />Dori qo'shish</button>
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                {meds.map((med, idx) => (
+                  <div key={idx} className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center bg-white p-2 rounded-xl border border-slate-200">
+                    <div className="sm:col-span-5"><input type="text" value={med.name} onChange={(e) => handleMedChange(idx, 'name', e.target.value)} placeholder="Dori nomi (Amoksitsillin 500mg)" className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-white font-bold" /></div>
+                    <div className="sm:col-span-4"><input type="text" value={med.dosage} onChange={(e) => handleMedChange(idx, 'dosage', e.target.value)} placeholder="Qabul (3 mahal ovqatdan so'ng)" className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-white font-bold" /></div>
+                    <div className="sm:col-span-2"><input type="text" value={med.days} onChange={(e) => handleMedChange(idx, 'days', e.target.value)} placeholder="Muddat (7 kun)" className="w-full px-2.5 py-2 text-xs border border-slate-200 rounded-lg bg-white font-bold" /></div>
+                    <div className="sm:col-span-1 flex justify-center"><button type="button" onClick={() => handleRemoveMed(idx)} className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded-lg cursor-pointer"><Trash2 className="h-3.5 w-3.5" /></button></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {error && <p className="text-xs text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-100 font-bold">⚠️ {error}</p>}
+            <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"><Save className="h-4 w-4" />{editingId ? 'Saqlash' : 'Shablonni saqlash'}</button>
+          </form>
+        </div>
+      )}
+
+      {/* Templates list */}
+      <div className="bg-white/95 p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <h3 className="text-base font-extrabold text-slate-900 mb-4 pb-3 border-b border-slate-100">Mavjud Kasallik Shablonlari ({filteredTemplates.length})</h3>
+        {filteredTemplates.length === 0 ? (
+          <div className="text-center py-12 border border-dashed border-slate-200 rounded-2xl"><Pill className="h-10 w-10 text-slate-300 mx-auto mb-2" /><p className="text-sm font-bold text-slate-500">Hozircha shablonlar yo'q.</p></div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {filteredTemplates.map((t) => (
+              <div key={t.id} className="p-4 border border-slate-200 rounded-2xl bg-white hover:border-emerald-300 hover:shadow-lg transition-all">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-emerald-50 text-emerald-600 p-2 rounded-xl border border-emerald-200"><Pill className="h-4 w-4" /></div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-950">{t.name}</h4>
+                      <span className="inline-block text-[9px] font-black bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded uppercase mt-0.5">{getDeptName(t.departmentId)}</span>
+                    </div>
+                  </div>
+                  <div className="flex space-x-1">
+                    <button onClick={() => handleEdit(t)} className="p-1.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl cursor-pointer"><Edit2 className="h-4 w-4" /></button>
+                    <button onClick={() => handleDelete(t.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  {t.medications.map((m, i) => (
+                    <div key={i} className="flex items-start gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 text-xs">
+                      <span className="font-black text-emerald-600 shrink-0">{i + 1}.</span>
+                      <div><span className="font-extrabold text-slate-900 block">{m.name}</span><span className="text-[10px] text-slate-500">{m.dosage} — {m.days}</span></div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-400 font-bold">💊 {t.medications.length} ta dori</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ============================================
+// CLINIC SETTINGS FORM
+// ============================================
+const ClinicSettingsForm: React.FC<{ settings: ClinicSettings; onSave: (s: ClinicSettings) => void }> = ({ settings, onSave }) => {
+  const [form, setForm] = useState<ClinicSettings>(settings);
+  const [saved, setSaved] = useState(false);
+  const handleSave = (e: React.FormEvent) => { e.preventDefault(); onSave(form); setSaved(true); setTimeout(() => setSaved(false), 3000); };
+  const fields: Array<{ key: keyof ClinicSettings; label: string; placeholder: string; multiline?: boolean }> = [
+    { key: 'clinicName', label: 'Klinika Nomi', placeholder: 'DR.Maruf Clinic' },
+    { key: 'clinicPhone', label: 'Telefon Raqam', placeholder: '+998 71 123-45-67' },
+    { key: 'clinicAddress', label: 'Manzil', placeholder: 'Toshkent, O\'zbekiston' },
+    { key: 'recipeHeader', label: 'Retsept Sarlavhasi', placeholder: 'SHIFOKOR RETSEPTi (RECIPE)' },
+    { key: 'recipeFooter', label: 'Retsept Pastki Yozuvi', placeholder: 'Sog\'ayib keting!', multiline: true },
+    { key: 'ticketHeader', label: 'Chipta Sarlavhasi', placeholder: 'Tashrifingiz uchun rahmat!' },
+    { key: 'ticketFooter', label: 'Chipta Pastki Yozuvi', placeholder: 'Monitorni kuzating.', multiline: true },
+  ];
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-white/95 p-6 rounded-3xl border border-emerald-100 shadow-md relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+        <div className="flex items-center space-x-3"><div className="bg-emerald-500/10 text-emerald-600 p-3 rounded-2xl"><Settings className="h-6 w-6" /></div><div><h2 className="text-base font-extrabold text-slate-900">Klinika Sozlamalari</h2><p className="text-slate-500 text-xs font-bold mt-0.5">Retsept va chiptalarda chiqadigan ma'lumotlar</p></div></div>
+      </div>
+      <div className="bg-white/95 p-6 rounded-3xl border border-slate-200 shadow-sm">
+        {saved && <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center gap-2"><CheckCircle className="h-4 w-4 text-emerald-600" /><p className="text-xs font-bold text-emerald-800">✅ Saqlandi!</p></div>}
+        <form onSubmit={handleSave} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {fields.map((f) => (
+              <div key={f.key} className={f.multiline ? 'md:col-span-2' : ''}>
+                <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase">{f.label}</label>
+                {f.multiline ? <textarea value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} placeholder={f.placeholder} rows={2} className="w-full px-3.5 py-3 text-sm border border-slate-200 rounded-xl bg-[#f8fafc] font-bold" /> : <input type="text" value={form[f.key]} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} placeholder={f.placeholder} className="w-full px-3.5 py-3 text-sm border border-slate-200 rounded-xl bg-[#f8fafc] font-bold" />}
+              </div>
+            ))}
+          </div>
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200"><h4 className="text-[10px] font-black text-slate-400 uppercase mb-3">📋 Retsept Preview</h4><div className="bg-white p-4 rounded-xl border border-slate-200 text-center"><div className="text-base font-bold text-slate-900">{form.clinicName}</div><div className="text-[10px] text-slate-500 mt-1">Tel: {form.clinicPhone}</div><div className="text-[11px] font-bold text-slate-700 mt-2">{form.recipeHeader}</div></div></div>
+          <button type="submit" className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"><Save className="h-4 w-4" />Sozlamalarni Saqlash</button>
+        </form>
+      </div>
     </div>
   );
 };

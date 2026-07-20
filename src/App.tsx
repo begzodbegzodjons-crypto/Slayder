@@ -20,6 +20,16 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<string>('reception');
   const [isMonitorOnly, setIsMonitorOnly] = useState<boolean>(false);
   const [receptionStaff, setReceptionStaff] = useState<ReceptionStaff[]>([]);
+  const [diagnosisTemplates, setDiagnosisTemplates] = useState<any[]>([]);
+  const [clinicSettings, setClinicSettings] = useState<any>({
+    clinicName: 'DR.Maruf Clinic',
+    clinicPhone: '+998 71 123-45-67',
+    clinicAddress: 'Toshkent, O\'zbekiston',
+    recipeHeader: 'SHIFOKOR RETSEPTi (RECIPE)',
+    recipeFooter: 'Sog\'ayib keting! Qayta ko\'rik: Shifokor tavsiyasiga ko\'ra.',
+    ticketHeader: 'Tashrifingiz uchun rahmat!',
+    ticketFooter: 'Shifokor kabineti eshigi ustidagi monitorni kuzatib boring.',
+  });
 
   // Check if URL parameters request a standalone TV Monitor view
   useEffect(() => {
@@ -137,6 +147,24 @@ export default function App() {
         }
         setTransactions(activeTx);
 
+        // Load diagnosis templates
+        if (dbData.diagnosisTemplates) {
+          setDiagnosisTemplates(dbData.diagnosisTemplates);
+          localStorage.setItem('dr_maruf_diagnosis_templates', JSON.stringify(dbData.diagnosisTemplates));
+        } else {
+          const saved = localStorage.getItem('dr_maruf_diagnosis_templates');
+          if (saved) { try { setDiagnosisTemplates(JSON.parse(saved)); } catch (e) {} }
+        }
+
+        // Load clinic settings
+        if (dbData.clinicSettings) {
+          setClinicSettings(dbData.clinicSettings);
+          localStorage.setItem('dr_maruf_clinic_settings', JSON.stringify(dbData.clinicSettings));
+        } else {
+          const saved = localStorage.getItem('dr_maruf_clinic_settings');
+          if (saved) { try { setClinicSettings(JSON.parse(saved)); } catch (e) {} }
+        }
+
       } catch (err) {
         console.warn('⚠️ [Full-Stack API Fallback]: Could not query full-stack backend. Running purely from browser localStorage.', err);
         // Pure LocalStorage recovery if backend itself throws an exception
@@ -171,6 +199,18 @@ export default function App() {
     setReceptionStaff(updatedStaff);
     localStorage.setItem('dr_maruf_reception_staff', JSON.stringify(updatedStaff));
     saveToBackend('receptionStaff', updatedStaff);
+  };
+
+  const saveDiagnosisTemplates = (updated: any[]) => {
+    setDiagnosisTemplates(updated);
+    localStorage.setItem('dr_maruf_diagnosis_templates', JSON.stringify(updated));
+    saveToBackend('diagnosisTemplates', updated);
+  };
+
+  const saveClinicSettings = (updated: any) => {
+    setClinicSettings(updated);
+    localStorage.setItem('dr_maruf_clinic_settings', JSON.stringify(updated));
+    saveToBackend('clinicSettings', updated);
   };
 
   // Load session from localStorage on mount
@@ -579,6 +619,10 @@ export default function App() {
             inpatientStays={inpatientStays}
             receptionStaff={receptionStaff}
             setReceptionStaff={saveReceptionStaffList}
+            diagnosisTemplates={diagnosisTemplates}
+            setDiagnosisTemplates={saveDiagnosisTemplates}
+            clinicSettings={clinicSettings}
+            setClinicSettings={saveClinicSettings}
           />
         )}
 

@@ -150,3 +150,22 @@ export interface ReceptionStaff {
   login: string;
   password: string;
 }
+
+// Klinika sozlamalari
+export interface ClinicSettings {
+  clinicName: string;
+  clinicPhone: string;
+  clinicAddress: string;
+  recipeHeader: string;
+  recipeFooter: string;
+  ticketHeader: string;
+  ticketFooter: string;
+}
+
+// Kasallik-diagnoz shabloni
+export interface DiagnosisTemplate {
+  id: string;
+  name: string;
+  departmentId: string;
+  medications: Medication[];
+}
