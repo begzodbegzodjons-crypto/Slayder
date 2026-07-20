@@ -393,6 +393,134 @@ export async function exportClinicReportToExcel(opts: ExportOptions): Promise<vo
     ws5.getRow(r).height = 28;
   });
 
+  // Sheet 6: Department Services Breakdown (qo'shimcha xizmatlar bo'yicha alohida)
+  const ws6 = wb.addWorksheet('💊 Xizmatlar Tahlili', { properties: { tabColor: { argb: COLORS.purple.argb } }, views: [{ showGridLines: false }] });
+  ws6.columns = [
+    { width: 4 }, { width: 28 }, { width: 35 }, { width: 14 }, { width: 16 }, { width: 4 },
+  ];
+
+  ws6.mergeCells('B2:E2');
+  const t6 = ws6.getCell('B2');
+  t6.value = '💊 BO\'LIMLAR BO\'YICHA QO\'SHIMCHA XIZMATLAR TAHLILI';
+  t6.font = { name: FONT.family, size: 16, bold: true, color: { argb: COLORS.white.argb } };
+  t6.alignment = { horizontal: 'center', vertical: 'middle' };
+  t6.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purple };
+  ws6.getRow(2).height = 36;
+
+  ws6.getRow(3).height = 12;
+
+  // Headers
+  const h6 = ['Bo\'lim', 'Xizmat nomi', 'Mijozlar soni', 'Daromad (UZS)'];
+  h6.forEach((h, idx) => {
+    const cell = ws6.getCell(String.fromCharCode(66 + idx) + '4');
+    cell.value = h; cell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+  });
+  ws6.getRow(4).height = 36;
+
+  // Har bir bo'lim va uning xizmatlari bo'yicha ma'lumotlar
+  let row6 = 5;
+  let grandTotalCount = 0;
+  let grandTotalIncome = 0;
+
+  departments.forEach((dept, deptIdx) => {
+    const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+    const deptServices = dept.services || [];
+
+    // Bo'lim sarlavhasi
+    ws6.mergeCells(`B${row6}:E${row6}`);
+    const deptCell = ws6.getCell(`B${row6}`);
+    deptCell.value = `📋 ${dept.name} (${dept.doctorName}) — Jami ${deptPatients.length} bemor`;
+    deptCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+    deptCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    deptCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purple };
+    ws6.getRow(row6).height = 28;
+    row6++;
+
+    // Bo'lim bazaviy narxi (ko'rik)
+    const baseCount = deptPatients.length;
+    const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+    const servicesIncome = deptPatients.reduce((s, p) => {
+      return s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0);
+    }, 0);
+    const baseOnly = baseIncome - servicesIncome;
+
+    const rowBg = (deptIdx % 2 === 0) ? COLORS.slate50 : COLORS.white;
+
+    // Bo'lim bazaviy ko'rik
+    const baseVals: any[] = [dept.name, '📋 Ko\'rik (bazaviy narxi)', baseCount, baseOnly];
+    baseVals.forEach((val, ci) => {
+      const cell = ws6.getCell(String.fromCharCode(66 + ci) + row6);
+      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+      cell.alignment = { vertical: 'middle', horizontal: ci >= 2 ? 'center' : 'left', indent: ci < 2 ? 1 : 0 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+      if (ci === 3) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.income.argb } }; }
+    });
+    grandTotalCount += baseCount;
+    grandTotalIncome += baseOnly;
+    ws6.getRow(row6).height = 26;
+    row6++;
+
+    // Har bir xizmat bo'yicha
+    if (deptServices.length > 0) {
+      deptServices.forEach((svc) => {
+        // Shu xizmat tanlangan bemorlar soni
+        const svcPatients = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name));
+        const svcCount = svcPatients.length;
+        const svcIncome = svcCount * svc.price;
+
+        const svcVals: any[] = ['', `  💊 ${svc.name}`, svcCount, svcIncome];
+        svcVals.forEach((val, ci) => {
+          const cell = ws6.getCell(String.fromCharCode(66 + ci) + row6);
+          cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate700.argb } };
+          cell.alignment = { vertical: 'middle', horizontal: ci >= 2 ? 'center' : 'left', indent: ci < 2 ? 1 : 0 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+          cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+          if (ci === 2 && svcCount > 0) cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.blue.argb } };
+          if (ci === 3 && svcIncome > 0) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.income.argb } }; }
+        });
+        grandTotalCount += svcCount;
+        grandTotalIncome += svcIncome;
+        ws6.getRow(row6).height = 24;
+        row6++;
+      });
+    } else {
+      // Xizmatlar yo'q
+      ws6.mergeCells(`C${row6}:E${row6}`);
+      const noSvc = ws6.getCell(`C${row6}`);
+      noSvc.value = '  (Qo\'shimcha xizmatlar kiritilmagan)';
+      noSvc.font = { name: FONT.family, size: 9, italic: true, color: { argb: COLORS.slate500.argb } };
+      noSvc.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+      ws6.getRow(row6).height = 22;
+      row6++;
+    }
+  });
+
+  // Jami qator
+  ws6.mergeCells(`B${row6}:C${row6}`);
+  const totalLabel = ws6.getCell(`B${row6}`);
+  totalLabel.value = 'JAMI (barcha bo\'limlar va xizmatlar):';
+  totalLabel.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+  totalLabel.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+  totalLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+
+  const totalCountCell = ws6.getCell(`D${row6}`);
+  totalCountCell.value = grandTotalCount;
+  totalCountCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+  totalCountCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  totalCountCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+
+  const totalIncomeCell = ws6.getCell(`E${row6}`);
+  totalIncomeCell.value = grandTotalIncome;
+  totalIncomeCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+  totalIncomeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+  totalIncomeCell.numFmt = '#,##0" UZS"';
+  totalIncomeCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+  ws6.getRow(row6).height = 32;
+
   // Download
   const today = new Date().toISOString().split('T')[0];
   const fileName = `DR_Maruf_Hisobot_${range}_${today}.xlsx`;

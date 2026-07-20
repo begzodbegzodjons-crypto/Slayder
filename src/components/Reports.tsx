@@ -1138,6 +1138,86 @@ export const Reports: React.FC<ReportsProps> = ({
             </div>
           </div>
 
+          {/* Qo'shimcha xizmatlar bo'yicha tahlil - har bir bo'lim alohida */}
+          <div className="bg-white p-6 rounded-3xl border border-purple-200 shadow-sm">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4 pb-3 border-b border-slate-100">
+              💊 Qo'shimcha Xizmatlar Tahlili — Bo'limlar Bo'yicha ({selectedRange})
+            </h3>
+
+            <div className="space-y-4">
+              {DEPARTMENTS.map((dept) => {
+                const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+                const deptServices = dept.services || [];
+                const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+                const servicesIncome = deptPatients.reduce((s, p) => s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0), 0);
+                const baseOnly = baseIncome - servicesIncome;
+
+                return (
+                  <div key={dept.id} className="border border-slate-200 rounded-2xl overflow-hidden">
+                    {/* Bo'lim sarlavhasi */}
+                    <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-black text-purple-800">{dept.name}</span>
+                          <span className="text-[10px] text-slate-500 font-bold ml-2">{dept.doctorName}</span>
+                        </div>
+                        <span className="text-[10px] font-black text-purple-700 bg-white px-2 py-0.5 rounded border border-purple-200">
+                          {deptPatients.length} bemor • {baseIncome.toLocaleString()} UZS
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Xizmatlar ro'yxati */}
+                    <div className="p-3">
+                      {/* Bazaviy ko'rik */}
+                      <div className="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[9px] font-black uppercase">Ko'rik</span>
+                          <span className="font-bold text-slate-700">Bazaviy narxi</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-blue-600">{deptPatients.length} mijoz</span>
+                          <span className="font-black text-emerald-600">{baseOnly.toLocaleString()} UZS</span>
+                        </div>
+                      </div>
+
+                      {/* Har bir xizmat */}
+                      {deptServices.length > 0 ? (
+                        deptServices.map((svc) => {
+                          const svcPatients = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name));
+                          const svcCount = svcPatients.length;
+                          const svcIncome = svcCount * svc.price;
+                          const maxCount = Math.max(...deptServices.map((s) => deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((ps) => ps.id === s.id || ps.name === s.name)).length), 1);
+                          const barWidth = (svcCount / maxCount) * 100;
+
+                          return (
+                            <div key={svc.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 text-xs">
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0">💊 Xizmat</span>
+                                <span className="font-bold text-slate-700 truncate">{svc.name}</span>
+                                <span className="text-[9px] text-slate-400 shrink-0">({svc.price.toLocaleString()} UZS)</span>
+                              </div>
+                              <div className="flex items-center gap-3 shrink-0">
+                                <div className="w-24 bg-slate-100 rounded-full h-4 overflow-hidden">
+                                  <div className="bg-gradient-to-r from-purple-400 to-purple-600 h-full rounded-full flex items-center justify-end pr-1" style={{ width: `${Math.max(barWidth, svcCount > 0 ? 8 : 0)}%` }}>
+                                    {svcCount > 0 && <span className="text-[8px] text-white font-black">{svcCount}</span>}
+                                  </div>
+                                </div>
+                                <span className="font-black text-emerald-600 w-24 text-right">{svcIncome.toLocaleString()} UZS</span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <p className="text-[10px] text-slate-400 italic py-2 text-center">Qo'shimcha xizmatlar kiritilmagan</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Ambulatory search */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100 mb-6">
