@@ -139,3 +139,35 @@ Stage Summary:
 - Save queue + retry added (Task 5) — data survives temporary backend/network failures.
 - System is now clean (empty patients/transactions) and 100% safe for real customer input going forward.
 - All settings preserved.
+
+---
+Task ID: 8
+Agent: Main (orchestrator)
+Task: Restore real customer data from Excel file back into the system (TiDB).
+
+Work Log:
+- Found 3 Excel files in /home/z/Downloads/. The first file (DR_Maruf_Hisobot_Bugun_2026-07-21.xlsx, 27861 bytes, created 12:13) contained REAL customer data exported before the wipe.
+- Read the Excel file using ExcelJS:
+  * Sheet "👥 Ambulator Bemorlar": 80 real patients (P-1219 to P-1298) with name, department, doctor, payment amount, payment status, status, createdAt, diagnosis
+  * Sheet "💰 Kassa & Tranzaksiyalar": 114 transactions (Kirim 5,895,000 UZS + Chiqim 655,000 UZS)
+  * Sheet "🏥 Statsionar Bemorlar": 3 inpatient stays (P-1288, P-1293, P-1295 — all Nevrologiya, 750,000 UZS each, Davolanmoqda)
+- Parsed all data, mapped department names to IDs, converted Russian date format (DD.MM.YYYY, HH:MM) to ISO
+- Reconstructed Patient objects with all fields: id, queueNumber, lastName, firstName, phone, departmentId, doctorName, paymentAmount, paymentStatus, status, createdAt, diagnosis (where available), refundStatus (for Bekor qilingan patients)
+- Reconstructed Transaction objects: id, type, amount, category, description, date, time, createdAt
+- Reconstructed InpatientStay objects: id, patientId, lastName, firstName, roomNumber, departmentName, departmentId, doctorName, checkInDate, plannedDays, pricePerDay, totalCost, amountPaid, remainingDebt, status, diagnosis
+- Saved all 3 collections to TiDB via POST /api/save — all succeeded
+- Fixed department ID mismatch: Fizioterapiya department ID was "fizioterapiya-115" (not "fizioterapiya"), updated 12 affected patients
+- Verified via Agent Browser:
+  * Dashboard shows 80 patients, 5,895,000 UZS income, 655,000 UZS expenses, 5,240,000 UZS net profit ✓
+  * Department breakdown: LOR 44, Nevrologiya 11, Laboratoriya 13, Fizioterapiya 12 = 80 total ✓
+  * Inpatient audit: 3 active patients (Sobirova Sanoatxon P-1288, Axmedova Xolisxon P-1293, Umarova Sojida P-1295) ✓
+  * Excel export: 9 sheets generated with zero console/runtime errors ✓
+- Cleaned up all temporary scripts
+
+Stage Summary:
+- 80 real patients RESTORED to TiDB from Excel backup
+- 114 transactions RESTORED (5,895,000 UZS Kirim + 655,000 UZS Chiqim = 5,240,000 UZS Sof)
+- 3 inpatient stays RESTORED (Nevrologiya, 750,000 UZS each, all active)
+- All financial totals match the Excel exactly
+- Data is now permanently safe in TiDB (demo-wipe code removed in Task 5, save queue + retry added)
+- NOTE: Phone numbers could not be fully restored (Excel truncated them to "+998" for most patients). selectedServices per patient could not be reconstructed from Excel (only total amount was available). Total payment amounts are fully preserved.
