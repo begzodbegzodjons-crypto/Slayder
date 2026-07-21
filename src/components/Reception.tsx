@@ -228,8 +228,13 @@ export const Reception: React.FC<ReceptionProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
-  // Sana filtri - default bugun
+  // Sana filtri - default bugun (har safar yangilanadi)
   const [queueDateFilter, setQueueDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Har safar sahifa yangilanganda yoki komponent mount bo'lganda bugungi sanani o'rnatish
+  useEffect(() => {
+    setQueueDateFilter(new Date().toISOString().split('T')[0]);
+  }, []);
 
   // Print ticket success flash alert
   const [printedPatient, setPrintedPatient] = useState<Patient | null>(null);
