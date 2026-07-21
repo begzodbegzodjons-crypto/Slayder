@@ -193,28 +193,31 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
       console.log('Audio error:', e);
     }
 
-    // 2. Play professional voice notification (TTS) in Uzbek
+    // 2. Bemor nomini toza o'zbek tilida ovozli e'lon qilish (TTS)
+    // MUHIM: Faqat o'zbek tili (uz-UZ) ishlatiladi — ruscha/turkcha ovozlar OLIB TASHLANDI.
+    // Brauzerda o'zbek ovozi bo'lmasa, default ovozdan foydalaniladi (nutq matni o'zbekcha).
     try {
       const deptName = getDeptName(patient.departmentId);
       const room = getRoomNumber(patient.departmentId);
       const speechText = `Navbat ${patient.queueNumber}. ${patient.lastName} ${patient.firstName}. ${deptName}, ${room}ga marhamat!`;
-      
+
       const utterance = new SpeechSynthesisUtterance(speechText);
-      // Select appropriate voice rate and pitch
-      utterance.rate = 0.85; // slightly slower for clarity
+      // O'zbek tili majburiy — brauzer o'zbek ovozini tanlaydi
+      utterance.lang = 'uz-UZ';
+      utterance.rate = 0.85; // aniq chiqishi uchun biroz sekinroq
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
-      
-      // Try to find a Turkic/Uzbek or Russian voice for better phonetics if available
+
+      // Faqat o'zbek ovozini tanlaymiz — ruscha/turkcha EMAS
       const voices = window.speechSynthesis.getVoices();
-      const trVoice = voices.find(v => v.lang.startsWith('tr'));
-      const ruVoice = voices.find(v => v.lang.startsWith('ru'));
-      if (trVoice) {
-        utterance.voice = trVoice;
-      } else if (ruVoice) {
-        utterance.voice = ruVoice;
+      const uzVoice = voices.find(v => v.lang.toLowerCase().startsWith('uz'));
+      if (uzVoice) {
+        utterance.voice = uzVoice;
       }
-      
+      // Agar o'zbek ovozi topilmasa — default ovoz ishlatiladi,
+      // lekin nutq matni (speechText) o'zbekcha bo'lgani uchun
+      // brauzer uni imkon qadar o'zbekcha o'qishga harakat qiladi.
+
       setTimeout(() => {
         window.speechSynthesis.speak(utterance);
       }, 1000);

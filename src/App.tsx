@@ -86,12 +86,15 @@ export default function App() {
       // Navbatdagi har bir kalitni ketma-ket saqlaymiz (oxirgi versiyasi bilan)
       const keys = Array.from(saveQueueRef.current.keys());
       for (const key of keys) {
-        const data = saveQueueRef.current.get(key);
+        const queued = saveQueueRef.current.get(key);
+        // queued format: { data, forceReplace } yoki to'g'ridan-to'g'ri data (eskilarga mos)
+        const data = queued && typeof queued === 'object' && 'data' in queued ? queued.data : queued;
+        const forceReplace = queued && typeof queued === 'object' && 'forceReplace' in queued ? queued.forceReplace : false;
         try {
           const response = await fetch(`${API_BASE}/api/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key, data }),
+            body: JSON.stringify({ key, data, forceReplace }),
           });
           if (response.ok) {
             // Muvaffaqiyatli — navbatdan o'chiramiz
@@ -111,15 +114,15 @@ export default function App() {
   };
 
   // Helper to save a collection to the backend TiDB database.
-  // AWAIT bilan ishlaydi — race condition yo'q. Relative URL dev'da local serverga,
-  // prod'da Cloudflare Worker'ga boradi. Xato bo'lsa navbatga qo'yiladi va qayta uriniladi.
-  const saveToBackend = async (key: string, data: any) => {
+  // AWAIT bilan ishlaydi. Xato bo'lsa navbatga qo'yiladi va qayta uriniladi.
+  // forceReplace=true bo'lsa — server merge qilmaydi, to'liq almashtiradi (o'chirish uchun)
+  const saveToBackend = async (key: string, data: any, forceReplace: boolean = false) => {
     // 1) Darhol urinish — tez saqlash uchun
     try {
       const response = await fetch(`${API_BASE}/api/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, data }),
+        body: JSON.stringify({ key, data, forceReplace }),
       });
       if (response.ok) {
         return; // muvaffaqiyatli
@@ -129,7 +132,7 @@ export default function App() {
       console.error(`Backend sync failed for ${key}:`, err, '— navbatga qo\'yildi');
     }
     // 2) Xato bo'lsa — navbatga qo'yamiz va keyin qayta urinamiz
-    saveQueueRef.current.set(key, data);
+    saveQueueRef.current.set(key, { data, forceReplace });
     // 3 soniyadan so'ng navbatni tozalash (backend tiklangan bo'lishi mumkin)
     setTimeout(() => { flushSaveQueue(); }, 3000);
   };
@@ -333,10 +336,10 @@ export default function App() {
   // 2. React state yangilanadi (UI tez yangilanadi)
   // 3. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
   // 4. Server saqlagandan keyin SSE orqali boshqa qurilmalarga yuboradi
-  const savePatientsList = async (updatedPatients: Patient[]) => {
+  const savePatientsList = async (updatedPatients: Patient[], forceReplace: boolean = false) => {
     patientsRef.current = updatedPatients; // REF first
     setPatients(updatedPatients);
-    await saveToBackend('patients', updatedPatients); // AWAIT — TiDB saqlaydi, server SSE broadcast qiladi
+    await saveToBackend('patients', updatedPatients, forceReplace); // AWAIT — TiDB saqlaydi, server SSE broadcast qiladi
   };
 
   // Save departments to backend
@@ -570,11 +573,11 @@ export default function App() {
     alert("Arxiv o'chirilmaydi!");
   };
 
-  // Delete/reject a patient (rad etish) — uses REF
-  // ASYNC: save AWAIT qilinadi
+  // Bemorni o'chirish (rad etish) — uses REF
+  // forceReplace=true — server merge qilmaydi, bemor haqiqatan o'chiriladi
   const handleDeletePatient = async (patientId: string) => {
     const updated = patientsRef.current.filter((p) => p.id !== patientId);
-    await savePatientsList(updated);
+    await savePatientsList(updated, true);
   };
 
   // To'lov qaytarish (refund) - bemor to'lov qilgan, lekin davolanishdan bosh tortgan

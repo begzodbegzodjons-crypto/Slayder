@@ -226,9 +226,10 @@ async function startServer() {
   // API Route: Save specific clinic collection (supports arrays AND objects for clinicSettings)
   // MUHIM: Har saqlashda avtomatik zaxira nusxa olinadi — hech qachon yo'qolmaydi
   // SAQLASH TUGAGACH — SSE orqali barcha mijozlarga real-time yuboriladi
+  // patients va transactions uchun server merge-on-write qiladi (db-store.ts)
   app.post('/api/save', async (req, res) => {
     try {
-      const { key, data } = req.body;
+      const { key, data, forceReplace } = req.body;
       if (!key || data === undefined || data === null) {
         return res.status(400).json({ error: 'Kalit va ma\'lumot kiritilishi shart.' });
       }
@@ -236,16 +237,15 @@ async function startServer() {
       // AVVAL zaxira olish — keyin saqlash (xato bo'lsa ham zaxira bor)
       backupOnSave(key, data);
 
-      const success = await saveCollection(key, data);
+      const success = await saveCollection(key, data, forceReplace === true);
       if (success) {
-        // Real-time: barcha ochiq sahifalarga darhol yuborish
-        broadcastChange(key, data);
-        // Agar inpatientStays o'zgarsa — hospitalRooms ham yangilanishi kerak
-        // (occupiedBeds server loadData'da qayta hisoblanadi)
+        // Merge bo'lganidan keyin fresh ma'lumotni o'qib broadcast qilamiz
+        const freshAll = await loadData();
+        const freshData = (freshAll as any)[key];
+        broadcastChange(key, freshData);
         if (key === 'inpatientStays') {
-          const fresh = await loadData();
-          broadcastChange('hospitalRooms', fresh.hospitalRooms);
-          broadcastChange('inpatientStays', fresh.inpatientStays);
+          broadcastChange('hospitalRooms', freshAll.hospitalRooms);
+          broadcastChange('inpatientStays', freshAll.inpatientStays);
         }
         res.json({ success: true, message: `Muvaffaqiyatli saqlandi: ${key}` });
       } else {
@@ -288,8 +288,13 @@ async function startServer() {
       const keys = Object.keys(data).filter((k: string) => !k.startsWith('_'));
       let restored = 0;
       for (const key of keys) {
-        const success = await saveCollection(key, data[key]);
-        if (success) restored++;
+        // forceReplace=true — backup'dagi ma'lumot to'liq tiklanadi (merge emas)
+        const success = await saveCollection(key, data[key], true);
+        if (success) {
+          restored++;
+          // Tiklangan ma'lumotni SSE orqali broadcast qilish
+          broadcastChange(key, data[key]);
+        }
       }
       res.json({ success: true, message: `${restored} ta kalit tiklandi`, restored, keys });
     } catch (err: any) {

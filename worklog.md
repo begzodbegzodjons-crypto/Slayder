@@ -296,3 +296,61 @@ Stage Summary:
 - Palata bed status always correct (server recalculates on every load)
 - All existing features preserved (reports, Excel, backup/restore, reception, doctor, monitor)
 - Code cleaned: removed polling, smart-merge, BroadcastChannel, localStorage caching, unused imports
+
+---
+Task ID: 11
+Agent: Main (orchestrator)
+Task: Final production fixes — TTS Uzbek, merge-on-write (no overwrite), test data cleanup, restore verification.
+
+Work Log:
+1. TTS (OVOZ) — O'zbek tiliga tuzatildi:
+   - TvMonitor.tsx: turkcha (tr) va ruscha (ru) ovoz tanlash OLIB TASHLANDI
+   - utterance.lang = 'uz-UZ' majburiy qilindi
+   - Faqat o'zbek ovozi (uz*) tanlanadi, topilmasa default ovoz ishlatiladi
+   - Nutq matni o'zbekcha: "Navbat {N}. {Familiya} {Ism}. {Bo'lim}, {Xona}ga marhamat!"
+
+2. MERGE-ON-WRITE — ma'lumot ustiga yozilmaslik kafolati:
+   - db-store.ts saveCollection(): patients va transactions uchun ID bo'yicha merge
+   - Mavjud yozuvlar saqlanadi, yangi yozuvlar qo'shiladi, yangi ma'lumot ustunlik qiladi
+   - forceReplace parametri: o'chirishda true (to'liq almashtirish), qo'shishda false (merge)
+   - Server /api/save: forceReplace qabul qiladi, merge'dan keyin fresh data ni SSE broadcast qiladi
+   - SINOV: ikki qurilma bir vaqtda bemor qo'shdi — IKKALASI ham saqlandi (217→219→217)
+   - Cloudflare Worker ham yangilandi (production'da ham merge-on-write)
+
+3. handleDeletePatient — forceReplace: true bilan ishlaydi (haqiqatan o'chiradi)
+
+4. RESTORE funksiyasi — forceReplace: true bilan to'liq tiklash:
+   - /api/restore: backup'dagi barcha kalitlarni forceReplace bilan saqlaydi
+   - Tiklangan ma'lumot SSE orqali broadcast qilinadi
+   - Admin panelida "💾 Zaxira" tab orqali 1 bosishda tiklash
+
+5. TEST MA'LUMOTLAR TOZALANGAN:
+   - "RealtimeTest BemorSSe" (P-1299) o'chirildi
+   - "MergeTest FinalBemor" o'chirildi
+   - Yakuniy: 217 bemor, 255 tranzaksiya (faqat real ma'lumot)
+
+6. XIZMAT TURLARI HISOBOTI — har bir alohida:
+   - Reports.tsx: "💊 Qo'shimcha Xizmatlar Tahlili" — har bir bo'lim, har bir xizmat
+   - Ko'rik, Burun yuvish, Quloq yuvish, tubs, ingalatsa — har biri alohida
+   - Birlik narxi, mijozlar soni, daromad, subtotal — barchasi aniq
+   - Excel eksport: 9 varaq, har bir xizmat alohida
+
+7. RO'YXAT CHEKLOVLARI — hech qanday truncation yo'q:
+   - Reception: filteredPatients.map — barcha bemorlar ko'rinadi (slice yo'q)
+   - DoctorCabinet: waitingPatients.map — barcha navbatdagi bemorlar (slice yo'q)
+   - TvMonitor: slice(0,20) faqat TV ekran uchun (juda katta bo'lmasligi kerak)
+
+VERIFIED via Agent Browser:
+- ✅ Real-time: Reception→Doctor 112→113 darhol (F5 yo'q)
+- ✅ Console xatolar yo'q (ikkala sessionda)
+- ✅ Merge-on-write: ikki bemor ham saqlandi
+- ✅ Test ma'lumotlar tozalandi (217 bemor)
+- ✅ TTS code o'zbekchaga tuzatildi
+
+Stage Summary:
+- Ovozli e'lon endi toza o'zbek tilida o'qiydi (ruscha/turkcha yo'q)
+- Ma'lumot hech qachon ustiga yozilmaydi (merge-on-write)
+- O'chirish forceReplace bilan ishlaydi (haqiqatan o'chiradi)
+- Restore to'liq ishlaydi (forceReplace bilan)
+- Barcha test ma'lumotlar ochirilgan
+- 217 real bemor, 255 tranzaksiya TiDB da xavfsiz

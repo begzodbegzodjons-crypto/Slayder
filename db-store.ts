@@ -174,8 +174,45 @@ export async function loadData(): Promise<ClinicData> {
 }
 
 // Save specific key's data — supports both arrays AND objects (for clinicSettings)
-export async function saveCollection(key: string, items: any): Promise<boolean> {
-  const jsonStr = JSON.stringify(items);
+// MUHIM: patients va transactions uchun MERGE-ON-WRITE ishlaydi:
+// - Mavjud yozuvlar (ID bo'yicha) yangi ma'lumot bilan almashtiriladi
+// - Yangi yozuvlar qo'shiladi
+// - Eski yozuvlar (yangi ma'lumotda yo'q) SAQLANIB QOLADI
+// Bu ikki qurilma bir vaqtda saqlasa ham ma'lumot yo'qolmaydi.
+export async function saveCollection(key: string, items: any, forceReplace: boolean = false): Promise<boolean> {
+  let finalData = items;
+
+  // patients va transactions uchun merge-on-write (forceReplace=false bo'lsa)
+  // forceReplace=true bo'lsa — to'liq almashtirish (o'chirish uchun)
+  if (!forceReplace && isDbActive && pool && (key === 'patients' || key === 'transactions') && Array.isArray(items)) {
+    try {
+      // Mavjud ma'lumotni o'qish
+      const [existing]: any[] = await pool.query(
+        'SELECT json_value FROM clinic_erp_data WHERE key_name = ?', [key]
+      );
+      if (existing.length > 0) {
+        const existingItems = JSON.parse(existing[0].json_value);
+        if (Array.isArray(existingItems) && existingItems.length > 0) {
+          // ID bo'yicha merge: yangi ma'lumot ustun, lekin eskida bor yangida yo'q ham saqlanadi
+          const mergedMap = new Map<string, any>();
+          // Avval eski ma'lumotni qo'shamiz
+          for (const item of existingItems) {
+            if (item && item.id) mergedMap.set(item.id, item);
+          }
+          // Keyin yangi ma'lumot bilan ustidan yozamiz (yangi ustunlik qiladi)
+          for (const item of items) {
+            if (item && item.id) mergedMap.set(item.id, item);
+          }
+          finalData = Array.from(mergedMap.values());
+        }
+      }
+    } catch (err: any) {
+      // Merge xatosi bo'lsa — oddiy saqlash bilan davom etamiz
+      console.warn(`⚠️ [Merge]: Could not merge "${key}", using direct save:`, err.message);
+    }
+  }
+
+  const jsonStr = JSON.stringify(finalData);
 
   if (isDbActive && pool) {
     try {

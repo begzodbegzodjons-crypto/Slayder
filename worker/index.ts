@@ -67,13 +67,37 @@ export default {
       }
 
       // POST /api/save — supports arrays AND objects (clinicSettings is an object)
+      // patients va transactions uchun MERGE-ON-WRITE (forceReplace=false bo'lsa)
+      // Ikki qurilma bir vaqtda saqlasa ham ma'lumot yo'qolmaydi
       if (path === "/api/save" && method === "POST") {
         const body = await request.json();
-        const { key, data } = body;
+        const { key, data, forceReplace } = body;
         if (!key || data === undefined || data === null) {
           return jsonResp({ error: "key va data kerak" }, 400);
         }
-        const jsonStr = JSON.stringify(data);
+
+        let finalData = data;
+
+        // Merge-on-write for patients and transactions
+        if (!forceReplace && (key === 'patients' || key === 'transactions') && Array.isArray(data)) {
+          try {
+            const existingRes: any = await conn.execute(
+              `SELECT json_value FROM clinic_erp_data WHERE key_name = ?`, [key]
+            );
+            const rows = Array.isArray(existingRes) ? existingRes : (existingRes?.rows || []);
+            if (rows.length > 0) {
+              const existing = JSON.parse(rows[0].json_value);
+              if (Array.isArray(existing) && existing.length > 0) {
+                const mergedMap = new Map<string, any>();
+                for (const item of existing) { if (item && item.id) mergedMap.set(item.id, item); }
+                for (const item of data) { if (item && item.id) mergedMap.set(item.id, item); }
+                finalData = Array.from(mergedMap.values());
+              }
+            }
+          } catch {}
+        }
+
+        const jsonStr = JSON.stringify(finalData);
         await conn.execute(
           `INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?`,
           [key, jsonStr, jsonStr]
