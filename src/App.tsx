@@ -123,7 +123,39 @@ export default function App() {
         // 5. Load patients
         let activePatients = INITIAL_PATIENTS;
         if (dbData.patients !== undefined) {
-          activePatients = dbData.patients;
+          // Merge: backend'dan kelgan ma'lumotni local ma'lumot bilan birlashtiramiz
+          // Agar local'da bemorning selectedServices'i bor lekin backend'da yo'q bo'lsa
+          // (sync poygasi tufayli yo'qolgan bo'lsa), local ma'lumotni saqlab qolamiz
+          const backendPatients = dbData.patients;
+          const localPatientsStr = localStorage.getItem('dr_maruf_patients_list');
+          let localPatients: any[] = [];
+          if (localPatientsStr) {
+            try { localPatients = JSON.parse(localPatientsStr); } catch (e) {}
+          }
+
+          // Merge: backend patients + local patients (selectedServices yo'qolmasin)
+          const localMap = new Map(localPatients.map((p: any) => [p.id, p]));
+          activePatients = backendPatients.map((bp: any) => {
+            const lp = localMap.get(bp.id);
+            if (lp) {
+              // Agar local'da selectedServices bor lekin backend'da yo'q bo'lsa - local'nikini saqlaymiz
+              if (lp.selectedServices && lp.selectedServices.length > 0 && (!bp.selectedServices || bp.selectedServices.length === 0)) {
+                return { ...bp, selectedServices: lp.selectedServices };
+              }
+              // Agar local'da ko'proq ma'lumot bo'lsa (prescriptions, diagnosis va h.k.)
+              return { ...bp, ...lp, ...bp }; // backend ustun, lekin local bo'sh bo'lmagan maydonlarni saqlaymiz
+            }
+            return bp;
+          });
+
+          // Local'da bor lekin backend'da yo'q bemorlarni qo'shamiz
+          const backendIds = new Set(backendPatients.map((p: any) => p.id));
+          for (const lp of localPatients) {
+            if (!backendIds.has(lp.id)) {
+              activePatients.push(lp);
+            }
+          }
+
           localStorage.setItem('dr_maruf_patients_list', JSON.stringify(activePatients));
         } else {
           const saved = localStorage.getItem('dr_maruf_patients_list');
