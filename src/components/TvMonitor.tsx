@@ -55,97 +55,65 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
     setZoomLevel((prev) => Math.max(prev - 0.1, 0.7));
   };
 
-  // Sync state from localStorage & Live database API polling for multi-tab/multi-device HDMI operation
+  // =====================================================
+  // REAL-TIME SSE — polling yo'q!
+  // Server ma'lumot o'zgarganda darhol yangilanadi.
+  // Aloqasi uzilsa — avtomatik qayta ulanadi.
+  // =====================================================
+  const API_BASE = import.meta.env.DEV ? '' : 'https://medical-pro-api.norinkomp.workers.dev';
+
   useEffect(() => {
-    // 1. Storage / Local cache fallback sync
-    const handleSyncFromLocal = () => {
-      const savedPatients = localStorage.getItem('dr_maruf_patients_list');
-      if (savedPatients) {
-        try {
-          const parsed = JSON.parse(savedPatients) as Patient[];
-          setLocalPatients(parsed);
-        } catch (e) {
-          // Ignored
-        }
-      }
-
-      const savedDepts = localStorage.getItem('dr_maruf_departments');
-      if (savedDepts) {
-        try {
-          const parsed = JSON.parse(savedDepts) as Department[];
-          setLocalDepts(parsed);
-        } catch (e) {
-          // Ignored
-        }
-      }
-    };
-
-    // 2. Main Live API Fetch Sync (with active retry and status management)
-    const handleSyncFromDatabase = async () => {
+    // 1) Boshlang'ich ma'lumotni yuklash
+    const loadInitial = async () => {
       try {
-        const res = await fetch('https://medical-pro-api.norinkomp.workers.dev/api/data');
+        const res = await fetch(`${API_BASE}/api/data`);
         if (!res.ok) throw new Error('API server down');
-        
         const dbData = await res.json();
-        
-        // Sync patients list
-        if (dbData.patients) {
-          setLocalPatients(dbData.patients);
-          localStorage.setItem('dr_maruf_patients_list', JSON.stringify(dbData.patients));
-        }
-
-        // Sync departments list
-        if (dbData.departments) {
-          setLocalDepts(dbData.departments);
-          localStorage.setItem('dr_maruf_departments', JSON.stringify(dbData.departments));
-        }
-
+        if (dbData.patients) setLocalPatients(dbData.patients);
+        if (dbData.departments) setLocalDepts(dbData.departments);
         setConnectionStatus('online');
       } catch (err) {
-        console.warn('⚠️ [TV Monitor Sync]: Server unreachable, falling back to cached local storage.', err);
         setConnectionStatus('offline');
-        handleSyncFromLocal();
       }
     };
+    loadInitial();
 
-    // Initial load
-    handleSyncFromDatabase();
+    // 2) SSE ulanish — real-time yangilanishlar
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    // Check storage changes
-    window.addEventListener('storage', handleSyncFromLocal);
-
-    // Sync via broadcast channel if supported
-    let channel: BroadcastChannel | null = null;
-    try {
-      channel = new BroadcastChannel('dr_maruf_queue_channel');
-      channel.onmessage = (event) => {
-        if (event.data) {
-          if (event.data.type === 'CALL_PATIENT' && event.data.data) {
-            setLocalPatients(event.data.data);
-            localStorage.setItem('dr_maruf_patients_list', JSON.stringify(event.data.data));
-          } else if (event.data.type === 'UPDATE_DEPARTMENTS' && event.data.data) {
-            setLocalDepts(event.data.data);
-            localStorage.setItem('dr_maruf_departments', JSON.stringify(event.data.data));
-          } else {
-            handleSyncFromDatabase();
-          }
-        }
-      };
-    } catch (e) {
-      // Ignored
-    }
-
-    // Polling interval (Every 1.5 seconds for instant queue updates on HDMI screen)
-    const interval = setInterval(handleSyncFromDatabase, 1500);
+    const connectSSE = () => {
+      try {
+        es = new EventSource(`${API_BASE}/api/events`);
+        es.onopen = () => setConnectionStatus('online');
+        es.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'connected') return;
+            if (msg.type === 'update') {
+              if (msg.key === 'patients') setLocalPatients(msg.data);
+              else if (msg.key === 'departments') setLocalDepts(msg.data);
+            }
+          } catch {}
+        };
+        es.onerror = () => {
+          setConnectionStatus('offline');
+          if (es) { try { es.close(); } catch {} es = null; }
+          reconnectTimer = setTimeout(connectSSE, 3000);
+        };
+      } catch {
+        reconnectTimer = setTimeout(connectSSE, 3000);
+      }
+    };
+    connectSSE();
 
     return () => {
-      window.removeEventListener('storage', handleSyncFromLocal);
-      if (channel) channel.close();
-      clearInterval(interval);
+      if (es) { try { es.close(); } catch {} }
+      if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, []);
 
-  // Update localPatients instantly when patients prop changes (important for same-tab simulator)
+  // Update localPatients instantly when patients prop changes (important for same-tab inline preview)
   useEffect(() => {
     if (patients) {
       setLocalPatients(patients);

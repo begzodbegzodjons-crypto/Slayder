@@ -228,3 +228,71 @@ Stage Summary:
 - Admin can create/restore backups from UI with 1 click
 - Data can NEVER be lost again — every save is backed up first
 - All existing features preserved (reports, Excel export, reception, etc.)
+
+---
+Task ID: 10
+Agent: Main (orchestrator)
+Task: Professional production-ready overhaul: SSE real-time, bed status fix, cleanup, no polling, no data loss.
+
+Work Log:
+1. PALATA BED STATUS FIX (db-store.ts):
+   - Added occupiedBeds recalculation in loadData() — server always returns correct bed counts
+   - Matches active inpatient stays (status='Davolanmoqda') by roomId OR roomNumber
+   - Verified: 3 active inpatients → rooms 2, 7, 8 correctly show 1/2 occupied
+
+2. SSE (Server-Sent Events) REAL-TIME SYSTEM (server.ts):
+   - Added /api/events SSE endpoint with proper headers (no-cache, keep-alive, X-Accel-Buffering: no)
+   - sseClients Set tracks all connected clients
+   - broadcastChange() sends updates to all clients instantly when /api/save completes
+   - 30-second heartbeat keeps connection alive
+   - When inpatientStays saved → server also broadcasts fresh hospitalRooms (with recalculated occupiedBeds)
+   - NO MORE POLLING — zero unnecessary API calls
+
+3. APP.TSX SSE MIGRATION:
+   - Removed entire 5-second polling initAndSyncData() function (200+ lines)
+   - Removed smart-merge logic (no longer needed — SSE delivers server-authoritative data)
+   - Removed BroadcastChannel usage in savePatientsList (server-side SSE broadcast replaces it)
+   - Removed unused imports: INITIAL_PATIENTS, INITIAL_ROOMS, INITIAL_STAYS, isSyncingRef
+   - New architecture: 1-time initial load + persistent EventSource connection with auto-reconnect (3s)
+   - SSE onmessage updates both ref AND state for each key (patients, transactions, departments, etc.)
+   - Save flow: update ref → set state → AWAIT backend save → server broadcasts via SSE → all tabs update
+
+4. TVMONITOR SSE MIGRATION:
+   - Removed 1.5-second polling (hardcoded production URL)
+   - Removed localStorage caching (dr_maruf_patients_list, dr_maruf_departments)
+   - Removed BroadcastChannel subscription
+   - New: 1-time load + EventSource with auto-reconnect
+   - Connection status (online/offline) driven by SSE events
+   - Uses relative API_BASE (dev) / worker URL (prod) consistently
+
+5. DOCTOR QUEUE CLEARING — verified purely visual:
+   - isQueueCleared is local React state, never sent to backend
+   - "Tozalash" button only sets isQueueCleared=true → waitingPatients becomes []
+   - "Qayta ko'rsatish" restores the list
+   - Verified: after clearing, TiDB still has 218 patients, 202 still 'Kutmoqda'
+   - SSE updates don't reset isQueueCleared (it's a display filter, not data)
+
+6. CODE CLEANUP:
+   - Removed all demo/unused code from App.tsx (INITIAL_PATIENTS etc.)
+   - Removed unused isSyncingRef
+   - TvMonitor no longer writes to localStorage
+   - No console errors, no runtime errors in either session
+
+VERIFIED via Agent Browser (2 parallel sessions):
+- ✅ Reception registered patient → TiDB saved (217→218) → Doctor cabinet updated 112→113 in REAL-TIME (no F5)
+- ✅ Doctor queue clearing → screen cleared (113→0) but TiDB data intact (218 patients, 202 Kutmoqda)
+- ✅ Doctor "Qayta ko'rsatish" → queue restored (113)
+- ✅ Palata bed status: rooms 2,7,8 show 1/2 occupied (matches 3 active inpatients)
+- ✅ Reports: 81 patients, 5,935,000 UZS (correct)
+- ✅ Excel export: 9 sheets, zero errors
+- ✅ TV monitor: SSE connected, no errors
+- ✅ Auto backups: every 5 min (18 hourly + 3 daily)
+- ✅ Zero console/runtime errors across all sessions
+
+Stage Summary:
+- PRODUCTION-READY: SSE real-time (no polling), correct bed status, data never lost
+- Reception → Doctor → Monitor → Cashier all update instantly via SSE
+- Doctor queue clearing is purely visual — zero data deletion
+- Palata bed status always correct (server recalculates on every load)
+- All existing features preserved (reports, Excel, backup/restore, reception, doctor, monitor)
+- Code cleaned: removed polling, smart-merge, BroadcastChannel, localStorage caching, unused imports

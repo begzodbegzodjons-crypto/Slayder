@@ -7,7 +7,7 @@ import { Reports } from './components/Reports';
 import { LoginPage } from './components/LoginPage';
 import { AdminPanel } from './components/AdminPanel';
 import { Patient, Department, UserSession, HospitalRoom, InpatientStay, ClinicTransaction, ReceptionStaff, PatientVisit } from './types';
-import { INITIAL_PATIENTS, DEPARTMENTS, INITIAL_ROOMS, INITIAL_STAYS } from './data';
+import { DEPARTMENTS } from './data';
 import { Monitor, ShieldCheck } from 'lucide-react';
 
 // API base URL — relative in dev (hits local server → TiDB), absolute in prod (Cloudflare Worker → TiDB)
@@ -49,8 +49,6 @@ export default function App() {
 
   // Timestamp of the last local save — sync skips overwriting within 4 seconds
   const lastLocalSaveRef = useRef<number>(0);
-  // Prevents concurrent sync runs
-  const isSyncingRef = useRef<boolean>(false);
 
   // Keep refs in sync with state
   useEffect(() => { patientsRef.current = patients; }, [patients]);
@@ -269,188 +267,6 @@ export default function App() {
       if (reconnectTimer) clearTimeout(reconnectTimer);
     };
   }, []);
-      // Agar local save 4 soniya ichida bo'lsa — sync o'tkazamiz (overwrite xavfi yo'q)
-      const sinceLastSave = Date.now() - lastLocalSaveRef.current;
-      if (sinceLastSave < 4000) return;
-      // Oldingi sync tugamagan bo'lsa — o'tkazamiz
-      if (isSyncingRef.current) return;
-      isSyncingRef.current = true;
-
-      try {
-        const response = await fetch(`${API_BASE}/api/data`);
-        if (!response.ok) throw new Error('API server unreachable');
-        const dbData = await response.json();
-
-        // 1. Load departments
-        if (dbData.departments && dbData.departments.length > 0) {
-          departmentsRef.current = dbData.departments;
-          setDepartments(dbData.departments);
-        } else if (departmentsRef.current.length === 0) {
-          // First load with empty backend — seed defaults
-          departmentsRef.current = DEPARTMENTS;
-          setDepartments(DEPARTMENTS);
-          await saveToBackend('departments', DEPARTMENTS);
-        }
-
-        // 2. Load reception staff
-        if (dbData.receptionStaff && dbData.receptionStaff.length > 0) {
-          receptionStaffRef.current = dbData.receptionStaff;
-          setReceptionStaff(dbData.receptionStaff);
-        } else if (receptionStaffRef.current.length === 0) {
-          const def = [{ id: 'rep-1', name: 'Qabulxona xodimi', login: 'qabul', password: 'qabul123' }];
-          receptionStaffRef.current = def;
-          setReceptionStaff(def);
-          await saveToBackend('receptionStaff', def);
-        }
-
-        // 3. Load hospital rooms
-        if (dbData.hospitalRooms !== undefined) {
-          hospitalRoomsRef.current = dbData.hospitalRooms;
-          setHospitalRooms(dbData.hospitalRooms);
-        } else if (hospitalRoomsRef.current.length === 0) {
-          hospitalRoomsRef.current = INITIAL_ROOMS;
-          setHospitalRooms(INITIAL_ROOMS);
-          await saveToBackend('hospitalRooms', INITIAL_ROOMS);
-        }
-
-        // 4. Load inpatient stays
-        if (dbData.inpatientStays !== undefined) {
-          inpatientStaysRef.current = dbData.inpatientStays;
-          setInpatientStays(dbData.inpatientStays);
-        } else if (inpatientStaysRef.current.length === 0) {
-          inpatientStaysRef.current = INITIAL_STAYS;
-          setInpatientStays(INITIAL_STAYS);
-          await saveToBackend('inpatientStays', INITIAL_STAYS);
-        }
-
-        // 5. Load patients — SMART MERGE using REF (always latest, no stale closure)
-        // Bu eng muhim qism: local ma'lumot HECH QACHON yo'qolmaydi
-        if (dbData.patients !== undefined) {
-          const backendPatients: any[] = dbData.patients;
-          const currentLocal: any[] = patientsRef.current; // REF — always latest!
-
-          const localMap = new Map(currentLocal.map((p: any) => [p.id, p]));
-          const backendMap = new Map(backendPatients.map((p: any) => [p.id, p]));
-
-          const mergedMap = new Map();
-          const allIds = new Set([...localMap.keys(), ...backendMap.keys()]);
-
-          for (const id of allIds) {
-            const lp = localMap.get(id) as any;
-            const bp = backendMap.get(id) as any;
-
-            if (lp && bp) {
-              // Ikkalasida bor — eng boy (to'liq) ma'lumotni olamiz
-              // Backend asos, lekin local'dagi BO'SH bo'lmagan maydonlarni saqlaymiz
-              const merged: any = { ...bp };
-
-              // selectedServices — local'da bor, backend'da yo'q yoki kam → local'nikini olamiz
-              if (lp.selectedServices && lp.selectedServices.length > 0) {
-                if (!bp.selectedServices || bp.selectedServices.length < lp.selectedServices.length) {
-                  merged.selectedServices = lp.selectedServices;
-                }
-              }
-              // paymentAmount — kattaroq qiymatni olamiz (xizmatlar qo'shilganda oshadi)
-              if ((lp.paymentAmount || 0) > (bp.paymentAmount || 0)) {
-                merged.paymentAmount = lp.paymentAmount;
-              }
-              // paymentStatus — To'langan ustunlik qiladi
-              if (lp.paymentStatus === 'To\'langan' && bp.paymentStatus !== 'To\'langan') {
-                merged.paymentStatus = lp.paymentStatus;
-              }
-              // diagnosis, prescriptions, complaints, testResults
-              if (lp.diagnosis && !bp.diagnosis) merged.diagnosis = lp.diagnosis;
-              if (lp.prescriptions && lp.prescriptions.length > 0 && (!bp.prescriptions || bp.prescriptions.length === 0)) {
-                merged.prescriptions = lp.prescriptions;
-              }
-              if (lp.complaints && !bp.complaints) merged.complaints = lp.complaints;
-              if (lp.testResults && !bp.testResults) merged.testResults = lp.testResults;
-              // refund ma'lumotlari
-              if (lp.refundStatus && !bp.refundStatus) merged.refundStatus = lp.refundStatus;
-              if (lp.refundedAmount && !bp.refundedAmount) merged.refundedAmount = lp.refundedAmount;
-              if (lp.refundedReason && !bp.refundedReason) merged.refundedReason = lp.refundedReason;
-              if (lp.refundedAt && !bp.refundedAt) merged.refundedAt = lp.refundedAt;
-              // patientHistory
-              if (lp.patientHistory && lp.patientHistory.length > 0 && (!bp.patientHistory || bp.patientHistory.length === 0)) {
-                merged.patientHistory = lp.patientHistory;
-              }
-              // returning patient info
-              if (lp.isReturning && !bp.isReturning) merged.isReturning = lp.isReturning;
-              if (lp.visitCount && !bp.visitCount) merged.visitCount = lp.visitCount;
-              if (lp.previousVisitId && !bp.previousVisitId) merged.previousVisitId = lp.previousVisitId;
-              // status: local'dagi "Qabulda"/"Yakunlangan"/"Bekor qilingan" ustunlik qiladi
-              if (lp.status !== 'Kutmoqda' && bp.status === 'Kutmoqda') {
-                merged.status = lp.status;
-              }
-              // timestamps
-              if (lp.calledAt && !bp.calledAt) merged.calledAt = lp.calledAt;
-              if (lp.completedAt && !bp.completedAt) merged.completedAt = lp.completedAt;
-
-              mergedMap.set(id, merged);
-            } else if (lp) {
-              // Faqat local'da bor — saqlaymiz (boshqa qurilmadan o'chirilmagan bo'lsa)
-              mergedMap.set(id, lp);
-            } else if (bp) {
-              // Faqat backend'da bor — boshqa qurilmadan kelgan yangi bemor — qo'shamiz
-              mergedMap.set(id, bp);
-            }
-          }
-
-          const merged = Array.from(mergedMap.values());
-          // Faqat farq bo'lsa state'ni yangilaymiz (keraksiz render oldini olish)
-          if (merged.length !== currentLocal.length || JSON.stringify(merged) !== JSON.stringify(currentLocal)) {
-            patientsRef.current = merged;
-            setPatients(merged);
-          }
-        } else if (patientsRef.current.length === 0) {
-          patientsRef.current = INITIAL_PATIENTS;
-          setPatients(INITIAL_PATIENTS);
-        }
-
-        // 6. Load transactions — merge by ID
-        if (dbData.transactions !== undefined) {
-          const backendTx: any[] = dbData.transactions;
-          const localTx: any[] = transactionsRef.current;
-          const txMap = new Map<string, any>();
-          // Barcha tranzaksiyalarni qo'shamiz (ID bo'yicha dedup)
-          [...localTx, ...backendTx].forEach((t: any) => {
-            if (!txMap.has(t.id)) txMap.set(t.id, t);
-          });
-          const mergedTx = Array.from(txMap.values());
-          if (mergedTx.length !== localTx.length) {
-            transactionsRef.current = mergedTx;
-            setTransactions(mergedTx);
-          }
-        }
-
-        // 7. Load diagnosis templates
-        if (dbData.diagnosisTemplates) {
-          diagnosisTemplatesRef.current = dbData.diagnosisTemplates;
-          setDiagnosisTemplates(dbData.diagnosisTemplates);
-        }
-
-        // 8. Load clinic settings
-        if (dbData.clinicSettings) {
-          clinicSettingsRef.current = dbData.clinicSettings;
-          setClinicSettings(dbData.clinicSettings);
-        }
-
-      } catch (err) {
-        console.warn('⚠️ [API Fallback]: Could not sync from backend.', err);
-      } finally {
-        isSyncingRef.current = false;
-      }
-    };
-
-    initAndSyncData();
-
-    // Avtomatik yangilash - har 5 soniyada backend'dan ma'lumot olish
-    const syncInterval = setInterval(initAndSyncData, 5000);
-
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, []);
 
   const saveReceptionStaffList = (updatedStaff: ReceptionStaff[]) => {
     receptionStaffRef.current = updatedStaff;
@@ -513,23 +329,14 @@ export default function App() {
   }, [session, activeTab]);
 
   // Save patients — ASYNC + AWAIT. CRITICAL for data safety.
-  // 1. Ref DARHOL yangilanadi (sync'lar eng yangi ma'lumotni ko'radi)
+  // 1. Ref DARHOL yangilanadi (eng yangi ma'lumot)
   // 2. React state yangilanadi (UI tez yangilanadi)
-  // 3. lastLocalSaveRef o'rnatiladi (4 soniya sync'ni o'tkazib yuboradi)
-  // 4. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
-  // Boshqa qurilmalarga broadcast
+  // 3. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
+  // 4. Server saqlagandan keyin SSE orqali boshqa qurilmalarga yuboradi
   const savePatientsList = async (updatedPatients: Patient[]) => {
-    patientsRef.current = updatedPatients; // REF first — sync sees latest
+    patientsRef.current = updatedPatients; // REF first
     setPatients(updatedPatients);
-    lastLocalSaveRef.current = Date.now();
-    await saveToBackend('patients', updatedPatients); // AWAIT — TiDB saqlaydi
-
-    // Broadcast updates to other tabs
-    try {
-      const channel = new BroadcastChannel('dr_maruf_queue_channel');
-      channel.postMessage({ type: 'CALL_PATIENT', data: updatedPatients });
-      channel.close();
-    } catch (e) {}
+    await saveToBackend('patients', updatedPatients); // AWAIT — TiDB saqlaydi, server SSE broadcast qiladi
   };
 
   // Save departments to backend
