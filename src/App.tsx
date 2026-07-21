@@ -58,6 +58,7 @@ export default function App() {
   };
 
   // Load and synchronize all data from backend TiDB/MySQL database or fallbacks
+  // Avtomatik yangilash - har 3 soniyada boshqa qurilmalardan kiritilgan ma'lumotlarni olish
   useEffect(() => {
     const initAndSyncData = async () => {
       try {
@@ -193,6 +194,21 @@ export default function App() {
     };
 
     initAndSyncData();
+
+    // Avtomatik yangilash - har 3 soniyada backend'dan ma'lumot olish
+    // Boshqa qurilmalarda kiritilgan ma'lumotlar tez ko'rinishi uchun
+    const syncInterval = setInterval(initAndSyncData, 3000);
+
+    // storage event - boshqa tab'larda o'zgarish bo'lsa
+    const handleStorageChange = () => {
+      setTimeout(initAndSyncData, 500);
+    };
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearInterval(syncInterval);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const saveReceptionStaffList = (updatedStaff: ReceptionStaff[]) => {
