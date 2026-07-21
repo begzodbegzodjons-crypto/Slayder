@@ -79,6 +79,8 @@ export default {
         let finalData = data;
 
         // Merge-on-write for patients and transactions
+        // PATIENTS: updatedAt bo'yicha "yangisi g'alaba" — 4 doktor bir vaqtda
+        // saqlasa ham stale overwrite bo'lmaydi
         if (!forceReplace && (key === 'patients' || key === 'transactions') && Array.isArray(data)) {
           try {
             const existingRes: any = await conn.execute(
@@ -90,7 +92,19 @@ export default {
               if (Array.isArray(existing) && existing.length > 0) {
                 const mergedMap = new Map<string, any>();
                 for (const item of existing) { if (item && item.id) mergedMap.set(item.id, item); }
-                for (const item of data) { if (item && item.id) mergedMap.set(item.id, item); }
+                for (const item of data) {
+                  if (!item || !item.id) continue;
+                  const old = mergedMap.get(item.id);
+                  if (!old) {
+                    mergedMap.set(item.id, item);
+                  } else if (key === 'patients') {
+                    const oldTs = old.updatedAt ? new Date(old.updatedAt).getTime() : 0;
+                    const newTs = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+                    if (newTs >= oldTs) mergedMap.set(item.id, { ...old, ...item });
+                  } else {
+                    mergedMap.set(item.id, item);
+                  }
+                }
                 finalData = Array.from(mergedMap.values());
               }
             }

@@ -183,31 +183,50 @@ export async function saveCollection(key: string, items: any, forceReplace: bool
   let finalData = items;
 
   // patients va transactions uchun merge-on-write (forceReplace=false bo'lsa)
-  // forceReplace=true bo'lsa — to'liq almashtirish (o'chirish uchun)
+  // forceReplace=true bo'lsa — to'liq almashtirish (o'chirish/restore uchun)
+  // PATIENTS uchun: updatedAt bo'yicha "YANGISI G'ALABA" — 4 doktor bir vaqtda
+  // saqlasa ham hech qanday ma'lumot yo'qolmaydi. Stale (eski) ma'lumot yangi
+  // ma'lumotni o'chirmaydi. Tranzaksiyalar faqat qo'shiladi (append-only).
   if (!forceReplace && isDbActive && pool && (key === 'patients' || key === 'transactions') && Array.isArray(items)) {
     try {
-      // Mavjud ma'lumotni o'qish
       const [existing]: any[] = await pool.query(
         'SELECT json_value FROM clinic_erp_data WHERE key_name = ?', [key]
       );
       if (existing.length > 0) {
         const existingItems = JSON.parse(existing[0].json_value);
         if (Array.isArray(existingItems) && existingItems.length > 0) {
-          // ID bo'yicha merge: yangi ma'lumot ustun, lekin eskida bor yangida yo'q ham saqlanadi
           const mergedMap = new Map<string, any>();
-          // Avval eski ma'lumotni qo'shamiz
+          // Avval eski (bazadagi) ma'lumotni qo'shamiz
           for (const item of existingItems) {
             if (item && item.id) mergedMap.set(item.id, item);
           }
-          // Keyin yangi ma'lumot bilan ustidan yozamiz (yangi ustunlik qiladi)
+          // Keyin yangi ma'lumotni ID bo'yicha birlashtiramiz
           for (const item of items) {
-            if (item && item.id) mergedMap.set(item.id, item);
+            if (!item || !item.id) continue;
+            const old = mergedMap.get(item.id);
+            if (!old) {
+              // Yangi yozuv — qo'shamiz
+              mergedMap.set(item.id, item);
+            } else if (key === 'patients') {
+              // MAVJUD bemor — updatedAt bo'yicha "yangisi g'alaba"
+              // Bu 4 doktor bir vaqtda saqlaganda stale overwrite oldini oladi
+              const oldTs = old.updatedAt ? new Date(old.updatedAt).getTime() : 0;
+              const newTs = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+              if (newTs >= oldTs) {
+                // Yangi ma'lumot yangiroq — lekin eski ma'lumotdagi BO'SH
+                // bo'lmagan maydonlarni saqlaymiz (field-level merge)
+                mergedMap.set(item.id, { ...old, ...item });
+              }
+              // Aks holda eski (yangiroq) ma'lumot saqlanadi
+            } else {
+              // transactions — incoming wins (append-only, o'zgartirilmaydi)
+              mergedMap.set(item.id, item);
+            }
           }
           finalData = Array.from(mergedMap.values());
         }
       }
     } catch (err: any) {
-      // Merge xatosi bo'lsa — oddiy saqlash bilan davom etamiz
       console.warn(`⚠️ [Merge]: Could not merge "${key}", using direct save:`, err.message);
     }
   }

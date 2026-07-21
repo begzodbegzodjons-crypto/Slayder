@@ -51,6 +51,7 @@ export interface Patient {
   paymentAmount: number;
   status: 'Kutmoqda' | 'Qabulda' | 'Yakunlangan' | 'Bekor qilingan';
   createdAt: string; // ISO string
+  updatedAt?: string; // Oxirgi o'zgartirish vaqti — merge uchun (4 doktor bir vaqtda)
   calledAt?: string; // When the doctor called the patient
   completedAt?: string; // When checkup finished
   // Doctor records

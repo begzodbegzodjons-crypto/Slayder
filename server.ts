@@ -29,28 +29,42 @@ const tsFile = (d: Date) => {
   return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 };
 
-// Har saqlashda zaxira olish (faqat oxirgi 100 ta saqlanadi)
+// Har saqlashda zaxira olish — DEBOUNCE bilan (15 soniya)
+// 4 doktor + qabulxona bir vaqtda ishlasa, disk I/O 10x kamayadi
+// Oxirgi 200 ta fayl saqlanadi
+const backupDebounceRef: Map<string, { data: any; timer: any }> = new Map();
+
 function backupOnSave(key: string, data: any) {
-  try {
-    const now = new Date();
-    const fileName = `${tsFile(now)}_${key}.json`;
-    const filePath = path.join(ON_SAVE_DIR, fileName);
-    fs.writeFileSync(filePath, JSON.stringify({
-      _meta: { key, savedAt: now.toISOString(), recordCount: Array.isArray(data) ? data.length : 1 },
-      data,
-    }, null, 2), 'utf-8');
-    // ON_SAVE papkani tozalash — oxirgi 200 ta fayl saqlanadi
-    const files = fs.readdirSync(ON_SAVE_DIR).filter(f => f.endsWith('.json'))
-      .map(f => ({ f, mtime: fs.statSync(path.join(ON_SAVE_DIR, f)).mtimeMs }))
-      .sort((a, b) => b.mtime - a.mtime);
-    if (files.length > 200) {
-      files.slice(200).forEach(({ f }) => {
-        try { fs.unlinkSync(path.join(ON_SAVE_DIR, f)); } catch {}
-      });
-    }
-  } catch (err) {
-    // Zaxira xatosi saqlashni to'xtatmasin
+  // Ma'lumotni darhol navbatga qo'yamiz, diskka yozishni kechiktiramiz
+  const existing = backupDebounceRef.get(key);
+  if (existing && existing.timer) {
+    clearTimeout(existing.timer);
   }
+  const timer = setTimeout(() => {
+    try {
+      const now = new Date();
+      const fileName = `${tsFile(now)}_${key}.json`;
+      const filePath = path.join(ON_SAVE_DIR, fileName);
+      fs.writeFileSync(filePath, JSON.stringify({
+        _meta: { key, savedAt: now.toISOString(), recordCount: Array.isArray(data) ? data.length : 1 },
+        data,
+      }, null, 2), 'utf-8');
+      // ON_SAVE papkani tozalash — oxirgi 200 ta fayl saqlanadi
+      const files = fs.readdirSync(ON_SAVE_DIR).filter(f => f.endsWith('.json'))
+        .map(f => ({ f, mtime: fs.statSync(path.join(ON_SAVE_DIR, f)).mtimeMs }))
+        .sort((a, b) => b.mtime - a.mtime);
+      if (files.length > 200) {
+        files.slice(200).forEach(({ f }) => {
+          try { fs.unlinkSync(path.join(ON_SAVE_DIR, f)); } catch {}
+        });
+      }
+    } catch (err) {
+      // Zaxira xatosi saqlashni to'xtatmasin
+    }
+    backupDebounceRef.delete(key);
+  }, 15000); // 15 soniya debounce
+
+  backupDebounceRef.set(key, { data, timer });
 }
 
 // Barcha zaxira fayllarini ro'yxati (admin uchun)

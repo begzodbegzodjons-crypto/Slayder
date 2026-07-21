@@ -203,10 +203,37 @@ export default function App() {
     // 2) SSE ulanish — real-time yangilanishlar
     let es: EventSource | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+    let hasConnectedBefore = false; // birinchi ulanishdan keyin true
+
+    const resyncAll = async () => {
+      // Aloqa uzilgan paytda o'tgan o'zgarishlarni o'tkazib yubormaslik uchun
+      // to'liq /api/data dan o'qib, ref va state yangilanadi
+      try {
+        const response = await fetch(`${API_BASE}/api/data`);
+        if (!response.ok) return;
+        const dbData = await response.json();
+        if (dbData.patients) { patientsRef.current = dbData.patients; setPatients(dbData.patients); }
+        if (dbData.transactions) { transactionsRef.current = dbData.transactions; setTransactions(dbData.transactions); }
+        if (dbData.departments) { departmentsRef.current = dbData.departments; setDepartments(dbData.departments); }
+        if (dbData.hospitalRooms) { hospitalRoomsRef.current = dbData.hospitalRooms; setHospitalRooms(dbData.hospitalRooms); }
+        if (dbData.inpatientStays) { inpatientStaysRef.current = dbData.inpatientStays; setInpatientStays(dbData.inpatientStays); }
+        if (dbData.receptionStaff) { receptionStaffRef.current = dbData.receptionStaff; setReceptionStaff(dbData.receptionStaff); }
+        if (dbData.diagnosisTemplates) { diagnosisTemplatesRef.current = dbData.diagnosisTemplates; setDiagnosisTemplates(dbData.diagnosisTemplates); }
+        if (dbData.clinicSettings) { clinicSettingsRef.current = dbData.clinicSettings; setClinicSettings(dbData.clinicSettings); }
+      } catch {}
+    };
 
     const connectSSE = () => {
       try {
         es = new EventSource(`${API_BASE}/api/events`);
+
+        es.onopen = () => {
+          // Agar bu qayta ulanish bo'lsa (aloqa uzilganidan keyin) — to'liq resync
+          if (hasConnectedBefore) {
+            resyncAll();
+          }
+          hasConnectedBefore = true;
+        };
 
         es.onmessage = (event) => {
           try {
@@ -451,12 +478,14 @@ export default function App() {
       }
     }
 
+    const now = new Date().toISOString();
     const newPatient: Patient = {
       ...newPatientData,
       id: nextId,
       queueNumber: nextQueueNumber,
       status: 'Kutmoqda',
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       isReturning,
       previousVisitId,
       visitCount,
@@ -496,9 +525,10 @@ export default function App() {
   // ASYNC: savePatientsList AWAIT qilinadi — ma'lumot yo'qolmaydi
   const handleUpdatePaymentStatus = async (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => {
     const currentPatients = patientsRef.current;
+    const ts = new Date().toISOString();
     const updated = currentPatients.map((p) => {
       if (p.id === patientId) {
-        return { ...p, paymentStatus: status };
+        return { ...p, paymentStatus: status, updatedAt: ts };
       }
       return p;
     });
@@ -534,19 +564,22 @@ export default function App() {
   // Call / Accept Patient to Doctor Cabinet — uses REF
   // ASYNC: save AWAIT qilinadi — status darhol TiDB'ga yoziladi
   const handleCallPatient = async (calledPatient: Patient) => {
+    const ts = new Date().toISOString();
     const updated = patientsRef.current.map((p) => {
       if (p.id === calledPatient.id) {
         return {
           ...p,
           status: 'Qabulda' as const,
-          calledAt: new Date().toISOString(),
+          calledAt: ts,
+          updatedAt: ts,
         };
       }
       if (p.departmentId === calledPatient.departmentId && p.status === 'Qabulda') {
         return {
           ...p,
           status: 'Yakunlangan' as const,
-          completedAt: new Date().toISOString(),
+          completedAt: ts,
+          updatedAt: ts,
           diagnosis: p.diagnosis || 'Ko\'rik yakunlandi',
         };
       }
@@ -559,9 +592,10 @@ export default function App() {
   // Save diagnostic checkup records and prescriptions — uses REF
   // ASYNC: save AWAIT qilinadi — tashxis/dori darhol saqlanadi
   const handleUpdatePatientRecord = async (patientId: string, updates: Partial<Patient>) => {
+    const ts = new Date().toISOString();
     const updated = patientsRef.current.map((p) => {
       if (p.id === patientId) {
-        return { ...p, ...updates };
+        return { ...p, ...updates, updatedAt: ts };
       }
       return p;
     });
@@ -610,6 +644,7 @@ export default function App() {
     }
 
     // 1. Bemor ma'lumotlarini yangilash
+    const refundTs = new Date().toISOString();
     const updatedPatients = patientsRef.current.map((p) => {
       if (p.id === patientId) {
         return {
@@ -617,8 +652,9 @@ export default function App() {
           status: 'Bekor qilingan' as const,
           refundStatus: (refundAmount === p.paymentAmount ? 'Qaytarildi' : 'Qisman') as 'Qaytarildi' | 'Qisman',
           refundedAmount: refundAmount,
-          refundedAt: new Date().toISOString(),
+          refundedAt: refundTs,
           refundedReason: reason.trim(),
+          updatedAt: refundTs,
         };
       }
       return p;
