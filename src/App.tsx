@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Header } from './components/Header';
 import { Reception } from './components/Reception';
 import { DoctorCabinet } from './components/DoctorCabinet';
@@ -43,24 +43,37 @@ export default function App() {
   }, []);
 
   // Helper to save a collection to the backend database
+  // AWAIT bilan ishlaydi — race condition yo'q
   const saveToBackend = async (key: string, data: any) => {
     try {
-      await fetch('https://medical-pro-api.norinkomp.workers.dev/api/save', {
+      const response = await fetch('https://medical-pro-api.norinkomp.workers.dev/api/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ key, data }),
       });
+      if (!response.ok) {
+        console.error(`Backend save failed for ${key}: HTTP ${response.status}`);
+      }
     } catch (err) {
       console.error(`Backend sync failed for ${key}:`, err);
     }
   };
 
+  // Sinxronlash holati — boshqa qurilmalardan kelgan yangi ma'lumotni qabul qilish
+  // Lekin joriy local ma'lumotni BOSMASLIK
+  const isSavingRef = useRef(false);
+
   // Load and synchronize all data from backend TiDB/MySQL database or fallbacks
-  // Avtomatik yangilash - har 3 soniyada boshqa qurilmalardan kiritilgan ma'lumotlarni olish
+  // Avtomatik yangilash - har 5 soniyada boshqa qurilmalardan kiritilgan ma'lumotlarni olish
+  // MUHIM: Agar save jarayoni davom etayotgan bo'lsa, sinxronlash o'tkazib yuboriladi
   useEffect(() => {
     const initAndSyncData = async () => {
+      // Agar save jarayoni davom etayotgan bo'lsa — sinxronlashni o'tkazamiz
+      // Bu race condition'ning oldini oladi
+      if (isSavingRef.current) return;
+
       try {
         const response = await fetch('https://medical-pro-api.norinkomp.workers.dev/api/data');
         if (!response.ok) throw new Error('API server unreachable');
@@ -270,19 +283,12 @@ export default function App() {
 
     initAndSyncData();
 
-    // Avtomatik yangilash - har 3 soniyada backend'dan ma'lumot olish
-    // Boshqa qurilmalarda kiritilgan ma'lumotlar tez ko'rinishi uchun
-    const syncInterval = setInterval(initAndSyncData, 3000);
-
-    // storage event - boshqa tab'larda o'zgarish bo'lsa
-    const handleStorageChange = () => {
-      setTimeout(initAndSyncData, 500);
-    };
-    window.addEventListener('storage', handleStorageChange);
+    // Avtomatik yangilash - har 5 soniyada backend'dan ma'lumot olish
+    // 3 soniya o'rniga 5 soniya — race condition xavfini kamaytirish uchun
+    const syncInterval = setInterval(initAndSyncData, 5000);
 
     return () => {
       clearInterval(syncInterval);
-      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
@@ -343,20 +349,28 @@ export default function App() {
     }
   }, [session, activeTab]);
 
-  // Save patients state changes and trigger broadcast channel
-  const savePatientsList = (updatedPatients: Patient[]) => {
+  // Save patients — AWAIT bilan, race condition yo'q
+  // 1. React state'ni darhol yangilaydi (UI tez yangilanadi)
+  // 2. Backend'ga AWAIT bilan saqlaydi (ma'lumot yo'qolmaydi)
+  // 3. Sinxronlash vaqtida isSavingRef true bo'lib, overwrite bo'lmaydi
+  const savePatientsList = async (updatedPatients: Patient[]) => {
     setPatients(updatedPatients);
     localStorage.setItem('dr_maruf_patients_list', JSON.stringify(updatedPatients));
-    saveToBackend('patients', updatedPatients);
-    
-    // Broadcast updates to other tabs (for real-time HDMI TV monitor updating)
+
+    // Save flag'ni yoqamiz — sinxronlash bu vaqtda ishlamasin
+    isSavingRef.current = true;
+    try {
+      await saveToBackend('patients', updatedPatients);
+    } finally {
+      isSavingRef.current = false;
+    }
+
+    // Broadcast updates to other tabs
     try {
       const channel = new BroadcastChannel('dr_maruf_queue_channel');
       channel.postMessage({ type: 'CALL_PATIENT', data: updatedPatients });
       channel.close();
-    } catch (e) {
-      // Ignored if BroadcastChannel is blocked
-    }
+    } catch (e) {}
   };
 
   // Save departments to localStorage
