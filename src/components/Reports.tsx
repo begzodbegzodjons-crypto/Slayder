@@ -988,6 +988,132 @@ export const Reports: React.FC<ReportsProps> = ({
             )}
           </div>
 
+          {/* =====================================================
+              OYLIK TAHLIL — sana OY bilan ajratilgan professional hisob
+              Har bir oy: bemorlar soni, ambulator tushum, xizmatlar daromadi, jami
+              + Har bir bo'lim oylik kesimida alohida ko'rsatilgan
+              ===================================================== */}
+          <div className="bg-white p-6 rounded-3xl border border-teal-200 shadow-sm">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1 pb-3 border-b border-slate-100 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-teal-600" />
+              <span>📅 Oylik Tahlil — Sana Oy Bilan Ajratilgan ({selectedRange})</span>
+            </h3>
+            <p className="text-[10px] text-slate-500 font-bold mb-4">
+              Har bir oy bo'yicha: bemorlar soni, ambulator ko'rik daromadi, qo'shimcha xizmatlar tushumi va umumiy daromad
+            </p>
+
+            {(() => {
+              // Oy bo'yicha guruhlash
+              const monthMap = new Map<string, { patients: number; ambIncome: number; svcIncome: number; byDept: Record<string, number> }>();
+              const monthNamesUz = ['Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'Iyun', 'Iyul', 'Avgust', 'Sentabr', 'Oktabr', 'Noyabr', 'Dekabr'];
+
+              dashboardData.patients.forEach((p) => {
+                const d = new Date(p.createdAt);
+                if (isNaN(d.getTime())) return;
+                const mk = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                if (!monthMap.has(mk)) monthMap.set(mk, { patients: 0, ambIncome: 0, svcIncome: 0, byDept: {} });
+                const m = monthMap.get(mk)!;
+                m.patients += 1;
+                const svcSum = (p.selectedServices || []).reduce((s: number, svc: any) => s + (svc.price || 0), 0);
+                if (p.paymentStatus === 'To\'langan') {
+                  m.ambIncome += Math.max(0, (p.paymentAmount || 0) - svcSum);
+                  m.svcIncome += svcSum;
+                }
+                m.byDept[p.departmentId] = (m.byDept[p.departmentId] || 0) + 1;
+              });
+
+              const sortedMonths = Array.from(monthMap.keys()).sort();
+              const grandPatients = Array.from(monthMap.values()).reduce((s, m) => s + m.patients, 0);
+              const grandAmb = Array.from(monthMap.values()).reduce((s, m) => s + m.ambIncome, 0);
+              const grandSvc = Array.from(monthMap.values()).reduce((s, m) => s + m.svcIncome, 0);
+
+              if (sortedMonths.length === 0) {
+                return <p className="text-slate-400 font-bold py-8 text-center italic">Ushbu davrda ma'lumot topilmadi.</p>;
+              }
+
+              return (
+                <div className="space-y-3">
+                  {/* Oylik jadval */}
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b-2 border-slate-200 text-[10px] text-slate-500 uppercase tracking-widest">
+                          <th className="py-2.5 pb-2">Oy</th>
+                          <th className="py-2.5 pb-2 text-center">Bemorlar</th>
+                          <th className="py-2.5 pb-2 text-right">Ambulator ko'rik</th>
+                          <th className="py-2.5 pb-2 text-right">Qo'shimcha xizmatlar</th>
+                          <th className="py-2.5 pb-2 text-right">Jami tushum</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {sortedMonths.map((mk, idx) => {
+                          const m = monthMap.get(mk)!;
+                          const [y, mo] = mk.split('-').map(Number);
+                          const total = m.ambIncome + m.svcIncome;
+                          return (
+                            <tr key={mk} className={`hover:bg-teal-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/40'}`}>
+                              <td className="py-3 font-black text-teal-800 text-xs">
+                                {monthNamesUz[mo - 1]} {y}
+                              </td>
+                              <td className="py-3 text-center">
+                                <span className="inline-flex items-center justify-center bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg text-xs font-black border border-blue-100">
+                                  {m.patients} nafar
+                                </span>
+                              </td>
+                              <td className="py-3 text-right font-bold text-emerald-700 text-xs">{m.ambIncome.toLocaleString()} UZS</td>
+                              <td className="py-3 text-right font-bold text-purple-700 text-xs">{m.svcIncome.toLocaleString()} UZS</td>
+                              <td className="py-3 text-right">
+                                <span className="font-black text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 text-xs">
+                                  {total.toLocaleString()} UZS
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot>
+                        <tr className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white">
+                          <td className="py-3 px-2 font-black text-xs uppercase">🏆 Jami</td>
+                          <td className="py-3 text-center font-black text-xs">{grandPatients} nafar</td>
+                          <td className="py-3 text-right font-black text-xs">{grandAmb.toLocaleString()} UZS</td>
+                          <td className="py-3 text-right font-black text-xs">{grandSvc.toLocaleString()} UZS</td>
+                          <td className="py-3 text-right font-black text-xs">{(grandAmb + grandSvc).toLocaleString()} UZS</td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+
+                  {/* Oy + Bo'lim kesimida batafsil */}
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <p className="text-[10px] font-black text-slate-600 uppercase tracking-wider mb-3">📋 Bo'limlar bo'yicha oylik taqsimot</p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {sortedMonths.map((mk) => {
+                        const m = monthMap.get(mk)!;
+                        const [y, mo] = mk.split('-').map(Number);
+                        return (
+                          <div key={mk} className="border border-slate-200 rounded-xl p-3 bg-slate-50/40">
+                            <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-200">
+                              <span className="text-xs font-black text-teal-800">{monthNamesUz[mo - 1]} {y}</span>
+                              <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded font-black">{m.patients} bemor</span>
+                            </div>
+                            <div className="space-y-1">
+                              {DEPARTMENTS.filter(d => m.byDept[d.id]).map((dept) => (
+                                <div key={dept.id} className="flex items-center justify-between text-[10px]">
+                                  <span className="text-slate-600 font-bold truncate">{dept.name}</span>
+                                  <span className="text-blue-700 font-black ml-2 shrink-0">{m.byDept[dept.id]} ta</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
         </div>
       )}
 
@@ -1138,11 +1264,14 @@ export const Reports: React.FC<ReportsProps> = ({
             </div>
           </div>
 
-          {/* Qo'shimcha xizmatlar bo'yicha tahlil - har bir bo'lim alohida */}
+          {/* Qo'shimcha xizmatlar bo'yicha tahlil - har bir bo'lim alohida, professional ko'rinish */}
           <div className="bg-white p-6 rounded-3xl border border-purple-200 shadow-sm">
-            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-4 pb-3 border-b border-slate-100">
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1 pb-3 border-b border-slate-100">
               💊 Qo'shimcha Xizmatlar Tahlili — Bo'limlar Bo'yicha ({selectedRange})
             </h3>
+            <p className="text-[10px] text-slate-500 font-bold mb-4">
+              Har bir bo'lim va uning xizmatlari: birlik narxi, mijozlar soni, daromad va bo'lim kesimidagi jami (subtotal)
+            </p>
 
             <div className="space-y-4">
               {DEPARTMENTS.map((dept) => {
@@ -1151,6 +1280,15 @@ export const Reports: React.FC<ReportsProps> = ({
                 const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
                 const servicesIncome = deptPatients.reduce((s, p) => s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0), 0);
                 const baseOnly = baseIncome - servicesIncome;
+
+                // Bo'lim subtotal'ini hisoblash
+                let deptSubtotalCount = deptPatients.length;
+                let deptSubtotalIncome = baseOnly;
+                deptServices.forEach((svc) => {
+                  const c = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name)).length;
+                  deptSubtotalCount += c;
+                  deptSubtotalIncome += c * svc.price;
+                });
 
                 return (
                   <div key={dept.id} className="border border-slate-200 rounded-2xl overflow-hidden">
@@ -1169,41 +1307,44 @@ export const Reports: React.FC<ReportsProps> = ({
 
                     {/* Xizmatlar ro'yxati */}
                     <div className="p-3">
+                      {/* Table header */}
+                      <div className="hidden sm:grid grid-cols-12 gap-2 py-1.5 border-b border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+                        <div className="col-span-5">Xizmat</div>
+                        <div className="col-span-2 text-center">Birlik narxi</div>
+                        <div className="col-span-2 text-center">Mijozlar</div>
+                        <div className="col-span-3 text-right">Daromad</div>
+                      </div>
+
                       {/* Bazaviy ko'rik */}
-                      <div className="flex items-center justify-between py-1.5 border-b border-slate-100 text-xs">
-                        <div className="flex items-center gap-2">
+                      <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100 text-xs items-center">
+                        <div className="col-span-12 sm:col-span-5 flex items-center gap-2">
                           <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[9px] font-black uppercase">Ko'rik</span>
                           <span className="font-bold text-slate-700">Bazaviy narxi</span>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-blue-600">{deptPatients.length} mijoz</span>
-                          <span className="font-black text-emerald-600">{baseOnly.toLocaleString()} UZS</span>
-                        </div>
+                        <div className="col-span-4 sm:col-span-2 text-center text-slate-600 font-bold">{(dept.price || 0).toLocaleString()} UZS</div>
+                        <div className="col-span-4 sm:col-span-2 text-center font-bold text-blue-600">{deptPatients.length} mijoz</div>
+                        <div className="col-span-4 sm:col-span-3 text-right font-black text-emerald-600">{baseOnly.toLocaleString()} UZS</div>
                       </div>
 
-                      {/* Har bir xizmat */}
+                      {/* Har bir xizmat — narxi, soni, daromadi aniq */}
                       {deptServices.length > 0 ? (
                         deptServices.map((svc) => {
                           const svcPatients = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name));
                           const svcCount = svcPatients.length;
                           const svcIncome = svcCount * svc.price;
-                          const maxCount = Math.max(...deptServices.map((s) => deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((ps) => ps.id === s.id || ps.name === s.name)).length), 1);
-                          const barWidth = (svcCount / maxCount) * 100;
 
                           return (
-                            <div key={svc.id} className="flex items-center justify-between py-1.5 border-b border-slate-50 text-xs">
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <div key={svc.id} className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-50 text-xs items-center">
+                              <div className="col-span-12 sm:col-span-5 flex items-center gap-2 min-w-0">
                                 <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0">💊 Xizmat</span>
                                 <span className="font-bold text-slate-700 truncate">{svc.name}</span>
-                                <span className="text-[9px] text-slate-400 shrink-0">({svc.price.toLocaleString()} UZS)</span>
                               </div>
-                              <div className="flex items-center gap-3 shrink-0">
-                                <div className="w-24 bg-slate-100 rounded-full h-4 overflow-hidden">
-                                  <div className="bg-gradient-to-r from-purple-400 to-purple-600 h-full rounded-full flex items-center justify-end pr-1" style={{ width: `${Math.max(barWidth, svcCount > 0 ? 8 : 0)}%` }}>
-                                    {svcCount > 0 && <span className="text-[8px] text-white font-black">{svcCount}</span>}
-                                  </div>
-                                </div>
-                                <span className="font-black text-emerald-600 w-24 text-right">{svcIncome.toLocaleString()} UZS</span>
+                              <div className="col-span-4 sm:col-span-2 text-center text-slate-600 font-bold">{svc.price.toLocaleString()} UZS</div>
+                              <div className="col-span-4 sm:col-span-2 text-center">
+                                <span className={`font-bold ${svcCount > 0 ? 'text-blue-600' : 'text-slate-400'}`}>{svcCount} mijoz</span>
+                              </div>
+                              <div className="col-span-4 sm:col-span-3 text-right">
+                                <span className={`font-black ${svcIncome > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{svcIncome.toLocaleString()} UZS</span>
                               </div>
                             </div>
                           );
@@ -1211,10 +1352,55 @@ export const Reports: React.FC<ReportsProps> = ({
                       ) : (
                         <p className="text-[10px] text-slate-400 italic py-2 text-center">Qo'shimcha xizmatlar kiritilmagan</p>
                       )}
+
+                      {/* Bo'lim subtotal qatori */}
+                      <div className="grid grid-cols-12 gap-2 py-2 mt-1 bg-emerald-50/60 rounded-lg text-xs items-center border border-emerald-100">
+                        <div className="col-span-12 sm:col-span-5 flex items-center gap-2">
+                          <span className="text-[9px] font-black text-emerald-700 uppercase">↳ Subtotal</span>
+                          <span className="font-bold text-emerald-800">{dept.name}</span>
+                        </div>
+                        <div className="col-span-4 sm:col-span-2 text-center text-[10px] text-slate-500 font-bold">—</div>
+                        <div className="col-span-4 sm:col-span-2 text-center font-black text-emerald-700">{deptSubtotalCount} ta</div>
+                        <div className="col-span-4 sm:col-span-3 text-right font-black text-emerald-700">{deptSubtotalIncome.toLocaleString()} UZS</div>
+                      </div>
                     </div>
                   </div>
                 );
               })}
+
+              {/* Grand total banner */}
+              {(() => {
+                let grandCount = 0;
+                let grandIncome = 0;
+                DEPARTMENTS.forEach((dept) => {
+                  const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+                  const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+                  const servicesIncome = deptPatients.reduce((s, p) => s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0), 0);
+                  const baseOnly = baseIncome - servicesIncome;
+                  grandCount += deptPatients.length;
+                  grandIncome += baseOnly; // faqat bazaviy narx (servicesIncome keyin qo'shiladi)
+                  (dept.services || []).forEach((svc) => {
+                    const c = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name)).length;
+                    grandCount += c;
+                    grandIncome += c * svc.price;
+                  });
+                });
+                return (
+                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 rounded-2xl flex items-center justify-between shadow-lg">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🏆</span>
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-wider opacity-90">Jami (barcha bo'limlar va xizmatlar)</p>
+                        <p className="text-sm font-black">{grandCount} ta xizmat ko'rsatilgan</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-bold opacity-90 uppercase">Umumiy daromad</p>
+                      <p className="text-xl font-black">{grandIncome.toLocaleString()} UZS</p>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
 

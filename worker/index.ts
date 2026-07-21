@@ -61,15 +61,17 @@ export default {
           hospitalRooms: data.hospitalRooms || [],
           inpatientStays: data.inpatientStays || [],
           transactions: data.transactions || [],
+          diagnosisTemplates: data.diagnosisTemplates || [],
+          clinicSettings: data.clinicSettings || null,
         });
       }
 
-      // POST /api/save
+      // POST /api/save — supports arrays AND objects (clinicSettings is an object)
       if (path === "/api/save" && method === "POST") {
         const body = await request.json();
         const { key, data } = body;
-        if (!key || !Array.isArray(data)) {
-          return jsonResp({ error: "key va data (array) kerak" }, 400);
+        if (!key || data === undefined || data === null) {
+          return jsonResp({ error: "key va data kerak" }, 400);
         }
         const jsonStr = JSON.stringify(data);
         await conn.execute(

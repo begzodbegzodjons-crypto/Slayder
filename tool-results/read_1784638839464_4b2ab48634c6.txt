@@ -1,0 +1,1658 @@
+     1→import React, { useState } from 'react';
+     2→import { Patient, DepartmentId, Department, InpatientStay, Medication, ClinicTransaction } from '../types';
+     3→import {
+     4→  BarChart3,
+     5→  Search,
+     6→  Trash2,
+     7→  Calendar,
+     8→  FileSpreadsheet,
+     9→  PlusCircle,
+    10→  CheckCircle,
+    11→  TrendingUp,
+    12→  TrendingDown,
+    13→  Users,
+    14→  Coins,
+    15→  ArrowUpRight,
+    16→  Bed,
+    17→  Printer,
+    18→  X,
+    19→  FileText,
+    20→  Stethoscope,
+    21→  Plus,
+    22→  AlertTriangle,
+    23→  CreditCard,
+    24→  FileDown,
+    25→} from 'lucide-react';
+    26→import { exportClinicReportToExcel } from '../utils/excelExport';
+    27→
+    28→interface ReportsProps {
+    29→  patients: Patient[];
+    30→  onClearHistory: () => void;
+    31→  departments: Department[];
+    32→  inpatientStays: InpatientStay[];
+    33→  transactions: ClinicTransaction[];
+    34→  onSaveTransactions: (updatedTx: ClinicTransaction[]) => void;
+    35→}
+    36→
+    37→export const Reports: React.FC<ReportsProps> = ({
+    38→  patients,
+    39→  onClearHistory,
+    40→  departments,
+    41→  inpatientStays = [],
+    42→  transactions = [],
+    43→  onSaveTransactions,
+    44→}) => {
+    45→  const DEPARTMENTS = departments;
+    46→
+    47→  // Tabs: Dashboard vs Ambulatory Archive vs Inpatient Archive
+    48→  const [activeSubTab, setActiveSubTab] = useState<'dashboard' | 'ambulatory' | 'inpatient'>('dashboard');
+    49→
+    50→  const [isExporting, setIsExporting] = useState<boolean>(false);
+    51→
+    52→  const handleExportExcel = async () => {
+    53→    setIsExporting(true);
+    54→    try {
+    55→      await exportClinicReportToExcel({
+    56→        range: selectedRange,
+    57→        patients,
+    58→        departments,
+    59→        inpatientStays,
+    60→        transactions,
+    61→      });
+    62→    } catch (err) {
+    63→      console.error('Excel eksport xatosi:', err);
+    64→      alert('Excel faylni yuklab olishda xatolik yuz berdi.');
+    65→    } finally {
+    66→      setIsExporting(false);
+    67→    }
+    68→  };
+    69→
+    70→  // ==========================================
+    71→  // 1. AMBULATORY ARCHIVE STATES
+    72→  // ==========================================
+    73→  const [searchQuery, setSearchQuery] = useState('');
+    74→  const [selectedRange, setSelectedRange] = useState<'Bugun' | 'Haftalik' | 'Oylik' | 'Yillik'>('Bugun');
+    75→  const [selectedPatientDetails, setSelectedPatientDetails] = useState<Patient | null>(null);
+    76→
+    77→  const getDeptName = (id: DepartmentId) => {
+    78→    return DEPARTMENTS.find((d) => d.id === id)?.name || id;
+    79→  };
+    80→
+    81→  // Date filters
+    82→  const filterByDate = (patient: Patient) => {
+    83→    const patientDate = new Date(patient.createdAt);
+    84→    const now = new Date();
+    85→
+    86→    if (selectedRange === 'Bugun') {
+    87→      return patientDate.toDateString() === now.toDateString();
+    88→    } else if (selectedRange === 'Haftalik') {
+    89→      const sevenDaysAgo = new Date();
+    90→      sevenDaysAgo.setDate(now.getDate() - 7);
+    91→      return patientDate >= sevenDaysAgo;
+    92→    } else if (selectedRange === 'Oylik') {
+    93→      return (
+    94→        patientDate.getMonth() === now.getMonth() &&
+    95→        patientDate.getFullYear() === now.getFullYear()
+    96→      );
+    97→    } else {
+    98→      return patientDate.getFullYear() === now.getFullYear();
+    99→    }
+   100→  };
+   101→
+   102→  const rangePatients = patients.filter(filterByDate);
+   103→
+   104→  // Stats calculation
+   105→  const totalPatients = rangePatients.length;
+   106→  const completedPatients = rangePatients.filter((p) => p.status === 'Yakunlangan').length;
+   107→  const waitingPatients = rangePatients.filter((p) => p.status === 'Kutmoqda' || p.status === 'Qabulda').length;
+   108→  const totalIncome = rangePatients
+   109→    .filter((p) => p.paymentStatus === 'To\'langan')
+   110→    .reduce((sum, p) => sum + p.paymentAmount, 0);
+   111→
+   112→  // Inpatient Stats
+   113→  const activeInpatientsCount = inpatientStays.filter((s) => s.status === 'Davolanmoqda').length;
+   114→  const completedInpatientsCount = inpatientStays.filter((s) => s.status === 'Yakunlangan').length;
+   115→  const totalInpatientIncome = inpatientStays.reduce((sum, s) => sum + s.amountPaid, 0);
+   116→
+   117→  // Dept stats
+   118→  const initialDeptStats: Record<string, { count: number; income: number }> = {};
+   119→  DEPARTMENTS.forEach((dept) => {
+   120→    initialDeptStats[dept.id] = { count: 0, income: 0 };
+   121→  });
+   122→
+   123→  const deptStats = rangePatients.reduce((acc, p) => {
+   124→    const deptId = p.departmentId;
+   125→    if (acc[deptId]) {
+   126→      acc[deptId].count += 1;
+   127→      if (p.paymentStatus === 'To\'langan') {
+   128→        acc[deptId].income += p.paymentAmount;
+   129→      }
+   130→    } else {
+   131→      acc[deptId] = { count: 1, income: p.paymentStatus === 'To\'langan' ? p.paymentAmount : 0 };
+   132→    }
+   133→    return acc;
+   134→  }, { ...initialDeptStats });
+   135→
+   136→  const statsValues = Object.values(deptStats) as { count: number; income: number }[];
+   137→  const maxCount = Math.max(...statsValues.map((d) => d.count), 1);
+   138→  const maxIncome = Math.max(...statsValues.map((d) => d.income), 1);
+   139→
+   140→  // Ambulatory search results
+   141→  const completedHistory = patients.filter((p) => {
+   142→    const fullName = `${p.lastName} ${p.firstName} ${p.middleName || ''}`.toLowerCase();
+   143→    const matchesSearch =
+   144→      fullName.includes(searchQuery.toLowerCase()) ||
+   145→      p.phone.includes(searchQuery) ||
+   146→      p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+   147→      (p.diagnosis && p.diagnosis.toLowerCase().includes(searchQuery.toLowerCase()));
+   148→
+   149→    return matchesSearch && p.status === 'Yakunlangan';
+   150→  });
+   151→
+   152→  // Print ambulatory checkup card on XPrinter
+   153→  const printAmbulatoryHistory = (patient: Patient) => {
+   154→    const printWindow = window.open('', '_blank', 'width=350,height=600');
+   155→    if (!printWindow) {
+   156→      alert('Tashqi oyna ochish bloklandi. Iltimos brauzer sozlamalaridan ruxsat bering.');
+   157→      return;
+   158→    }
+   159→
+   160→    const prescriptionsHtml =
+   161→      patient.prescriptions && patient.prescriptions.length > 0
+   162→        ? patient.prescriptions
+   163→            .map((m, idx) => `${idx + 1}. ${m.name} - ${m.dosage} (${m.days})`)
+   164→            .join('<br>')
+   165→        : 'Dori vositalari belgilanmagan';
+   166→
+   167→    printWindow.document.write(`
+   168→      <html>
+   169→        <head>
+   170→          <title>Tashxis va Retsept - ${patient.lastName} ${patient.firstName}</title>
+   171→          <style>
+   172→            body {
+   173→              font-family: 'Courier New', Courier, monospace;
+   174→              text-align: center;
+   175→              padding: 15px;
+   176→              width: 290px;
+   177→              margin: 0 auto;
+   178→              color: #000;
+   179→              font-size: 12px;
+   180→            }
+   181→            .title { font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+   182→            .subtitle { font-size: 10px; margin-bottom: 12px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+   183→            .section-title { font-size: 11px; font-weight: bold; text-align: left; margin-top: 15px; border-bottom: 1px solid #000; padding-bottom: 2px; text-transform: uppercase; }
+   184→            .info { text-align: left; margin: 8px 0; line-height: 1.4; }
+   185→            .footer { font-size: 9px; border-top: 1px dashed #000; padding-top: 8px; margin-top: 15px; }
+   186→            button { display: block; width: 100%; padding: 8px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+   187→            @media print {
+   188→              button { display: none; }
+   189→            }
+   190→          </style>
+   191→        </head>
+   192→        <body>
+   193→          <div class="title">DR.Maruf Clinic</div>
+   194→          <div class="subtitle">BEMOR KO'RIK BAYONNOMASI / RETSEPT</div>
+   195→          
+   196→          <div class="info">
+   197→            <strong>Bemor:</strong> ${patient.lastName.toUpperCase()} ${patient.firstName.toUpperCase()}<br>
+   198→            <strong>ID:</strong> ${patient.id}<br>
+   199→            <strong>Tel:</strong> ${patient.phone}<br>
+   200→            <strong>Sana:</strong> ${new Date(patient.completedAt || patient.createdAt).toLocaleDateString('uz-UZ')}
+   201→          </div>
+   202→
+   203→          <div class="section-title">Shifokor va Bo'lim</div>
+   204→          <div class="info">
+   205→            <strong>Bo'lim:</strong> ${getDeptName(patient.departmentId)}<br>
+   206→            <strong>Shifokor:</strong> ${patient.doctorName}
+   207→          </div>
+   208→
+   209→          <div class="section-title">Shikoyat va Anamnez</div>
+   210→          <div class="info">
+   211→            ${patient.complaints || 'Batafsil ma\'lumot kiritilmagan'}
+   212→          </div>
+   213→
+   214→          <div class="section-title">Ko'rik va Tahlillar</div>
+   215→          <div class="info">
+   216→            ${patient.testResults || 'Natijalar kiritilmagan'}
+   217→          </div>
+   218→
+   219→          <div class="section-title">Tashxis (Diagnosis)</div>
+   220→          <div class="info" style="font-weight: bold;">
+   221→            ${patient.diagnosis || 'Tashxis qo\'yilmagan'}
+   222→          </div>
+   223→
+   224→          <div class="section-title">Tavsiya etilgan Retsept</div>
+   225→          <div class="info" style="font-size: 11px; line-height: 1.3;">
+   226→            ${prescriptionsHtml}
+   227→          </div>
+   228→
+   229→          <div class="footer">
+   230→            Shifokorning ruxsatisiz dori miqdorini o'zgartirmang.<br>
+   231→            Sog'ayib ketishingizni tilaymiz!<br>
+   232→            DR.Maruf Clinic ERP
+   233→          </div>
+   234→          
+   235→          <button onclick="window.print(); window.close();">XPrinterda Chop Etish</button>
+   236→          
+   237→          <script>
+   238→            window.onload = function() {
+   239→              setTimeout(function() {
+   240→                window.print();
+   241→              }, 300);
+   242→            }
+   243→          </script>
+   244→        </body>
+   245→      </html>
+   246→    `);
+   247→    printWindow.document.close();
+   248→  };
+   249→
+   250→
+   251→  // ==========================================
+   252→  // 2. INPATIENT (STATSIONAR) ARCHIVE STATES
+   253→  // ==========================================
+   254→  const [inpSearchQuery, setInpSearchQuery] = useState('');
+   255→  const [selectedStayDetails, setSelectedStayDetails] = useState<InpatientStay | null>(null);
+   256→
+   257→  // Filter inpatient stays
+   258→  const filteredStaysHistory = inpatientStays.filter((stay) => {
+   259→    const fullName = `${stay.lastName} ${stay.firstName} ${stay.middleName || ''}`.toLowerCase();
+   260→    const matchesSearch =
+   261→      fullName.includes(inpSearchQuery.toLowerCase()) ||
+   262→      stay.phone.includes(inpSearchQuery) ||
+   263→      stay.patientId.toLowerCase().includes(inpSearchQuery.toLowerCase()) ||
+   264→      stay.roomNumber.toLowerCase().includes(inpSearchQuery.toLowerCase());
+   265→
+   266→    return matchesSearch;
+   267→  });
+   268→
+   269→  // Print inpatient case card on XPrinter
+   270→  const printInpatientHistory = (stay: InpatientStay) => {
+   271→    const printWindow = window.open('', '_blank', 'width=350,height=600');
+   272→    if (!printWindow) {
+   273→      alert('Tashqi oyna ochish bloklandi. Iltimos brauzer sozlamalaridan ruxsat bering.');
+   274→      return;
+   275→    }
+   276→
+   277→    const prescriptionsHtml =
+   278→      stay.prescriptions && stay.prescriptions.length > 0
+   279→        ? stay.prescriptions.map((m) => `• ${m.name} (${m.dosage}, ${m.days})`).join('<br>')
+   280→        : 'Muolaja retseptlari yo\'q';
+   281→
+   282→    printWindow.document.write(`
+   283→      <html>
+   284→        <head>
+   285→          <title>Shifoxona Tarixi - ${stay.lastName} ${stay.firstName}</title>
+   286→          <style>
+   287→            body {
+   288→              font-family: 'Courier New', Courier, monospace;
+   289→              text-align: center;
+   290→              padding: 20px;
+   291→              width: 290px;
+   292→              margin: 0 auto;
+   293→              color: #000;
+   294→              font-size: 12px;
+   295→            }
+   296→            .title { font-size: 16px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+   297→            .subtitle { font-size: 10px; margin-bottom: 12px; border-bottom: 1px dashed #000; padding-bottom: 8px; }
+   298→            .section-title { font-size: 11px; font-weight: bold; text-align: left; margin-top: 15px; border-bottom: 1px solid #000; padding-bottom: 2px; text-transform: uppercase; }
+   299→            .info { text-align: left; margin: 8px 0; line-height: 1.4; }
+   300→            .footer { font-size: 9px; border-top: 1px dashed #000; padding-top: 8px; margin-top: 15px; }
+   301→            button { display: block; width: 100%; padding: 8px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+   302→            @media print {
+   303→              button { display: none; }
+   304→            }
+   305→          </style>
+   306→        </head>
+   307→        <body>
+   308→          <div class="title">DR.Maruf Clinic</div>
+   309→          <div class="subtitle">STATSIONAR DAVOLANISH KARTI</div>
+   310→          
+   311→          <div class="info">
+   312→            <strong>Bemor:</strong> ${stay.lastName.toUpperCase()} ${stay.firstName.toUpperCase()}<br>
+   313→            <strong>ID:</strong> ${stay.patientId}<br>
+   314→            <strong>Tel:</strong> ${stay.phone}<br>
+   315→            <strong>Jinsi:</strong> ${stay.gender}
+   316→          </div>
+   317→
+   318→          <div class="section-title">Joylashuv va Shifokor</div>
+   319→          <div class="info">
+   320→            <strong>Palata:</strong> ${stay.roomNumber}<br>
+   321→            <strong>Bo'lim:</strong> ${stay.departmentName}<br>
+   322→            <strong>Shifokor:</strong> ${stay.doctorName}
+   323→          </div>
+   324→
+   325→          <div class="section-title">Tashxis</div>
+   326→          <div class="info">
+   327→            ${stay.diagnosis || "Statsionar davolanish ko'rik bayoni"}
+   328→          </div>
+   329→
+   330→          <div class="section-title">Muolajalar (Retseptlar)</div>
+   331→          <div class="info" style="font-size: 11px; line-height: 1.3;">
+   332→            ${prescriptionsHtml}
+   333→          </div>
+   334→
+   335→          <div class="section-title">To'lovlar Tafsiloti</div>
+   336→          <div class="info">
+   337→            <strong>Kelgan sanasi:</strong> ${stay.checkInDate}<br>
+   338→            ${stay.checkOutDate ? `<strong>Javob berildi:</strong> ${stay.checkOutDate}<br>` : ''}
+   339→            <strong>Turish muddati:</strong> ${stay.plannedDays} kun<br>
+   340→            <strong>Kunlik narx:</strong> ${stay.pricePerDay.toLocaleString()} UZS<br>
+   341→            <strong>Umumiy hisob:</strong> ${stay.totalCost.toLocaleString()} UZS<br>
+   342→            <strong style="color: green;">To'langan:</strong> ${stay.amountPaid.toLocaleString()} UZS<br>
+   343→            <strong style="color: red;">Qolgan qarz:</strong> ${stay.remainingDebt.toLocaleString()} UZS<br>
+   344→            <strong>Holati:</strong> ${stay.status === 'Davolanmoqda' ? 'DAVOLANMOQDA' : 'ARXIVLANGAN (JAVOB BERILGAN)'}
+   345→          </div>
+   346→
+   347→          <div class="footer">
+   348→            Sog'ligingiz o'z qo'lingizda!<br>
+   349→            DR.Maruf Clinic ERP
+   350→          </div>
+   351→          
+   352→          <button onclick="window.print(); window.close();">XPrinterda Chop etish</button>
+   353→          
+   354→          <script>
+   355→            window.onload = function() {
+   356→              setTimeout(function() {
+   357→                window.print();
+   358→              }, 300);
+   359→            }
+   360→          </script>
+   361→        </body>
+   362→      </html>
+   363→    `);
+   364→    printWindow.document.close();
+   365→  };
+   366→
+   367→  // ==========================================
+   368→  // 3. DYNAMIC REPORT COMPUTATIONS (BUGUN, HAFTALIK, OYLIK, YILLIK)
+   369→  // ==========================================
+   370→  const now = new Date();
+   371→  const todayStr = now.toISOString().split('T')[0];
+   372→
+   373→  const getFilteredData = (range: 'Bugun' | 'Haftalik' | 'Oylik' | 'Yillik') => {
+   374→    // For weekly, 7 days ago
+   375→    const oneWeekAgo = new Date();
+   376→    oneWeekAgo.setDate(now.getDate() - 7);
+   377→    
+   378→    // For monthly, same month & year
+   379→    const currentMonth = now.getMonth();
+   380→    const currentYear = now.getFullYear();
+   381→
+   382→    const isWithinRange = (dateString: string) => {
+   383→      const d = new Date(dateString);
+   384→      if (isNaN(d.getTime())) return false;
+   385→      const dStr = dateString.split('T')[0];
+   386→
+   387→      if (range === 'Bugun') {
+   388→        return dStr === todayStr;
+   389→      } else if (range === 'Haftalik') {
+   390→        return d >= oneWeekAgo && d <= now;
+   391→      } else if (range === 'Oylik') {
+   392→        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+   393→      } else if (range === 'Yillik') {
+   394→        return d.getFullYear() === currentYear;
+   395→      }
+   396→      return false;
+   397→    };
+   398→
+   399→    // Filter patients
+   400→    const filteredPatients = patients.filter(p => isWithinRange(p.createdAt));
+   401→
+   402→    // Filter stays
+   403→    const filteredStays = inpatientStays.filter(s => {
+   404→      const sDateStr = s.checkInDate;
+   405→      const sDate = new Date(`${sDateStr}T12:00:00`);
+   406→      if (range === 'Bugun') {
+   407→        return sDateStr === todayStr;
+   408→      } else if (range === 'Haftalik') {
+   409→        return sDate >= oneWeekAgo && sDate <= now;
+   410→      } else if (range === 'Oylik') {
+   411→        return sDate.getMonth() === currentMonth && sDate.getFullYear() === currentYear;
+   412→      } else if (range === 'Yillik') {
+   413→        return sDate.getFullYear() === currentYear;
+   414→      }
+   415→      return false;
+   416→    });
+   417→
+   418→    // Filter transactions
+   419→    const filteredTx = transactions.filter(tx => {
+   420→      const txDateStr = tx.date;
+   421→      const txDate = new Date(`${txDateStr}T12:00:00`);
+   422→      if (range === 'Bugun') {
+   423→        return txDateStr === todayStr;
+   424→      } else if (range === 'Haftalik') {
+   425→        return txDate >= oneWeekAgo && txDate <= now;
+   426→      } else if (range === 'Oylik') {
+   427→        return txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear;
+   428→      } else if (range === 'Yillik') {
+   429→        return txDate.getFullYear() === currentYear;
+   430→      }
+   431→      return false;
+   432→    });
+   433→
+   434→    return {
+   435→      patients: filteredPatients,
+   436→      stays: filteredStays,
+   437→      tx: filteredTx,
+   438→    };
+   439→  };
+   440→
+   441→  const dashboardData = getFilteredData(selectedRange);
+   442→
+   443→  // 1. Total visitors
+   444→  const dTotalPatients = dashboardData.patients.length;
+   445→
+   446→  // 2. New vs Returning patients
+   447→  let dNewPatientsCount = 0;
+   448→  let dReturningPatientsCount = 0;
+   449→
+   450→  dashboardData.patients.forEach(p => {
+   451→    const isReturning = patients.some(allP => {
+   452→      if (allP.id === p.id) return false;
+   453→      const samePhone = allP.phone === p.phone;
+   454→      const sameName = allP.firstName.trim().toLowerCase() === p.firstName.trim().toLowerCase() &&
+   455→                       allP.lastName.trim().toLowerCase() === p.lastName.trim().toLowerCase();
+   456→      return (samePhone || sameName) && new Date(allP.createdAt).getTime() < new Date(p.createdAt).getTime();
+   457→    });
+   458→    if (isReturning) {
+   459→      dReturningPatientsCount++;
+   460→    } else {
+   461→      dNewPatientsCount++;
+   462→    }
+   463→  });
+   464→
+   465→  // 3. Revenues & Expenses & Profits
+   466→  const dAmbulatoryIncome = dashboardData.tx
+   467→    .filter(tx => tx.type === 'Kirim' && tx.category === "Ambulator ko'rik")
+   468→    .reduce((sum, tx) => sum + tx.amount, 0);
+   469→
+   470→  const dInpatientIncome = dashboardData.tx
+   471→    .filter(tx => tx.type === 'Kirim' && (tx.category === "Statsionar to'lov" || tx.category === "Statsionar"))
+   472→    .reduce((sum, tx) => sum + tx.amount, 0);
+   473→
+   474→  const dTotalIncome = dashboardData.tx
+   475→    .filter(tx => tx.type === 'Kirim')
+   476→    .reduce((sum, tx) => sum + tx.amount, 0);
+   477→
+   478→  const dTotalExpenses = dashboardData.tx
+   479→    .filter(tx => tx.type === 'Chiqim')
+   480→    .reduce((sum, tx) => sum + tx.amount, 0);
+   481→
+   482→  const dNetProfit = dTotalIncome - dTotalExpenses;
+   483→
+   484→  // 4. Department visits analysis
+   485→  const dDeptStats: Record<string, { count: number; income: number }> = {};
+   486→  DEPARTMENTS.forEach(dept => {
+   487→    dDeptStats[dept.id] = { count: 0, income: 0 };
+   488→  });
+   489→
+   490→  dashboardData.patients.forEach(p => {
+   491→    const deptId = p.departmentId;
+   492→    if (dDeptStats[deptId]) {
+   493→      dDeptStats[deptId].count += 1;
+   494→      if (p.paymentStatus === 'To\'langan') {
+   495→        dDeptStats[deptId].income += p.paymentAmount;
+   496→      }
+   497→    } else {
+   498→      dDeptStats[deptId] = {
+   499→        count: 1,
+   500→        income: p.paymentStatus === 'To\'langan' ? p.paymentAmount : 0,
+   501→      };
+   502→    }
+   503→  });
+   504→
+   505→  const dMaxCount = Math.max(...Object.values(dDeptStats).map(d => d.count), 1);
+   506→
+   507→  // New Expense form states
+   508→  const [expenseAmount, setExpenseAmount] = useState<number>(0);
+   509→  const [expenseCategory, setExpenseCategory] = useState<string>('Klinika xarajati');
+   510→  const [expenseDesc, setExpenseDesc] = useState<string>('');
+   511→  const [expenseDate, setExpenseDate] = useState<string>(todayStr);
+   512→  const [expenseTime, setExpenseTime] = useState<string>('');
+   513→  const [expenseError, setExpenseError] = useState<string>('');
+   514→  const [expenseSuccess, setExpenseSuccess] = useState<boolean>(false);
+   515→
+   516→  const handleAddExpenseDirectly = (e: React.FormEvent) => {
+   517→    e.preventDefault();
+   518→    setExpenseError('');
+   519→    setExpenseSuccess(false);
+   520→
+   521→    if (expenseAmount <= 0) {
+   522→      setExpenseError('Xarajat summasi 0 dan katta bo\'lishi kerak!');
+   523→      return;
+   524→    }
+   525→    if (!expenseDesc.trim()) {
+   526→      setExpenseError('Xarajat tavsifini kiriting!');
+   527→      return;
+   528→    }
+   529→
+   530→    const txTime = expenseTime || new Date().toTimeString().split(' ')[0].substring(0, 5);
+   531→    const newTx: ClinicTransaction = {
+   532→      id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+   533→      type: 'Chiqim',
+   534→      amount: expenseAmount,
+   535→      category: expenseCategory,
+   536→      description: expenseDesc.trim(),
+   537→      date: expenseDate,
+   538→      time: txTime,
+   539→      createdAt: new Date(`${expenseDate}T${txTime}:00`).toISOString()
+   540→    };
+   541→
+   542→    onSaveTransactions([newTx, ...transactions]);
+   543→
+   544→    setExpenseAmount(0);
+   545→    setExpenseDesc('');
+   546→    setExpenseSuccess(true);
+   547→    setTimeout(() => setExpenseSuccess(false), 3000);
+   548→  };
+   549→
+   550→  return (
+   551→    <div className="space-y-6">
+   552→      
+   553→      {/* Upper sub-tab switcher */}
+   554→      <div className="flex bg-[#e2e8f0]/40 p-1 rounded-2xl max-w-xl border border-slate-200/55 shadow-inner">
+   555→        <button
+   556→          onClick={() => setActiveSubTab('dashboard')}
+   557→          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+   558→            activeSubTab === 'dashboard'
+   559→              ? 'bg-emerald-600 text-white shadow-md'
+   560→              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+   561→          }`}
+   562→        >
+   563→          📊 Umumiy Tahliliy Hisobot
+   564→        </button>
+   565→        <button
+   566→          onClick={() => setActiveSubTab('ambulatory')}
+   567→          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+   568→            activeSubTab === 'ambulatory'
+   569→              ? 'bg-emerald-600 text-white shadow-md'
+   570→              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+   571→          }`}
+   572→        >
+   573→          📈 Ambulator Arxiv
+   574→        </button>
+   575→        <button
+   576→          onClick={() => setActiveSubTab('inpatient')}
+   577→          className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
+   578→            activeSubTab === 'inpatient'
+   579→              ? 'bg-emerald-600 text-white shadow-md'
+   580→              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-800'
+   581→          }`}
+   582→        >
+   583→          🏥 Statsionar Arxiv
+   584→        </button>
+   585→      </div>
+   586→
+   587→      {/* ==========================================
+   588→          SUB-TAB O: CLINIC ANALYTICS DASHBOARD
+   589→          ========================================== */}
+   590→      {activeSubTab === 'dashboard' && (
+   591→        <div className="space-y-6 animate-fade-in text-xs">
+   592→          
+   593→          {/* Header Controls */}
+   594→          <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl border border-emerald-100 shadow-[0_20px_50px_rgba(16,185,129,0.05)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 relative overflow-hidden">
+   595→            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+   596→            <div>
+   597→              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Klinika Faoliyati va Moliya Tahlili</h2>
+   598→              <p className="text-slate-500 text-[11px] font-bold mt-0.5">Avtomatik sof foyda, xarajatlar va bemorlar hisob-kitoblari</p>
+   599→            </div>
+   600→            
+   601→            <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+   602→              <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50">
+   603→                {(['Bugun', 'Haftalik', 'Oylik', 'Yillik'] as const).map((range) => (
+   604→                  <button
+   605→                    key={range}
+   606→                    onClick={() => setSelectedRange(range)}
+   607→                    className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+   608→                      selectedRange === range
+   609→                        ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
+   610→                        : 'text-slate-500 hover:text-slate-800'
+   611→                    }`}
+   612→                  >
+   613→                    {range}
+   614→                  </button>
+   615→                ))}
+   616→              </div>
+   617→              <button
+   618→                onClick={handleExportExcel}
+   619→                disabled={isExporting}
+   620→                className="bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 disabled:opacity-60 disabled:cursor-not-allowed text-white px-4 py-2.5 text-xs font-black rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+   621→                title="Tanlangan davr uchun Excel hisobotini yuklab olish"
+   622→              >
+   623→                {isExporting ? (
+   624→                  <>
+   625→                    <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+   626→                    <span>Yuklanmoqda...</span>
+   627→                  </>
+   628→                ) : (
+   629→                  <>
+   630→                    <FileDown className="h-3.5 w-3.5" />
+   631→                    <span>Excel yuklab olish ({selectedRange})</span>
+   632→                  </>
+   633→                )}
+   634→              </button>
+   635→            </div>
+   636→          </div>
+   637→
+   638→          {/* KPI Dashboard Grid */}
+   639→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+   640→            
+   641→            {/* Visitors summary */}
+   642→            <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-5 rounded-3xl border border-blue-100 shadow-sm flex flex-col justify-between h-32">
+   643→              <div className="flex justify-between items-start">
+   644→                <span className="text-[9px] font-black text-blue-800 tracking-widest uppercase">JAMI BEMORLAR</span>
+   645→                <Users className="h-4.5 w-4.5 text-blue-600" />
+   646→              </div>
+   647→              <div>
+   648→                <h3 className="text-xl font-black text-blue-950">{dTotalPatients} nafar</h3>
+   649→                <div className="flex justify-between text-[10px] text-blue-600 font-bold mt-1 pt-1 border-t border-blue-200/30">
+   650→                  <span>Yangi: {dNewPatientsCount}</span>
+   651→                  <span>Qayta: {dReturningPatientsCount}</span>
+   652→                </div>
+   653→              </div>
+   654→            </div>
+   655→
+   656→            {/* Ambulatory payments summary */}
+   657→            <div className="bg-gradient-to-br from-teal-50 to-teal-100/30 p-5 rounded-3xl border border-teal-100 shadow-sm flex flex-col justify-between h-32">
+   658→              <div className="flex justify-between items-start">
+   659→                <span className="text-[9px] font-black text-teal-800 tracking-widest uppercase">AMBULATOR KO'RIK</span>
+   660→                <Stethoscope className="h-4.5 w-4.5 text-teal-600" />
+   661→              </div>
+   662→              <div>
+   663→                <h3 className="text-lg font-black text-teal-950">{dAmbulatoryIncome.toLocaleString()} UZS</h3>
+   664→                <p className="text-[9px] text-teal-600 font-bold mt-1">Navbat va ko'rik to'lovlari</p>
+   665→              </div>
+   666→            </div>
+   667→
+   668→            {/* Inpatient stays summary */}
+   669→            <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-5 rounded-3xl border border-purple-100 shadow-sm flex flex-col justify-between h-32">
+   670→              <div className="flex justify-between items-start">
+   671→                <span className="text-[9px] font-black text-purple-800 tracking-widest uppercase">STATSIONAR TO'LOV</span>
+   672→                <Bed className="h-4.5 w-4.5 text-purple-600" />
+   673→              </div>
+   674→              <div>
+   675→                <h3 className="text-lg font-black text-purple-950">{dInpatientIncome.toLocaleString()} UZS</h3>
+   676→                <p className="text-[9px] text-purple-600 font-bold mt-1">Palata va yotish tushumlari</p>
+   677→              </div>
+   678→            </div>
+   679→
+   680→            {/* Total Income summary */}
+   681→            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/30 p-5 rounded-3xl border border-indigo-100 shadow-sm flex flex-col justify-between h-32">
+   682→              <div className="flex justify-between items-start">
+   683→                <span className="text-[9px] font-black text-indigo-800 tracking-widest uppercase">JAMI TUSHUM (KIRIM)</span>
+   684→                <Coins className="h-4.5 w-4.5 text-indigo-600" />
+   685→              </div>
+   686→              <div>
+   687→                <h3 className="text-lg font-black text-indigo-950">{dTotalIncome.toLocaleString()} UZS</h3>
+   688→                <p className="text-[9px] text-indigo-600 font-bold mt-1">Jami kirim qilingan kassa</p>
+   689→              </div>
+   690→            </div>
+   691→
+   692→            {/* Total Expenses summary */}
+   693→            <div className="bg-gradient-to-br from-rose-50 to-rose-100/30 p-5 rounded-3xl border border-rose-100 shadow-sm flex flex-col justify-between h-32">
+   694→              <div className="flex justify-between items-start">
+   695→                <span className="text-[9px] font-black text-rose-800 tracking-widest uppercase">JAMI XARAJAT (CHIQIM)</span>
+   696→                <TrendingDown className="h-4.5 w-4.5 text-rose-600" />
+   697→              </div>
+   698→              <div>
+   699→                <h3 className="text-lg font-black text-rose-950">{dTotalExpenses.toLocaleString()} UZS</h3>
+   700→                <p className="text-[9px] text-rose-600 font-bold mt-1">Klinika chiqim xarajatlari</p>
+   701→              </div>
+   702→            </div>
+   703→
+   704→            {/* NET PROFIT / SOF FOYDA */}
+   705→            <div className={`p-5 rounded-3xl border shadow-sm flex flex-col justify-between h-32 transition-colors duration-300 ${
+   706→              dNetProfit >= 0 
+   707→                ? 'bg-gradient-to-br from-emerald-50 to-emerald-100/30 border-emerald-150' 
+   708→                : 'bg-gradient-to-br from-red-50 to-red-100/30 border-red-150'
+   709→            }`}>
+   710→              <div className="flex justify-between items-start">
+   711→                <span className={`text-[9px] font-black tracking-widest uppercase ${
+   712→                  dNetProfit >= 0 ? 'text-emerald-800' : 'text-red-800'
+   713→                }`}>SOF FOYDA (NET PROFIT)</span>
+   714→                <TrendingUp className={`h-4.5 w-4.5 ${
+   715→                  dNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600 animate-bounce'
+   716→                }`} />
+   717→              </div>
+   718→              <div>
+   719→                <h3 className={`text-lg font-black ${
+   720→                  dNetProfit >= 0 ? 'text-emerald-950' : 'text-rose-950'
+   721→                }`}>{dNetProfit.toLocaleString()} UZS</h3>
+   722→                <p className={`text-[9px] font-bold ${
+   723→                  dNetProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'
+   724→                }`}>Tushum - Chiqim (Avtomatik)</p>
+   725→              </div>
+   726→            </div>
+   727→
+   728→          </div>
+   729→
+   730→          {/* Interactive Middle Layout Grid */}
+   731→          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+   732→            
+   733→            {/* Left Hand: Expense Logger & Expenses list */}
+   734→            <div className="lg:col-span-5 space-y-6">
+   735→              
+   736→              {/* Form to log expense */}
+   737→              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs relative overflow-hidden">
+   738→                <div className="absolute top-0 left-0 right-0 h-1 bg-rose-500"></div>
+   739→                <h3 className="text-sm font-black text-slate-900 pb-3 border-b border-slate-100 mb-4 flex items-center justify-between">
+   740→                  <span>🔴 Chiqim (Xarajat) Kiritish</span>
+   741→                  <Coins className="h-4 w-4 text-rose-500" />
+   742→                </h3>
+   743→
+   744→                <form onSubmit={handleAddExpenseDirectly} className="space-y-3.5">
+   745→                  <div>
+   746→                    <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase">Xarajat summasi (UZS)</label>
+   747→                    <input
+   748→                      type="number"
+   749→                      required
+   750→                      min={100}
+   751→                      value={expenseAmount || ''}
+   752→                      onChange={(e) => setExpenseAmount(Number(e.target.value))}
+   753→                      placeholder="Summani kiriting..."
+   754→                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 font-bold focus:outline-none focus:border-rose-500 transition-colors"
+   755→                    />
+   756→                  </div>
+   757→
+   758→                  <div className="grid grid-cols-2 gap-3">
+   759→                    <div>
+   760→                      <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase">Kategoriya</label>
+   761→                      <select
+   762→                        value={expenseCategory}
+   763→                        onChange={(e) => setExpenseCategory(e.target.value)}
+   764→                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 font-bold focus:outline-none focus:border-rose-500 transition-colors"
+   765→                      >
+   766→                        <option value="Klinika xarajati">Klinika xarajati</option>
+   767→                        <option value="Kommunal to'lov">Kommunal to'lov</option>
+   768→                        <option value="Dori-darmon xaridi">Dori-darmon</option>
+   769→                        <option value="Maosh">Shifokor maoshi</option>
+   770→                        <option value="Oziq-ovqat">Oziq-ovqat</option>
+   771→                        <option value="Boshqa">Boshqa xarajat</option>
+   772→                      </select>
+   773→                    </div>
+   774→
+   775→                    <div>
+   776→                      <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase">Sana</label>
+   777→                      <input
+   778→                        type="date"
+   779→                        required
+   780→                        value={expenseDate}
+   781→                        onChange={(e) => setExpenseDate(e.target.value)}
+   782→                        className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 font-bold focus:outline-none focus:border-rose-500 transition-colors"
+   783→                      />
+   784→                    </div>
+   785→                  </div>
+   786→
+   787→                  <div>
+   788→                    <label className="block text-[10px] font-black text-slate-500 mb-1 uppercase">Xarajat sababi (Tavsif)</label>
+   789→                    <input
+   790→                      type="text"
+   791→                      required
+   792→                      value={expenseDesc}
+   793→                      onChange={(e) => setExpenseDesc(e.target.value)}
+   794→                      placeholder="Masalan: Kommunal chiroq to'lovi..."
+   795→                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-xs bg-slate-50 text-slate-800 font-bold focus:outline-none focus:border-rose-500 transition-colors"
+   796→                    />
+   797→                  </div>
+   798→
+   799→                  {expenseError && (
+   800→                    <p className="text-xxs font-bold text-rose-600 bg-rose-50 p-2 rounded border border-rose-100">
+   801→                      ⚠️ {expenseError}
+   802→                    </p>
+   803→                  )}
+   804→
+   805→                  {expenseSuccess && (
+   806→                    <p className="text-xxs font-bold text-emerald-600 bg-emerald-50 p-2 rounded border border-emerald-100">
+   807→                      🎉 Xarajat muvaffaqiyatli saqlandi!
+   808→                    </p>
+   809→                  )}
+   810→
+   811→                  <button
+   812→                    type="submit"
+   813→                    className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shadow transition-transform hover:scale-101 cursor-pointer flex items-center justify-center space-x-1"
+   814→                  >
+   815→                    <Plus className="h-4 w-4" />
+   816→                    <span>Xarajatni saqlash</span>
+   817→                  </button>
+   818→                </form>
+   819→              </div>
+   820→
+   821→              {/* History list of expenses */}
+   822→              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs max-h-[300px] overflow-y-auto">
+   823→                <h3 className="text-sm font-black text-slate-900 pb-3 border-b border-slate-100 mb-3 uppercase tracking-tight">
+   824→                  📋 Chiqimlar / Xarajatlar ro'yxati ({selectedRange})
+   825→                </h3>
+   826→                {dashboardData.tx.filter(t => t.type === 'Chiqim').length === 0 ? (
+   827→                  <p className="text-slate-400 font-bold py-6 text-center italic">Ushbu davrda xarajatlar kiritilmagan.</p>
+   828→                ) : (
+   829→                  <div className="space-y-2">
+   830→                    {dashboardData.tx.filter(t => t.type === 'Chiqim').map((tx) => (
+   831→                      <div key={tx.id} className="p-3 border border-slate-200 rounded-xl bg-slate-50 flex justify-between items-center font-bold">
+   832→                        <div>
+   833→                          <div className="flex items-center space-x-1.5">
+   834→                            <span className="text-[10px] bg-rose-100 text-rose-700 px-2 py-0.5 rounded font-black uppercase text-[8px]">{tx.category}</span>
+   835→                            <span className="text-slate-400 font-mono text-[9px]">{tx.date} {tx.time}</span>
+   836→                          </div>
+   837→                          <p className="text-slate-800 text-xs font-extrabold mt-1">{tx.description}</p>
+   838→                        </div>
+   839→                        <span className="text-rose-600 font-black text-xs shrink-0">-{tx.amount.toLocaleString()} UZS</span>
+   840→                      </div>
+   841→                    ))}
+   842→                  </div>
+   843→                )}
+   844→              </div>
+   845→
+   846→            </div>
+   847→
+   848→            {/* Right Hand: Department Visits Table & New/Returning Patient Ratio */}
+   849→            <div className="lg:col-span-7 space-y-6">
+   850→              
+   851→              {/* Department visit analytics */}
+   852→              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+   853→                <h3 className="text-sm font-black text-slate-900 pb-3 border-b border-slate-100 mb-4 uppercase tracking-tight flex justify-between items-center">
+   854→                  <span>🏢 Bo'limlar Bo'yicha Bemorlar va Kirimlar ({selectedRange})</span>
+   855→                  <BarChart3 className="h-4.5 w-4.5 text-emerald-500" />
+   856→                </h3>
+   857→
+   858→                <div className="overflow-x-auto">
+   859→                  <table className="w-full text-left border-collapse font-bold text-slate-600">
+   860→                    <thead>
+   861→                      <tr className="border-b border-slate-100 text-[10px] text-slate-400 uppercase tracking-widest">
+   862→                        <th className="py-2.5 pb-2">Bo'lim Nomi</th>
+   863→                        <th className="py-2.5 pb-2">Bemorlar</th>
+   864→                        <th className="py-2.5 pb-2 text-right">Tushum (UZS)</th>
+   865→                        <th className="py-2.5 pb-2">Hajm nisbati</th>
+   866→                      </tr>
+   867→                    </thead>
+   868→                    <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+   869→                      {DEPARTMENTS.map((dept) => {
+   870→                        const stats = dDeptStats[dept.id] || { count: 0, income: 0 };
+   871→                        const percentage = Math.round((stats.count / dMaxCount) * 100);
+   872→
+   873→                        return (
+   874→                          <tr key={dept.id} className="hover:bg-slate-50/50 transition-colors">
+   875→                            <td className="py-2.5 font-extrabold text-slate-900">
+   876→                              {dept.name}
+   877→                              <span className="block text-[10px] text-slate-400 font-bold font-sans mt-0.5">{dept.doctorName}</span>
+   878→                            </td>
+   879→                            <td className="py-2.5 text-slate-800">{stats.count} nafar</td>
+   880→                            <td className="py-2.5 text-right font-black text-emerald-700">{stats.income.toLocaleString()}</td>
+   881→                            <td className="py-2.5">
+   882→                              <div className="w-24 bg-slate-100 h-2 rounded-full overflow-hidden">
+   883→                                <div
+   884→                                  style={{ width: `${percentage}%` }}
+   885→                                  className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+   886→                                />
+   887→                              </div>
+   888→                            </td>
+   889→                          </tr>
+   890→                        );
+   891→                      })}
+   892→                    </tbody>
+   893→                  </table>
+   894→                </div>
+   895→              </div>
+   896→
+   897→              {/* Patient types (New vs Returning details) */}
+   898→              <div className="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row justify-between items-center gap-6">
+   899→                <div className="space-y-2 max-w-sm">
+   900→                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight">👤 Yangi vs Qayta Kelgan Bemorlar</h3>
+   901→                  <p className="text-slate-500 text-[11px] font-bold leading-relaxed">
+   902→                    Agar bemorning telefon raqami yoki ismi-familiyasi tizimda ilgari ro'yxatga olingan bo'lsa, u avtomatik ravishda <strong>Qayta kelgan (Returning)</strong> deb qayd etiladi. Aks holda u <strong>Yangi kelgan (New)</strong> hisoblanadi.
+   903→                  </p>
+   904→                  <div className="flex gap-4 pt-1 text-xs">
+   905→                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-emerald-500 block"></span> Yangi: {dNewPatientsCount}</span>
+   906→                    <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-blue-500 block"></span> Qayta: {dReturningPatientsCount}</span>
+   907→                  </div>
+   908→                </div>
+   909→
+   910→                {/* Progress Circle Visual */}
+   911→                <div className="shrink-0 relative w-24 h-24 flex items-center justify-center bg-slate-50 rounded-full border border-slate-100 shadow-inner">
+   912→                  <div className="text-center">
+   913→                    <span className="block text-[10px] text-slate-400 font-black">YANGI RATIO</span>
+   914→                    <strong className="text-lg text-emerald-600 font-black">
+   915→                      {dTotalPatients > 0 ? Math.round((dNewPatientsCount / dTotalPatients) * 100) : 0}%
+   916→                    </strong>
+   917→                  </div>
+   918→                </div>
+   919→              </div>
+   920→
+   921→            </div>
+   922→
+   923→          </div>
+   924→
+   925→          {/* Bottom Wide Card: Inpatient (Statsionar) stays billing and debts audit */}
+   926→          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+   927→            <h3 className="text-base font-black text-slate-950 pb-3 border-b border-slate-100 mb-4 uppercase tracking-tight flex justify-between items-center">
+   928→              <span>🛌 Palatada Davolangan / Davolanayotgan Bemorlar To'lov Audit Hisoboti ({selectedRange})</span>
+   929→              <span className="text-xs bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1 rounded-xl font-black">
+   930→                Aktiv yotganlar: {inpatientStays.filter(s => s.status === 'Davolanmoqda').length} ta
+   931→              </span>
+   932→            </h3>
+   933→
+   934→            {dashboardData.stays.length === 0 ? (
+   935→              <p className="text-slate-400 font-bold py-12 text-center italic">Ushbu davrda statsionar bemorlar hisoboti mavjud emas.</p>
+   936→            ) : (
+   937→              <div className="overflow-x-auto">
+   938→                <table className="w-full text-left border-collapse font-bold text-slate-600">
+   939→                  <thead>
+   940→                    <tr className="border-b border-slate-150 text-[10px] text-slate-400 uppercase tracking-widest">
+   941→                      <th className="py-2.5 pb-2">Bemor F.I.SH</th>
+   942→                      <th className="py-2.5 pb-2">Palata / Shifokor</th>
+   943→                      <th className="py-2.5 pb-2">Yotish Sanasi</th>
+   944→                      <th className="py-2.5 pb-2 text-right">Kunlik / Muddati</th>
+   945→                      <th className="py-2.5 pb-2 text-right">Umumiy hisob (UZS)</th>
+   946→                      <th className="py-2.5 pb-2 text-right text-emerald-700">To'langan (UZS)</th>
+   947→                      <th className="py-2.5 pb-2 text-right text-rose-600">Qolgan Qarz (UZS)</th>
+   948→                      <th className="py-2.5 pb-2 text-center">Holati</th>
+   949→                    </tr>
+   950→                  </thead>
+   951→                  <tbody className="divide-y divide-slate-100 text-slate-700 text-xs">
+   952→                    {dashboardData.stays.map((stay) => (
+   953→                      <tr key={stay.id} className="hover:bg-slate-50/50 transition-colors">
+   954→                        <td className="py-3 font-extrabold text-slate-900">
+   955→                          {stay.lastName} {stay.firstName}
+   956→                          <span className="block text-[10px] text-slate-400 font-bold font-mono mt-0.5">ID: {stay.patientId} • {stay.phone}</span>
+   957→                        </td>
+   958→                        <td className="py-3">
+   959→                          <span className="text-indigo-700 font-extrabold">🚪 {stay.roomNumber}</span>
+   960→                          <span className="block text-[10px] text-slate-500 font-medium mt-0.5">{stay.doctorName}</span>
+   961→                        </td>
+   962→                        <td className="py-3 font-mono text-[11px] text-slate-600">{stay.checkInDate}</td>
+   963→                        <td className="py-3 text-right">
+   964→                          <span className="text-slate-900">{stay.plannedDays} kun</span>
+   965→                          <span className="block text-[9px] text-slate-400 font-mono mt-0.5">Kuniga: {stay.pricePerDay.toLocaleString()}</span>
+   966→                        </td>
+   967→                        <td className="py-3 text-right font-black text-slate-950">{stay.totalCost.toLocaleString()}</td>
+   968→                        <td className="py-3 text-right font-black text-emerald-700">{stay.amountPaid.toLocaleString()}</td>
+   969→                        <td className="py-3 text-right">
+   970→                          <span className={`font-black text-sm px-2 py-1 rounded-lg ${
+   971→                            stay.remainingDebt > 0 ? 'text-rose-600 bg-rose-50 border border-rose-100/50 animate-pulse' : 'text-emerald-700 bg-emerald-50'
+   972→                          }`}>
+   973→                            {stay.remainingDebt.toLocaleString()} UZS
+   974→                          </span>
+   975→                        </td>
+   976→                        <td className="py-3 text-center">
+   977→                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase inline-block ${
+   978→                            stay.status === 'Davolanmoqda' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500'
+   979→                          }`}>
+   980→                            {stay.status === 'Davolanmoqda' ? 'Aktiv' : 'Chiqdi'}
+   981→                          </span>
+   982→                        </td>
+   983→                      </tr>
+   984→                    ))}
+   985→                  </tbody>
+   986→                </table>
+   987→              </div>
+   988→            )}
+   989→          </div>
+   990→
+   991→        </div>
+   992→      )}
+   993→
+   994→      {/* ==========================================
+   995→          SUB-TAB A: AMBULATORY REPORTS & CHARTS
+   996→          ========================================== */}
+   997→      {activeSubTab === 'ambulatory' && (
+   998→        <div className="space-y-8 animate-fade-in">
+   999→          
+  1000→          {/* Controls & Summary */}
+  1001→          <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl border border-emerald-100 shadow-[0_20px_50px_rgba(16,185,129,0.05)] neon-glow-emerald flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+  1002→            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+  1003→
+  1004→            <div className="z-10">
+  1005→              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Klinika Tahlili va Hisobotlari</h2>
+  1006→              <p className="text-xs text-slate-500 font-bold mt-0.5">
+  1007→                Klinika ambulator xizmat ko'rsatishi va moliyaviy o'sish ko'rsatkichlari
+  1008→              </p>
+  1009→            </div>
+  1010→
+  1011→            {/* Range switcher */}
+  1012→            <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200/50 z-10">
+  1013→              {(['Bugun', 'Haftalik', 'Oylik', 'Yillik'] as const).map((range) => (
+  1014→                <button
+  1015→                  key={range}
+  1016→                  onClick={() => setSelectedRange(range)}
+  1017→                  className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+  1018→                    selectedRange === range
+  1019→                      ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/15'
+  1020→                      : 'text-slate-500 hover:text-slate-800'
+  1021→                  }`}
+  1022→                >
+  1023→                  {range}
+  1024→                </button>
+  1025→              ))}
+  1026→            </div>
+  1027→          </div>
+  1028→
+  1029→          {/* KPI cards */}
+  1030→          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+  1031→            <div className="bg-gradient-to-br from-blue-50 to-blue-100/40 p-6 rounded-3xl border border-blue-100 shadow-md shadow-blue-500/5 flex items-center space-x-4">
+  1032→              <div className="bg-blue-600 text-white p-3.5 rounded-2xl shadow-lg shadow-blue-600/10">
+  1033→                <Users className="h-6 w-6" />
+  1034→              </div>
+  1035→              <div>
+  1036→                <p className="text-[10px] font-black text-blue-800 tracking-widest uppercase">JAMI MUROJAATLAR</p>
+  1037→                <h3 className="text-base sm:text-lg font-black text-blue-950 mt-1">{totalPatients} nafar</h3>
+  1038→                <p className="text-[10px] text-blue-500 font-bold mt-0.5">{selectedRange}gi bemorlar</p>
+  1039→              </div>
+  1040→            </div>
+  1041→
+  1042→            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/40 p-6 rounded-3xl border border-indigo-100 shadow-md shadow-indigo-500/5 flex items-center space-x-4">
+  1043→              <div className="bg-indigo-600 text-white p-3.5 rounded-2xl shadow-lg shadow-indigo-600/10">
+  1044→                <CheckCircle className="h-6 w-6" />
+  1045→              </div>
+  1046→              <div>
+  1047→                <p className="text-[10px] font-black text-indigo-800 tracking-widest uppercase">KO'RIKdan O'TGANLAR</p>
+  1048→                <h3 className="text-base sm:text-lg font-black text-indigo-950 mt-1">{completedPatients} nafar</h3>
+  1049→                <p className="text-[10px] text-indigo-600 font-bold mt-0.5">
+  1050→                  {totalPatients > 0 ? Math.round((completedPatients / totalPatients) * 100) : 0}% yakunlandi
+  1051→                </p>
+  1052→              </div>
+  1053→            </div>
+  1054→
+  1055→            <div className="bg-gradient-to-br from-amber-50 to-amber-100/40 p-6 rounded-3xl border border-amber-100 shadow-md shadow-amber-500/5 flex items-center space-x-4">
+  1056→              <div className="bg-amber-600 text-white p-3.5 rounded-2xl shadow-lg shadow-amber-600/10 animate-pulse">
+  1057→                <Calendar className="h-6 w-6" />
+  1058→              </div>
+  1059→              <div>
+  1060→                <p className="text-[10px] font-black text-amber-800 tracking-widest uppercase">KUTAYOTGANLAR</p>
+  1061→                <h3 className="text-base sm:text-lg font-black text-amber-950 mt-1">{waitingPatients} nafar</h3>
+  1062→                <p className="text-[10px] text-amber-600 font-bold mt-0.5">Navbat kutmoqda</p>
+  1063→              </div>
+  1064→            </div>
+  1065→
+  1066→            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/40 p-6 rounded-3xl border border-emerald-100 shadow-md shadow-emerald-500/5 flex items-center space-x-4">
+  1067→              <div className="bg-emerald-600 text-white p-3.5 rounded-2xl shadow-lg shadow-emerald-600/10">
+  1068→                <Coins className="h-6 w-6" />
+  1069→              </div>
+  1070→              <div>
+  1071→                <p className="text-[10px] font-black text-emerald-800 tracking-widest uppercase">UMUMIY DAROMAD</p>
+  1072→                <h3 className="text-base sm:text-lg font-black text-emerald-950 mt-1">
+  1073→                  {totalIncome.toLocaleString()} UZS
+  1074→                </h3>
+  1075→                <p className="text-[10px] font-bold text-emerald-700 mt-0.5">Naqd & plastik tushumlar</p>
+  1076→              </div>
+  1077→            </div>
+  1078→          </div>
+  1079→
+  1080→          {/* Visual charts */}
+  1081→          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+  1082→            <div className="bg-white/95 p-6 rounded-3xl border border-slate-200/60 shadow-sm">
+  1083→              <h3 className="text-sm font-black text-slate-900 mb-5 pb-3 border-b border-slate-100 flex justify-between items-center">
+  1084→                <span>Bo'limlar bo'yicha Bemorlar soni ({selectedRange})</span>
+  1085→                <BarChart3 className="h-4.5 w-4.5 text-emerald-500" />
+  1086→              </h3>
+  1087→
+  1088→              <div className="space-y-4">
+  1089→                {DEPARTMENTS.map((dept) => {
+  1090→                  const count = deptStats[dept.id]?.count || 0;
+  1091→                  const percentage = Math.round((count / maxCount) * 100);
+  1092→
+  1093→                  return (
+  1094→                    <div key={dept.id} className="space-y-2">
+  1095→                      <div className="flex justify-between text-xs font-bold">
+  1096→                        <span className="text-slate-600">{dept.name}</span>
+  1097→                        <span className="text-slate-950 font-black">{count} nafar</span>
+  1098→                      </div>
+  1099→                      <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+  1100→                        <div
+  1101→                          style={{ width: `${percentage}%` }}
+  1102→                          className="bg-gradient-to-r from-emerald-500 to-teal-400 h-full rounded-full transition-all duration-500"
+  1103→                        />
+  1104→                      </div>
+  1105→                    </div>
+  1106→                  );
+  1107→                })}
+  1108→              </div>
+  1109→            </div>
+  1110→
+  1111→            <div className="bg-white/95 p-6 rounded-3xl border border-slate-200/60 shadow-sm">
+  1112→              <h3 className="text-sm font-black text-slate-900 mb-5 pb-3 border-b border-slate-100 flex justify-between items-center">
+  1113→                <span>Bo'limlar bo'yicha Moliyaviy Daromad ({selectedRange})</span>
+  1114→                <TrendingUp className="h-4.5 w-4.5 text-emerald-500" />
+  1115→              </h3>
+  1116→
+  1117→              <div className="space-y-4">
+  1118→                {DEPARTMENTS.map((dept) => {
+  1119→                  const income = deptStats[dept.id]?.income || 0;
+  1120→                  const percentage = Math.round((income / maxIncome) * 100);
+  1121→
+  1122→                  return (
+  1123→                    <div key={dept.id} className="space-y-2">
+  1124→                      <div className="flex justify-between text-xs font-bold">
+  1125→                        <span className="text-slate-600">{dept.name}</span>
+  1126→                        <span className="text-emerald-700 font-black">{income.toLocaleString()} UZS</span>
+  1127→                      </div>
+  1128→                      <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+  1129→                        <div
+  1130→                          style={{ width: `${percentage}%` }}
+  1131→                          className="bg-gradient-to-r from-amber-400 to-orange-500 h-full rounded-full transition-all duration-500"
+  1132→                        />
+  1133→                      </div>
+  1134→                    </div>
+  1135→                  );
+  1136→                })}
+  1137→              </div>
+  1138→            </div>
+  1139→          </div>
+  1140→
+  1141→          {/* Qo'shimcha xizmatlar bo'yicha tahlil - har bir bo'lim alohida, professional ko'rinish */}
+  1142→          <div className="bg-white p-6 rounded-3xl border border-purple-200 shadow-sm">
+  1143→            <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight mb-1 pb-3 border-b border-slate-100">
+  1144→              💊 Qo'shimcha Xizmatlar Tahlili — Bo'limlar Bo'yicha ({selectedRange})
+  1145→            </h3>
+  1146→            <p className="text-[10px] text-slate-500 font-bold mb-4">
+  1147→              Har bir bo'lim va uning xizmatlari: birlik narxi, mijozlar soni, daromad va bo'lim kesimidagi jami (subtotal)
+  1148→            </p>
+  1149→
+  1150→            <div className="space-y-4">
+  1151→              {DEPARTMENTS.map((dept) => {
+  1152→                const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+  1153→                const deptServices = dept.services || [];
+  1154→                const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+  1155→                const servicesIncome = deptPatients.reduce((s, p) => s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0), 0);
+  1156→                const baseOnly = baseIncome - servicesIncome;
+  1157→
+  1158→                // Bo'lim subtotal'ini hisoblash
+  1159→                let deptSubtotalCount = deptPatients.length;
+  1160→                let deptSubtotalIncome = baseOnly;
+  1161→                deptServices.forEach((svc) => {
+  1162→                  const c = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name)).length;
+  1163→                  deptSubtotalCount += c;
+  1164→                  deptSubtotalIncome += c * svc.price;
+  1165→                });
+  1166→
+  1167→                return (
+  1168→                  <div key={dept.id} className="border border-slate-200 rounded-2xl overflow-hidden">
+  1169→                    {/* Bo'lim sarlavhasi */}
+  1170→                    <div className="bg-purple-50 px-4 py-2.5 border-b border-purple-200">
+  1171→                      <div className="flex items-center justify-between">
+  1172→                        <div>
+  1173→                          <span className="text-xs font-black text-purple-800">{dept.name}</span>
+  1174→                          <span className="text-[10px] text-slate-500 font-bold ml-2">{dept.doctorName}</span>
+  1175→                        </div>
+  1176→                        <span className="text-[10px] font-black text-purple-700 bg-white px-2 py-0.5 rounded border border-purple-200">
+  1177→                          {deptPatients.length} bemor • {baseIncome.toLocaleString()} UZS
+  1178→                        </span>
+  1179→                      </div>
+  1180→                    </div>
+  1181→
+  1182→                    {/* Xizmatlar ro'yxati */}
+  1183→                    <div className="p-3">
+  1184→                      {/* Table header */}
+  1185→                      <div className="hidden sm:grid grid-cols-12 gap-2 py-1.5 border-b border-slate-200 text-[9px] font-black text-slate-500 uppercase tracking-wider">
+  1186→                        <div className="col-span-5">Xizmat</div>
+  1187→                        <div className="col-span-2 text-center">Birlik narxi</div>
+  1188→                        <div className="col-span-2 text-center">Mijozlar</div>
+  1189→                        <div className="col-span-3 text-right">Daromad</div>
+  1190→                      </div>
+  1191→
+  1192→                      {/* Bazaviy ko'rik */}
+  1193→                      <div className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-100 text-xs items-center">
+  1194→                        <div className="col-span-12 sm:col-span-5 flex items-center gap-2">
+  1195→                          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[9px] font-black uppercase">Ko'rik</span>
+  1196→                          <span className="font-bold text-slate-700">Bazaviy narxi</span>
+  1197→                        </div>
+  1198→                        <div className="col-span-4 sm:col-span-2 text-center text-slate-600 font-bold">{(dept.price || 0).toLocaleString()} UZS</div>
+  1199→                        <div className="col-span-4 sm:col-span-2 text-center font-bold text-blue-600">{deptPatients.length} mijoz</div>
+  1200→                        <div className="col-span-4 sm:col-span-3 text-right font-black text-emerald-600">{baseOnly.toLocaleString()} UZS</div>
+  1201→                      </div>
+  1202→
+  1203→                      {/* Har bir xizmat — narxi, soni, daromadi aniq */}
+  1204→                      {deptServices.length > 0 ? (
+  1205→                        deptServices.map((svc) => {
+  1206→                          const svcPatients = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name));
+  1207→                          const svcCount = svcPatients.length;
+  1208→                          const svcIncome = svcCount * svc.price;
+  1209→
+  1210→                          return (
+  1211→                            <div key={svc.id} className="grid grid-cols-12 gap-2 py-1.5 border-b border-slate-50 text-xs items-center">
+  1212→                              <div className="col-span-12 sm:col-span-5 flex items-center gap-2 min-w-0">
+  1213→                                <span className="bg-purple-50 text-purple-700 border border-purple-200 px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0">💊 Xizmat</span>
+  1214→                                <span className="font-bold text-slate-700 truncate">{svc.name}</span>
+  1215→                              </div>
+  1216→                              <div className="col-span-4 sm:col-span-2 text-center text-slate-600 font-bold">{svc.price.toLocaleString()} UZS</div>
+  1217→                              <div className="col-span-4 sm:col-span-2 text-center">
+  1218→                                <span className={`font-bold ${svcCount > 0 ? 'text-blue-600' : 'text-slate-400'}`}>{svcCount} mijoz</span>
+  1219→                              </div>
+  1220→                              <div className="col-span-4 sm:col-span-3 text-right">
+  1221→                                <span className={`font-black ${svcIncome > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{svcIncome.toLocaleString()} UZS</span>
+  1222→                              </div>
+  1223→                            </div>
+  1224→                          );
+  1225→                        })
+  1226→                      ) : (
+  1227→                        <p className="text-[10px] text-slate-400 italic py-2 text-center">Qo'shimcha xizmatlar kiritilmagan</p>
+  1228→                      )}
+  1229→
+  1230→                      {/* Bo'lim subtotal qatori */}
+  1231→                      <div className="grid grid-cols-12 gap-2 py-2 mt-1 bg-emerald-50/60 rounded-lg text-xs items-center border border-emerald-100">
+  1232→                        <div className="col-span-12 sm:col-span-5 flex items-center gap-2">
+  1233→                          <span className="text-[9px] font-black text-emerald-700 uppercase">↳ Subtotal</span>
+  1234→                          <span className="font-bold text-emerald-800">{dept.name}</span>
+  1235→                        </div>
+  1236→                        <div className="col-span-4 sm:col-span-2 text-center text-[10px] text-slate-500 font-bold">—</div>
+  1237→                        <div className="col-span-4 sm:col-span-2 text-center font-black text-emerald-700">{deptSubtotalCount} ta</div>
+  1238→                        <div className="col-span-4 sm:col-span-3 text-right font-black text-emerald-700">{deptSubtotalIncome.toLocaleString()} UZS</div>
+  1239→                      </div>
+  1240→                    </div>
+  1241→                  </div>
+  1242→                );
+  1243→              })}
+  1244→
+  1245→              {/* Grand total banner */}
+  1246→              {(() => {
+  1247→                let grandCount = 0;
+  1248→                let grandIncome = 0;
+  1249→                DEPARTMENTS.forEach((dept) => {
+  1250→                  const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+  1251→                  const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+  1252→                  const servicesIncome = deptPatients.reduce((s, p) => s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0), 0);
+  1253→                  const baseOnly = baseIncome - servicesIncome;
+  1254→                  grandCount += deptPatients.length;
+  1255→                  grandIncome += baseOnly; // faqat bazaviy narx (servicesIncome keyin qo'shiladi)
+  1256→                  (dept.services || []).forEach((svc) => {
+  1257→                    const c = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name)).length;
+  1258→                    grandCount += c;
+  1259→                    grandIncome += c * svc.price;
+  1260→                  });
+  1261→                });
+  1262→                return (
+  1263→                  <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white p-4 rounded-2xl flex items-center justify-between shadow-lg">
+  1264→                    <div className="flex items-center gap-3">
+  1265→                      <span className="text-2xl">🏆</span>
+  1266→                      <div>
+  1267→                        <p className="text-[10px] font-black uppercase tracking-wider opacity-90">Jami (barcha bo'limlar va xizmatlar)</p>
+  1268→                        <p className="text-sm font-black">{grandCount} ta xizmat ko'rsatilgan</p>
+  1269→                      </div>
+  1270→                    </div>
+  1271→                    <div className="text-right">
+  1272→                      <p className="text-[10px] font-bold opacity-90 uppercase">Umumiy daromad</p>
+  1273→                      <p className="text-xl font-black">{grandIncome.toLocaleString()} UZS</p>
+  1274→                    </div>
+  1275→                  </div>
+  1276→                );
+  1277→              })()}
+  1278→            </div>
+  1279→          </div>
+  1280→
+  1281→          {/* Ambulatory search */}
+  1282→          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+  1283→            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100 mb-6">
+  1284→              <div>
+  1285→                <h3 className="text-base font-black text-slate-900">Bemorlar Arxiv Tarixi (Ko'rikdan O'tganlar)</h3>
+  1286→                <p className="text-xs text-slate-500 font-bold">
+  1287→                  Shifokorlar ko'rigidan o'tib tashxis qo'yilgan barcha bemorlar ro'yxati
+  1288→                </p>
+  1289→              </div>
+  1290→
+  1291→              <div className="flex items-center space-x-2 w-full sm:w-auto">
+  1292→                <div className="relative flex-1 sm:flex-initial">
+  1293→                  <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+  1294→                  <input
+  1295→                    type="text"
+  1296→                    placeholder="F.I.SH, ID yoki tashxis bo'yicha..."
+  1297→                    value={searchQuery}
+  1298→                    onChange={(e) => setSearchQuery(e.target.value)}
+  1299→                    className="pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none w-full sm:w-56"
+  1300→                  />
+  1301→                </div>
+  1302→
+  1303→                <span className="px-3 py-2.5 text-[10px] bg-slate-50 text-slate-500 border border-slate-150 rounded-xl font-black uppercase tracking-wider flex items-center space-x-1">
+  1304→                  <span>🔒 ARXIV HIMOYALANGAN</span>
+  1305→                </span>
+  1306→              </div>
+  1307→            </div>
+  1308→
+  1309→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1310→              <div className="lg:col-span-1 border border-slate-200 rounded-2xl overflow-hidden max-h-[380px] overflow-y-auto bg-slate-50/40">
+  1311→                {completedHistory.length === 0 ? (
+  1312→                  <div className="text-center py-12">
+  1313→                    <p className="text-slate-400 text-xs font-bold">Ko'rikdan o'tgan bemorlar topilmadi.</p>
+  1314→                  </div>
+  1315→                ) : (
+  1316→                  <div className="divide-y divide-slate-100 bg-white">
+  1317→                    {completedHistory.map((patient) => (
+  1318→                      <button
+  1319→                        key={patient.id}
+  1320→                        onClick={() => setSelectedPatientDetails(patient)}
+  1321→                        className={`w-full text-left p-3.5 text-xxs transition-all hover:bg-slate-50 cursor-pointer flex flex-col space-y-1 bg-white border-b border-slate-150 ${
+  1322→                          selectedPatientDetails?.id === patient.id ? 'bg-emerald-50/70 border-l-4 border-l-emerald-500' : ''
+  1323→                        }`}
+  1324→                      >
+  1325→                        <div className="flex justify-between items-center">
+  1326→                          <span className="font-extrabold text-slate-900 text-xs">{patient.lastName} {patient.firstName}</span>
+  1327→                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[9px] font-black">#{patient.queueNumber}</span>
+  1328→                        </div>
+  1329→                        <div className="text-[10px] font-bold text-emerald-700">{getDeptName(patient.departmentId)}</div>
+  1330→                        {patient.diagnosis && (
+  1331→                          <div className="text-slate-500 truncate italic font-bold">Tashxis: {patient.diagnosis}</div>
+  1332→                        )}
+  1333→                        <div className="text-slate-400 font-bold text-[9px] flex justify-between">
+  1334→                          <span>ID: {patient.id}</span>
+  1335→                          <span>{new Date(patient.completedAt || patient.createdAt).toLocaleDateString('uz-UZ')}</span>
+  1336→                        </div>
+  1337→                      </button>
+  1338→                    ))}
+  1339→                  </div>
+  1340→                )}
+  1341→              </div>
+  1342→
+  1343→              {/* Detailed Ambulatory Folder with Print option */}
+  1344→              <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm relative overflow-hidden">
+  1345→                {!selectedPatientDetails ? (
+  1346→                  <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-16 space-y-2">
+  1347→                    <FileSpreadsheet className="h-10 w-10 text-slate-300" />
+  1348→                    <p className="text-xs font-bold text-slate-700">Ko'rik bayonnomasi va retseptlarni ko'rish</p>
+  1349→                    <p className="text-[11px] text-slate-500 font-semibold">Bemor ismini tanlang</p>
+  1350→                  </div>
+  1351→                ) : (
+  1352→                  <div className="space-y-5 animate-fade-in text-xs text-slate-600">
+  1353→                    <div className="flex justify-between items-start pb-4 border-b border-slate-150">
+  1354→                      <div>
+  1355→                        <h4 className="text-sm font-black text-slate-900 uppercase">
+  1356→                          {selectedPatientDetails.lastName} {selectedPatientDetails.firstName} {selectedPatientDetails.middleName || ''}
+  1357→                        </h4>
+  1358→                        <p className="text-[10px] font-bold text-slate-500 mt-1">
+  1359→                          ID: <strong className="text-slate-700">{selectedPatientDetails.id}</strong> • Tel: {selectedPatientDetails.phone}
+  1360→                        </p>
+  1361→                      </div>
+  1362→
+  1363→                      {/* Print button on top */}
+  1364→                      <button
+  1365→                        onClick={() => printAmbulatoryHistory(selectedPatientDetails)}
+  1366→                        className="flex items-center space-x-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xxs font-black transition-all cursor-pointer shadow-xs"
+  1367→                      >
+  1368→                        <Printer className="h-3.5 w-3.5" />
+  1369→                        <span>XPrinter Ko'rik Retseptini Chop Etish</span>
+  1370→                      </button>
+  1371→                    </div>
+  1372→
+  1373→                    <div className="grid grid-cols-2 gap-4">
+  1374→                      <div>
+  1375→                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block mb-1">Murojaat bo'limi</span>
+  1376→                        <span className="font-extrabold text-slate-800">{getDeptName(selectedPatientDetails.departmentId)} ({selectedPatientDetails.doctorName})</span>
+  1377→                      </div>
+  1378→                      <div>
+  1379→                        <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block mb-1">Ko'rik vaqti</span>
+  1380→                        <span className="font-bold text-slate-800">{new Date(selectedPatientDetails.createdAt).toLocaleString('uz-UZ')}</span>
+  1381→                      </div>
+  1382→                    </div>
+  1383→
+  1384→                    <div>
+  1385→                      <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Shikoyat va anamnez</h5>
+  1386→                      <p className="text-slate-700 italic font-bold leading-relaxed">{selectedPatientDetails.complaints || 'Belgilanmagan'}</p>
+  1387→                    </div>
+  1388→
+  1389→                    <div>
+  1390→                      <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Tahlillar va tahlil ko'rsatkichlari</h5>
+  1391→                      <p className="text-slate-700 font-semibold leading-relaxed">{selectedPatientDetails.testResults || 'Natijalar yo\'q'}</p>
+  1392→                    </div>
+  1393→
+  1394→                    <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-500/10">
+  1395→                      <h5 className="text-emerald-800 uppercase text-[10px] font-black tracking-wider mb-1">Qo'yilgan tashxis (Diagnosis)</h5>
+  1396→                      <p className="text-slate-900 font-black text-sm">{selectedPatientDetails.diagnosis || 'Sog\'lom'}</p>
+  1397→                    </div>
+  1398→
+  1399→                    {selectedPatientDetails.prescriptions && selectedPatientDetails.prescriptions.length > 0 && (
+  1400→                      <div>
+  1401→                        <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Tavsiya etilgan dori-darmonlar (Retsept)</h5>
+  1402→                        <ol className="list-decimal pl-4 space-y-1.5 text-slate-700 font-bold">
+  1403→                          {selectedPatientDetails.prescriptions.map((med, idx) => (
+  1404→                            <li key={idx}>
+  1405→                              <strong className="text-slate-900 font-black">{med.name}</strong> — {med.dosage} ({med.days})
+  1406→                            </li>
+  1407→                          ))}
+  1408→                        </ol>
+  1409→                      </div>
+  1410→                    )}
+  1411→                  </div>
+  1412→                )}
+  1413→              </div>
+  1414→            </div>
+  1415→          </div>
+  1416→
+  1417→        </div>
+  1418→      )}
+  1419→
+  1420→      {/* ==========================================
+  1421→          SUB-TAB B: INPATIENT (STATSIONAR) ARCHIVE
+  1422→          ========================================== */}
+  1423→      {activeSubTab === 'inpatient' && (
+  1424→        <div className="space-y-6 animate-fade-in">
+  1425→          
+  1426→          {/* Statsionar KPI metrics */}
+  1427→          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+  1428→            <div className="bg-gradient-to-br from-purple-50 to-purple-100/40 p-6 rounded-3xl border border-purple-100 shadow-md flex items-center space-x-4">
+  1429→              <div className="bg-purple-600 text-white p-3.5 rounded-2xl shadow-lg shadow-purple-600/10">
+  1430→                <Bed className="h-6 w-6" />
+  1431→              </div>
+  1432→              <div>
+  1433→                <p className="text-[10px] font-black text-purple-800 tracking-widest uppercase">AKTIV DAVOLANUVCHILAR</p>
+  1434→                <h3 className="text-base sm:text-lg font-black text-purple-950 mt-1">{activeInpatientsCount} nafar</h3>
+  1435→                <p className="text-[10px] text-purple-500 font-bold mt-0.5">Palatada yotgan bemorlar</p>
+  1436→              </div>
+  1437→            </div>
+  1438→
+  1439→            <div className="bg-gradient-to-br from-indigo-50 to-indigo-100/40 p-6 rounded-3xl border border-indigo-100 shadow-md flex items-center space-x-4">
+  1440→              <div className="bg-indigo-600 text-white p-3.5 rounded-2xl shadow-lg shadow-indigo-600/10">
+  1441→                <CheckCircle className="h-6 w-6" />
+  1442→              </div>
+  1443→              <div>
+  1444→                <p className="text-[10px] font-black text-indigo-800 tracking-widest uppercase">JAVOB BERILGANLAR (ARXIV)</p>
+  1445→                <h3 className="text-base sm:text-lg font-black text-indigo-950 mt-1">{completedInpatientsCount} nafar</h3>
+  1446→                <p className="text-[10px] text-indigo-500 font-bold mt-0.5">Tugallangan muolajalar</p>
+  1447→              </div>
+  1448→            </div>
+  1449→
+  1450→            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/40 p-6 rounded-3xl border border-emerald-100 shadow-md flex items-center space-x-4">
+  1451→              <div className="bg-emerald-600 text-white p-3.5 rounded-2xl shadow-lg shadow-emerald-600/10">
+  1452→                <Coins className="h-6 w-6" />
+  1453→              </div>
+  1454→              <div>
+  1455→                <p className="text-[10px] font-black text-emerald-800 tracking-widest uppercase">UMUMIY STATSIONAR TUSHUM</p>
+  1456→                <h3 className="text-base sm:text-lg font-black text-emerald-950 mt-1">{totalInpatientIncome.toLocaleString()} UZS</h3>
+  1457→                <p className="text-[10px] text-emerald-700 font-bold mt-0.5">Yotib davolanishlardan to'lovlar</p>
+  1458→              </div>
+  1459→            </div>
+  1460→          </div>
+  1461→
+  1462→          {/* Search inpatient archive layout */}
+  1463→          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+  1464→            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100 mb-6">
+  1465→              <div>
+  1466→                <h3 className="text-base font-black text-slate-900">Statsionar Bemorlar Arxiv Tahlili</h3>
+  1467→                <p className="text-xs text-slate-500 font-bold">
+  1468→                  Yotib davolanishga olingan, davolanayotgan yoki javob berilgan bemorlar tarixi va to'lov tahlili
+  1469→                </p>
+  1470→              </div>
+  1471→
+  1472→              {/* Search input bar */}
+  1473→              <div className="relative flex-1 sm:flex-initial">
+  1474→                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+  1475→                <input
+  1476→                  type="text"
+  1477→                  placeholder="Ism, familiya, palata yoki ID qidirish..."
+  1478→                  value={inpSearchQuery}
+  1479→                  onChange={(e) => setInpSearchQuery(e.target.value)}
+  1480→                  className="pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none w-full sm:w-64 text-slate-800"
+  1481→                />
+  1482→              </div>
+  1483→            </div>
+  1484→
+  1485→            {/* Inpatient table & details panel */}
+  1486→            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  1487→              
+  1488→              {/* Left hand list of inpatients stays */}
+  1489→              <div className="lg:col-span-1 border border-slate-200 rounded-2xl overflow-hidden max-h-[380px] overflow-y-auto bg-slate-50/40">
+  1490→                {filteredStaysHistory.length === 0 ? (
+  1491→                  <div className="text-center py-12">
+  1492→                    <p className="text-slate-400 text-xs font-bold">Hech qanday statsionar bemor topilmadi.</p>
+  1493→                  </div>
+  1494→                ) : (
+  1495→                  <div className="divide-y divide-slate-100 bg-white">
+  1496→                    {filteredStaysHistory.map((stay) => (
+  1497→                      <button
+  1498→                        key={stay.id}
+  1499→                        onClick={() => setSelectedStayDetails(stay)}
+  1500→                        className={`w-full text-left p-3.5 text-xxs transition-all hover:bg-slate-50 cursor-pointer flex flex-col space-y-1 bg-white border-b border-slate-150 ${
+  1501→                          selectedStayDetails?.id === stay.id ? 'bg-indigo-50/50 border-l-4 border-l-indigo-500' : ''
+  1502→                        }`}
+  1503→                      >
+  1504→                        <div className="flex justify-between items-center">
+  1505→                          <span className="font-extrabold text-slate-900 text-xs">
+  1506→                            {stay.lastName} {stay.firstName}
+  1507→                          </span>
+  1508→                          <span className={`px-2 py-0.5 rounded text-[8px] font-black border ${
+  1509→                            stay.status === 'Davolanmoqda' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'
+  1510→                          }`}>
+  1511→                            {stay.status === 'Davolanmoqda' ? 'YOTIBDI' : 'CHIQDI'}
+  1512→                          </span>
+  1513→                        </div>
+  1514→                        <div className="text-[10px] font-black text-indigo-700 flex justify-between">
+  1515→                          <span>🚪 {stay.roomNumber}</span>
+  1516→                          <span>Kunlar: {stay.plannedDays} kun</span>
+  1517→                        </div>
+  1518→                        {stay.diagnosis && (
+  1519→                          <div className="text-slate-500 truncate italic font-bold">Tashxis: {stay.diagnosis}</div>
+  1520→                        )}
+  1521→                        <div className="text-slate-400 font-bold text-[9px] flex justify-between">
+  1522→                          <span>ID: {stay.patientId}</span>
+  1523→                          <span>Kelgan: {stay.checkInDate}</span>
+  1524→                        </div>
+  1525→                      </button>
+  1526→                    ))}
+  1527→                  </div>
+  1528→                )}
+  1529→              </div>
+  1530→
+  1531→              {/* Right hand details and printer card */}
+  1532→              <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+  1533→                {!selectedStayDetails ? (
+  1534→                  <div className="h-full flex flex-col items-center justify-center text-center text-slate-400 py-16 space-y-2">
+  1535→                    <Bed className="h-10 w-10 text-slate-300" />
+  1536→                    <p className="text-xs font-bold text-slate-700">Yotib davolanish tarixi va to'lovlarini ko'rish</p>
+  1537→                    <p className="text-[11px] text-slate-500 font-semibold">Bemor familiyasi va ismini arxivdan tanlang</p>
+  1538→                  </div>
+  1539→                ) : (
+  1540→                  <div className="space-y-5 animate-fade-in text-xs text-slate-600">
+  1541→                    <div className="flex justify-between items-start pb-4 border-b border-slate-150">
+  1542→                      <div>
+  1543→                        <h4 className="text-sm font-black text-slate-900 uppercase">
+  1544→                          {selectedStayDetails.lastName} {selectedStayDetails.firstName} {selectedStayDetails.middleName || ''}
+  1545→                        </h4>
+  1546→                        <p className="text-[10px] font-bold text-slate-500 mt-1">
+  1547→                          ID: <strong className="text-slate-700">{selectedStayDetails.patientId}</strong> • Jinsi: {selectedStayDetails.gender} • Telefon: {selectedStayDetails.phone}
+  1548→                        </p>
+  1549→                      </div>
+  1550→
+  1551→                      <button
+  1552→                        onClick={() => printInpatientHistory(selectedStayDetails)}
+  1553→                        className="flex items-center space-x-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xxs font-black transition-all cursor-pointer shadow-xs"
+  1554→                      >
+  1555→                        <Printer className="h-3.5 w-3.5" />
+  1556→                        <span>XPrinter Statsionar Kvitansiyasini Chop Etish</span>
+  1557→                      </button>
+  1558→                    </div>
+  1559→
+  1560→                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+  1561→                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/50">
+  1562→                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Palata & Joylashuv</span>
+  1563→                        <span className="font-extrabold text-indigo-700 text-sm">🚪 {selectedStayDetails.roomNumber}</span>
+  1564→                        <span className="block text-[9px] font-bold text-slate-500 mt-1">Sana: {selectedStayDetails.checkInDate} dan</span>
+  1565→                      </div>
+  1566→
+  1567→                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/50">
+  1568→                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Muddati</span>
+  1569→                        <span className="font-extrabold text-slate-800 text-sm">{selectedStayDetails.plannedDays} kun</span>
+  1570→                        <span className="block text-[9px] font-bold text-slate-500 mt-1">Kunlik: {selectedStayDetails.pricePerDay.toLocaleString()} UZS</span>
+  1571→                      </div>
+  1572→
+  1573→                      <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200/50">
+  1574→                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider block mb-1">Muddati o'tish holati</span>
+  1575→                        <span className={`font-extrabold text-sm uppercase ${
+  1576→                          selectedStayDetails.status === 'Davolanmoqda' ? 'text-emerald-600' : 'text-slate-500'
+  1577→                        }`}>{selectedStayDetails.status}</span>
+  1578→                        {selectedStayDetails.checkOutDate && (
+  1579→                          <span className="block text-[9px] font-bold text-slate-500 mt-1">Chiqdi: {selectedStayDetails.checkOutDate}</span>
+  1580→                        )}
+  1581→                      </div>
+  1582→                    </div>
+  1583→
+  1584→                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  1585→                      <div>
+  1586→                        <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Davolovchi Shifokor</h5>
+  1587→                        <span className="font-bold text-slate-900 text-xs flex items-center gap-1">
+  1588→                          <Stethoscope className="h-3.5 w-3.5 text-indigo-600" />
+  1589→                          {selectedStayDetails.doctorName} ({selectedStayDetails.departmentName})
+  1590→                        </span>
+  1591→                      </div>
+  1592→
+  1593→                      <div>
+  1594→                        <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Diagnoz / Tashxis</h5>
+  1595→                        <p className="text-slate-700 italic font-bold leading-relaxed">{selectedStayDetails.diagnosis || 'Kiritilmagan'}</p>
+  1596→                      </div>
+  1597→                    </div>
+  1598→
+  1599→                    {/* Financial details billing calculation */}
+  1600→                    <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-200/60 space-y-2">
+  1601→                      <h5 className="text-slate-800 uppercase text-[10px] font-black tracking-wider border-b border-slate-200/80 pb-2 flex items-center justify-between">
+  1602→                        <span>Moliyaviy To'lovlar Tahlili (Auto-audit)</span>
+  1603→                        <Coins className="h-4 w-4 text-emerald-600" />
+  1604→                      </h5>
+  1605→                      <div className="grid grid-cols-3 gap-4 text-center text-xs font-bold text-slate-600 pt-1">
+  1606→                        <div>
+  1607→                          <span className="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Umumiy xarajat</span>
+  1608→                          <span className="text-slate-900 font-extrabold text-sm">{selectedStayDetails.totalCost.toLocaleString()} UZS</span>
+  1609→                        </div>
+  1610→                        <div>
+  1611→                          <span className="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Kiritilgan to'lov</span>
+  1612→                          <span className="text-emerald-700 font-black text-sm">{selectedStayDetails.amountPaid.toLocaleString()} UZS</span>
+  1613→                        </div>
+  1614→                        <div>
+  1615→                          <span className="block text-[9px] font-black text-slate-400 uppercase mb-0.5">Qolgan qarz</span>
+  1616→                          <span className={`font-black text-sm ${
+  1617→                            selectedStayDetails.remainingDebt > 0 ? 'text-rose-600 animate-pulse' : 'text-emerald-600'
+  1618→                          }`}>{selectedStayDetails.remainingDebt.toLocaleString()} UZS</span>
+  1619→                        </div>
+  1620→                      </div>
+  1621→                    </div>
+  1622→
+  1623→                    {/* Prescriptions medicines list */}
+  1624→                    <div>
+  1625→                      <h5 className="font-black text-slate-400 border-b border-slate-100 pb-2 mb-2 uppercase text-[10px] tracking-wider">Statsionar davolanish retseptlari</h5>
+  1626→                      {!selectedStayDetails.prescriptions || selectedStayDetails.prescriptions.length === 0 ? (
+  1627→                        <p className="text-slate-400 text-xs italic font-semibold">Dori vositalari belgilanmagan.</p>
+  1628→                      ) : (
+  1629→                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+  1630→                          {selectedStayDetails.prescriptions.map((med, idx) => (
+  1631→                            <div key={idx} className="p-2.5 bg-slate-50 border border-slate-100 rounded-lg flex justify-between items-center font-bold text-xs">
+  1632→                              <div>
+  1633→                                <span className="text-slate-900 block font-black">{med.name}</span>
+  1634→                                <span className="text-[10px] text-slate-500">{med.dosage}</span>
+  1635→                              </div>
+  1636→                              <span className="text-[9px] bg-indigo-50 text-indigo-800 border border-indigo-200 px-2 py-0.5 rounded uppercase">
+  1637→                                {med.days}
+  1638→                              </span>
+  1639→                            </div>
+  1640→                          ))}
+  1641→                        </div>
+  1642→                      )}
+  1643→                    </div>
+  1644→
+  1645→                  </div>
+  1646→                )}
+  1647→              </div>
+  1648→
+  1649→            </div>
+  1650→          </div>
+  1651→
+  1652→        </div>
+  1653→      )}
+  1654→
+  1655→    </div>
+  1656→  );
+  1657→};
+  1658→

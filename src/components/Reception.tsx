@@ -29,7 +29,7 @@ import {
 
 interface ReceptionProps {
   patients: Patient[];
-  onAddPatient: (patient: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>) => void;
+  onAddPatient: (patient: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>) => Promise<void>;
   onUpdatePaymentStatus: (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => void;
   onDeletePatient?: (patientId: string) => void;
   onRefundPatient?: (patientId: string, refundAmount: number, reason: string) => void;
@@ -287,7 +287,7 @@ export const Reception: React.FC<ReceptionProps> = ({
     setManualPriceOverride(true);
   };
 
-  const handleAmbulatorySubmit = (e: React.FormEvent) => {
+  const handleAmbulatorySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!firstName.trim() || !lastName.trim() || !phone.trim()) {
       alert('Iltimos, ism, familiya va telefon raqamini kiriting!');
@@ -301,7 +301,15 @@ export const Reception: React.FC<ReceptionProps> = ({
     const selectedDept = DEPARTMENTS.find((d) => d.id === currentDeptId);
     const doctorName = selectedDept ? selectedDept.doctorName : '';
 
-    onAddPatient({
+    // CRITICAL: AWAIT onAddPatient — TiDB'ga saqlanishini kutamiz
+    // Faqat saqlangandan keyin queue raqami hisoblanib chop etiladi
+    const fakeIdNumber = patients.reduce((max, p) => {
+      const num = parseInt(p.id.split('-')[1]);
+      return num > max ? num : max;
+    }, 1000) + 1;
+    const fakeQueueNum = patients.length > 0 ? Math.max(...patients.map(p => p.queueNumber)) + 1 : 1;
+
+    await onAddPatient({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       middleName: middleName.trim(),
@@ -316,7 +324,7 @@ export const Reception: React.FC<ReceptionProps> = ({
       previousVisitId,
     });
 
-    // Save transaction if paid
+    // Save transaction if paid (local backup; App.tsx also logs it)
     if (paymentStatus === 'To\'langan') {
       addTransaction(
         'Kirim',
@@ -326,14 +334,7 @@ export const Reception: React.FC<ReceptionProps> = ({
       );
     }
 
-    // Setup print notification
-    const fakeIdNumber = patients.reduce((max, p) => {
-      const num = parseInt(p.id.split('-')[1]);
-      return num > max ? num : max;
-    }, 1000) + 1;
-
-    const fakeQueueNum = patients.length > 0 ? Math.max(...patients.map(p => p.queueNumber)) + 1 : 1;
-
+    // Setup print notification — uses the computed queue number
     setPrintedPatient({
       id: `P-${fakeIdNumber}`,
       queueNumber: fakeQueueNum,

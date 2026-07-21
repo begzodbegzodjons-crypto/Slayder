@@ -13,6 +13,8 @@ export interface ClinicData {
   hospitalRooms: any[];
   inpatientStays: any[];
   transactions: any[];
+  diagnosisTemplates?: any[];
+  clinicSettings?: any;
 }
 
 // Pool reference
@@ -37,7 +39,21 @@ export async function initStorage() {
   try {
     console.log('🔄 [DB Connection]: Attempting to connect to TiDB/MySQL...');
     
-    const config: mysql.PoolOptions = dbUrl ? {
+    // Prefer explicit fields over URI for reliability with SSL
+    const useExplicit = host && user && password;
+    const config: mysql.PoolOptions = useExplicit ? {
+      host,
+      user,
+      password,
+      database,
+      port,
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      ssl: {
+        rejectUnauthorized: false
+      }
+    } : (dbUrl ? {
       uri: dbUrl,
       waitForConnections: true,
       connectionLimit: 10,
@@ -55,9 +71,9 @@ export async function initStorage() {
       connectionLimit: 10,
       queueLimit: 0,
       ssl: {
-        rejectUnauthorized: false // Cloud databases often require SSL
+        rejectUnauthorized: false
       }
-    };
+    });
 
     pool = mysql.createPool(config);
 
@@ -76,31 +92,11 @@ export async function initStorage() {
     
     conn.release();
     isDbActive = true;
-
-    // Auto-detect and wipe demo data from database
-    try {
-      const [rows]: any[] = await pool.query('SELECT json_value FROM clinic_erp_data WHERE key_name = "patients"');
-      if (rows.length > 0) {
-        const patients = JSON.parse(rows[0].json_value);
-        const hasDemo = patients.some((p: any) => p.id === 'P-1001' || p.firstName === 'Azizbek');
-        if (hasDemo) {
-          console.log('🧹 [DB Cleanup]: Demo data detected in cloud database! Wiping patients, inpatientStays, and transactions...');
-          await pool.query('INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?', ['patients', '[]', '[]']);
-          await pool.query('INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?', ['inpatientStays', '[]', '[]']);
-          await pool.query('INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?', ['transactions', '[]', '[]']);
-          
-          // Let\'s reset hospitalRooms occupiedBeds to 0
-          const [roomRows]: any[] = await pool.query('SELECT json_value FROM clinic_erp_data WHERE key_name = "hospitalRooms"');
-          if (roomRows.length > 0) {
-            const rooms = JSON.parse(roomRows[0].json_value);
-            const clearedRooms = rooms.map((r: any) => ({ ...r, occupiedBeds: 0 }));
-            await pool.query('INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?', ['hospitalRooms', JSON.stringify(clearedRooms), JSON.stringify(clearedRooms)]);
-          }
-        }
-      }
-    } catch (cleanupErr: any) {
-      console.error('⚠️ [DB Cleanup Error]: Failed to perform database demo cleanup:', cleanupErr.message);
-    }
+    // ⚠️ MUHIM: Demo ma'lumotlarni tozalash OLIB TASHLANDI!
+    // Bu kod har safar server ishga tushganda "Azizbek" ismli bemor topilsa
+    // BARCHA bemorlar/tranzaksiyalar ma'lumotlarini O'CHIRIB TASHLARDI.
+    // Bu data loss (ma'lumot yo'qolishi) ning asosiy sababi edi.
+    // Endi hech qanday ma'lumot avtomatik o'chirilmaydi — 100% xavfsiz.
   } catch (error: any) {
     console.error('❌ [DB Connection Error]: Could not connect to TiDB/MySQL Cloud database. Error:', error.message);
     console.warn('⚠️ [DB Fallback]: Switching to local file persistence: clinic_data_fallback.json');
@@ -125,7 +121,9 @@ export async function loadData(): Promise<ClinicData> {
           receptionStaff: dataMap.get('receptionStaff') || [],
           hospitalRooms: dataMap.get('hospitalRooms') || [],
           inpatientStays: dataMap.get('inpatientStays') || [],
-          transactions: dataMap.get('transactions') || []
+          transactions: dataMap.get('transactions') || [],
+          diagnosisTemplates: dataMap.get('diagnosisTemplates') || [],
+          clinicSettings: dataMap.get('clinicSettings') || null,
         };
       }
     } catch (err: any) {
@@ -150,12 +148,14 @@ export async function loadData(): Promise<ClinicData> {
     receptionStaff: [],
     hospitalRooms: [],
     inpatientStays: [],
-    transactions: []
+    transactions: [],
+    diagnosisTemplates: [],
+    clinicSettings: null,
   };
 }
 
-// Save specific key's data
-export async function saveCollection(key: keyof ClinicData, items: any[]): Promise<boolean> {
+// Save specific key's data — supports both arrays AND objects (for clinicSettings)
+export async function saveCollection(key: string, items: any): Promise<boolean> {
   const jsonStr = JSON.stringify(items);
 
   if (isDbActive && pool) {
@@ -172,13 +172,15 @@ export async function saveCollection(key: keyof ClinicData, items: any[]): Promi
 
   // Fallback save to file
   try {
-    let currentData: ClinicData = {
+    let currentData: any = {
       patients: [],
       departments: [],
       receptionStaff: [],
       hospitalRooms: [],
       inpatientStays: [],
-      transactions: []
+      transactions: [],
+      diagnosisTemplates: [],
+      clinicSettings: null,
     };
 
     if (fs.existsSync(FALLBACK_FILE_PATH)) {

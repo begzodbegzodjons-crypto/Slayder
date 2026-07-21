@@ -1,0 +1,820 @@
+     1→     1→import { useState, useEffect, useRef } from 'react';
+     2→     2→import { Header } from './components/Header';
+     3→     3→import { Reception } from './components/Reception';
+     4→     4→import { DoctorCabinet } from './components/DoctorCabinet';
+     5→     5→import { TvMonitor } from './components/TvMonitor';
+     6→     6→import { Reports } from './components/Reports';
+     7→     7→import { LoginPage } from './components/LoginPage';
+     8→     8→import { AdminPanel } from './components/AdminPanel';
+     9→     9→import { Patient, Department, UserSession, HospitalRoom, InpatientStay, ClinicTransaction, ReceptionStaff, PatientVisit } from './types';
+    10→    10→import { INITIAL_PATIENTS, DEPARTMENTS, INITIAL_ROOMS, INITIAL_STAYS } from './data';
+    11→    11→import { Monitor, ShieldCheck } from 'lucide-react';
+    12→    12→
+    13→    13→// API base URL — relative in dev (hits local server → TiDB), absolute in prod (Cloudflare Worker → TiDB)
+    14→    14→const API_BASE = import.meta.env.DEV ? '' : 'https://medical-pro-api.norinkomp.workers.dev';
+    15→    15→
+    16→    16→export default function App() {
+    17→    17→  const [patients, setPatients] = useState<Patient[]>([]);
+    18→    18→  const [departments, setDepartments] = useState<Department[]>([]);
+    19→    19→  const [hospitalRooms, setHospitalRooms] = useState<HospitalRoom[]>([]);
+    20→    20→  const [inpatientStays, setInpatientStays] = useState<InpatientStay[]>([]);
+    21→    21→  const [transactions, setTransactions] = useState<ClinicTransaction[]>([]);
+    22→    22→  const [session, setSession] = useState<UserSession | null>(null);
+    23→    23→  const [activeTab, setActiveTab] = useState<string>('reception');
+    24→    24→  const [isMonitorOnly, setIsMonitorOnly] = useState<boolean>(false);
+    25→    25→  const [receptionStaff, setReceptionStaff] = useState<ReceptionStaff[]>([]);
+    26→    26→  const [diagnosisTemplates, setDiagnosisTemplates] = useState<any[]>([]);
+    27→    27→  const [clinicSettings, setClinicSettings] = useState<any>({
+    28→    28→    clinicName: 'DR.Maruf Clinic',
+    29→    29→    clinicPhone: '+998 71 123-45-67',
+    30→    30→    clinicAddress: 'Toshkent, O\'zbekiston',
+    31→    31→    recipeHeader: 'SHIFOKOR RETSEPTi (RECIPE)',
+    32→    32→    recipeFooter: 'Sog\'ayib keting! Qayta ko\'rik: Shifokor tavsiyasiga ko\'ra.',
+    33→    33→    ticketHeader: 'Tashrifingiz uchun rahmat!',
+    34→    34→    ticketFooter: 'Shifokor kabineti eshigi ustidagi monitorni kuzatib boring.',
+    35→    35→  });
+    36→    36→
+    37→    37→  // ===================================================================
+    38→    38→  // CRITICAL: Refs always hold the LATEST data — eliminates stale closure
+    39→    39→  // during the 5-second sync interval. This PREVENTS data loss.
+    40→    40→  // ===================================================================
+    41→    41→  const patientsRef = useRef<Patient[]>([]);
+    42→    42→  const transactionsRef = useRef<ClinicTransaction[]>([]);
+    43→    43→  const departmentsRef = useRef<Department[]>([]);
+    44→    44→  const hospitalRoomsRef = useRef<HospitalRoom[]>([]);
+    45→    45→  const inpatientStaysRef = useRef<InpatientStay[]>([]);
+    46→    46→  const receptionStaffRef = useRef<ReceptionStaff[]>([]);
+    47→    47→  const diagnosisTemplatesRef = useRef<any[]>([]);
+    48→    48→  const clinicSettingsRef = useRef<any>({});
+    49→    49→
+    50→    50→  // Timestamp of the last local save — sync skips overwriting within 4 seconds
+    51→    51→  const lastLocalSaveRef = useRef<number>(0);
+    52→    52→  // Prevents concurrent sync runs
+    53→    53→  const isSyncingRef = useRef<boolean>(false);
+    54→    54→
+    55→    55→  // Keep refs in sync with state
+    56→    56→  useEffect(() => { patientsRef.current = patients; }, [patients]);
+    57→    57→  useEffect(() => { transactionsRef.current = transactions; }, [transactions]);
+    58→    58→  useEffect(() => { departmentsRef.current = departments; }, [departments]);
+    59→    59→  useEffect(() => { hospitalRoomsRef.current = hospitalRooms; }, [hospitalRooms]);
+    60→    60→  useEffect(() => { inpatientStaysRef.current = inpatientStays; }, [inpatientStays]);
+    61→    61→  useEffect(() => { receptionStaffRef.current = receptionStaff; }, [receptionStaff]);
+    62→    62→  useEffect(() => { diagnosisTemplatesRef.current = diagnosisTemplates; }, [diagnosisTemplates]);
+    63→    63→  useEffect(() => { clinicSettingsRef.current = clinicSettings; }, [clinicSettings]);
+    64→    64→
+    65→    65→  // Check if URL parameters request a standalone TV Monitor view
+    66→    66→  useEffect(() => {
+    67→    67→    const params = new URLSearchParams(window.location.search);
+    68→    68→    const hasMonitorParam = params.get('view') === 'monitor';
+    69→    69→    const hasMonitorHash = window.location.hash === '#monitor';
+    70→    70→
+    71→    71→    if (hasMonitorParam || hasMonitorHash) {
+    72→    72→      setIsMonitorOnly(true);
+    73→    73→    }
+    74→    74→  }, []);
+    75→    75→
+    76→    76→  // Helper to save a collection to the backend TiDB database.
+    77→    77→  // AWAIT bilan ishlaydi — race condition yo'q. Relative URL dev'da local serverga,
+    78→    78→  // prod'da Cloudflare Worker'ga boradi.
+    79→    79→  const saveToBackend = async (key: string, data: any) => {
+    80→    80→    try {
+    81→    81→      const response = await fetch(`${API_BASE}/api/save`, {
+    82→    82→        method: 'POST',
+    83→    83→        headers: {
+    84→    84→          'Content-Type': 'application/json',
+    85→    85→        },
+    86→    86→        body: JSON.stringify({ key, data }),
+    87→    87→      });
+    88→    88→      if (!response.ok) {
+    89→    89→        console.error(`Backend save failed for ${key}: HTTP ${response.status}`);
+    90→    90→      }
+    91→    91→    } catch (err) {
+    92→    92→      console.error(`Backend sync failed for ${key}:`, err);
+    93→    93→    }
+    94→    94→  };
+    95→    95→
+    96→    96→  // Sinxronlash holati — boshqa qurilmalardan kelgan yangi ma'lumotni qabul qilish
+    97→    97→  // Lekin joriy local ma'lumotni BOSMASLIK
+    98→    98→
+    99→    99→  // Load and synchronize all data from backend TiDB database.
+   100→   100→  // Avtomatik yangilash - har 5 soniyada boshqa qurilmalardan kiritilgan ma'lumotlarni olish.
+   101→   101→  // MUHIM: Refs dan foydalanamiz (stale closure emas). Local save'dan keyin 4 soniya ichida
+   102→   102→  // sync o'tkazib yuboriladi — bu race condition'ning oldini oladi.
+   103→   103→  useEffect(() => {
+   104→   104→    const initAndSyncData = async () => {
+   105→   105→      // Agar local save 4 soniya ichida bo'lsa — sync o'tkazamiz (overwrite xavfi yo'q)
+   106→   106→      const sinceLastSave = Date.now() - lastLocalSaveRef.current;
+   107→   107→      if (sinceLastSave < 4000) return;
+   108→   108→      // Oldingi sync tugamagan bo'lsa — o'tkazamiz
+   109→   109→      if (isSyncingRef.current) return;
+   110→   110→      isSyncingRef.current = true;
+   111→   111→
+   112→   112→      try {
+   113→   113→        const response = await fetch(`${API_BASE}/api/data`);
+   114→   114→        if (!response.ok) throw new Error('API server unreachable');
+   115→   115→        const dbData = await response.json();
+   116→   116→
+   117→   117→        // 1. Load departments
+   118→   118→        if (dbData.departments && dbData.departments.length > 0) {
+   119→   119→          departmentsRef.current = dbData.departments;
+   120→   120→          setDepartments(dbData.departments);
+   121→   121→        } else if (departmentsRef.current.length === 0) {
+   122→   122→          // First load with empty backend — seed defaults
+   123→   123→          departmentsRef.current = DEPARTMENTS;
+   124→   124→          setDepartments(DEPARTMENTS);
+   125→   125→          await saveToBackend('departments', DEPARTMENTS);
+   126→   126→        }
+   127→   127→
+   128→   128→        // 2. Load reception staff
+   129→   129→        if (dbData.receptionStaff && dbData.receptionStaff.length > 0) {
+   130→   130→          receptionStaffRef.current = dbData.receptionStaff;
+   131→   131→          setReceptionStaff(dbData.receptionStaff);
+   132→   132→        } else if (receptionStaffRef.current.length === 0) {
+   133→   133→          const def = [{ id: 'rep-1', name: 'Qabulxona xodimi', login: 'qabul', password: 'qabul123' }];
+   134→   134→          receptionStaffRef.current = def;
+   135→   135→          setReceptionStaff(def);
+   136→   136→          await saveToBackend('receptionStaff', def);
+   137→   137→        }
+   138→   138→
+   139→   139→        // 3. Load hospital rooms
+   140→   140→        if (dbData.hospitalRooms !== undefined) {
+   141→   141→          hospitalRoomsRef.current = dbData.hospitalRooms;
+   142→   142→          setHospitalRooms(dbData.hospitalRooms);
+   143→   143→        } else if (hospitalRoomsRef.current.length === 0) {
+   144→   144→          hospitalRoomsRef.current = INITIAL_ROOMS;
+   145→   145→          setHospitalRooms(INITIAL_ROOMS);
+   146→   146→          await saveToBackend('hospitalRooms', INITIAL_ROOMS);
+   147→   147→        }
+   148→   148→
+   149→   149→        // 4. Load inpatient stays
+   150→   150→        if (dbData.inpatientStays !== undefined) {
+   151→   151→          inpatientStaysRef.current = dbData.inpatientStays;
+   152→   152→          setInpatientStays(dbData.inpatientStays);
+   153→   153→        } else if (inpatientStaysRef.current.length === 0) {
+   154→   154→          inpatientStaysRef.current = INITIAL_STAYS;
+   155→   155→          setInpatientStays(INITIAL_STAYS);
+   156→   156→          await saveToBackend('inpatientStays', INITIAL_STAYS);
+   157→   157→        }
+   158→   158→
+   159→   159→        // 5. Load patients — SMART MERGE using REF (always latest, no stale closure)
+   160→   160→        // Bu eng muhim qism: local ma'lumot HECH QACHON yo'qolmaydi
+   161→   161→        if (dbData.patients !== undefined) {
+   162→   162→          const backendPatients: any[] = dbData.patients;
+   163→   163→          const currentLocal: any[] = patientsRef.current; // REF — always latest!
+   164→   164→
+   165→   165→          const localMap = new Map(currentLocal.map((p: any) => [p.id, p]));
+   166→   166→          const backendMap = new Map(backendPatients.map((p: any) => [p.id, p]));
+   167→   167→
+   168→   168→          const mergedMap = new Map();
+   169→   169→          const allIds = new Set([...localMap.keys(), ...backendMap.keys()]);
+   170→   170→
+   171→   171→          for (const id of allIds) {
+   172→   172→            const lp = localMap.get(id) as any;
+   173→   173→            const bp = backendMap.get(id) as any;
+   174→   174→
+   175→   175→            if (lp && bp) {
+   176→   176→              // Ikkalasida bor — eng boy (to'liq) ma'lumotni olamiz
+   177→   177→              // Backend asos, lekin local'dagi BO'SH bo'lmagan maydonlarni saqlaymiz
+   178→   178→              const merged: any = { ...bp };
+   179→   179→
+   180→   180→              // selectedServices — local'da bor, backend'da yo'q yoki kam → local'nikini olamiz
+   181→   181→              if (lp.selectedServices && lp.selectedServices.length > 0) {
+   182→   182→                if (!bp.selectedServices || bp.selectedServices.length < lp.selectedServices.length) {
+   183→   183→                  merged.selectedServices = lp.selectedServices;
+   184→   184→                }
+   185→   185→              }
+   186→   186→              // paymentAmount — kattaroq qiymatni olamiz (xizmatlar qo'shilganda oshadi)
+   187→   187→              if ((lp.paymentAmount || 0) > (bp.paymentAmount || 0)) {
+   188→   188→                merged.paymentAmount = lp.paymentAmount;
+   189→   189→              }
+   190→   190→              // paymentStatus — To'langan ustunlik qiladi
+   191→   191→              if (lp.paymentStatus === 'To\'langan' && bp.paymentStatus !== 'To\'langan') {
+   192→   192→                merged.paymentStatus = lp.paymentStatus;
+   193→   193→              }
+   194→   194→              // diagnosis, prescriptions, complaints, testResults
+   195→   195→              if (lp.diagnosis && !bp.diagnosis) merged.diagnosis = lp.diagnosis;
+   196→   196→              if (lp.prescriptions && lp.prescriptions.length > 0 && (!bp.prescriptions || bp.prescriptions.length === 0)) {
+   197→   197→                merged.prescriptions = lp.prescriptions;
+   198→   198→              }
+   199→   199→              if (lp.complaints && !bp.complaints) merged.complaints = lp.complaints;
+   200→   200→              if (lp.testResults && !bp.testResults) merged.testResults = lp.testResults;
+   201→   201→              // refund ma'lumotlari
+   202→   202→              if (lp.refundStatus && !bp.refundStatus) merged.refundStatus = lp.refundStatus;
+   203→   203→              if (lp.refundedAmount && !bp.refundedAmount) merged.refundedAmount = lp.refundedAmount;
+   204→   204→              if (lp.refundedReason && !bp.refundedReason) merged.refundedReason = lp.refundedReason;
+   205→   205→              if (lp.refundedAt && !bp.refundedAt) merged.refundedAt = lp.refundedAt;
+   206→   206→              // patientHistory
+   207→   207→              if (lp.patientHistory && lp.patientHistory.length > 0 && (!bp.patientHistory || bp.patientHistory.length === 0)) {
+   208→   208→                merged.patientHistory = lp.patientHistory;
+   209→   209→              }
+   210→   210→              // returning patient info
+   211→   211→              if (lp.isReturning && !bp.isReturning) merged.isReturning = lp.isReturning;
+   212→   212→              if (lp.visitCount && !bp.visitCount) merged.visitCount = lp.visitCount;
+   213→   213→              if (lp.previousVisitId && !bp.previousVisitId) merged.previousVisitId = lp.previousVisitId;
+   214→   214→              // status: local'dagi "Qabulda"/"Yakunlangan"/"Bekor qilingan" ustunlik qiladi
+   215→   215→              if (lp.status !== 'Kutmoqda' && bp.status === 'Kutmoqda') {
+   216→   216→                merged.status = lp.status;
+   217→   217→              }
+   218→   218→              // timestamps
+   219→   219→              if (lp.calledAt && !bp.calledAt) merged.calledAt = lp.calledAt;
+   220→   220→              if (lp.completedAt && !bp.completedAt) merged.completedAt = lp.completedAt;
+   221→   221→
+   222→   222→              mergedMap.set(id, merged);
+   223→   223→            } else if (lp) {
+   224→   224→              // Faqat local'da bor — saqlaymiz (boshqa qurilmadan o'chirilmagan bo'lsa)
+   225→   225→              mergedMap.set(id, lp);
+   226→   226→            } else if (bp) {
+   227→   227→              // Faqat backend'da bor — boshqa qurilmadan kelgan yangi bemor — qo'shamiz
+   228→   228→              mergedMap.set(id, bp);
+   229→   229→            }
+   230→   230→          }
+   231→   231→
+   232→   232→          const merged = Array.from(mergedMap.values());
+   233→   233→          // Faqat farq bo'lsa state'ni yangilaymiz (keraksiz render oldini olish)
+   234→   234→          if (merged.length !== currentLocal.length || JSON.stringify(merged) !== JSON.stringify(currentLocal)) {
+   235→   235→            patientsRef.current = merged;
+   236→   236→            setPatients(merged);
+   237→   237→          }
+   238→   238→        } else if (patientsRef.current.length === 0) {
+   239→   239→          patientsRef.current = INITIAL_PATIENTS;
+   240→   240→          setPatients(INITIAL_PATIENTS);
+   241→   241→        }
+   242→   242→
+   243→   243→        // 6. Load transactions — merge by ID
+   244→   244→        if (dbData.transactions !== undefined) {
+   245→   245→          const backendTx: any[] = dbData.transactions;
+   246→   246→          const localTx: any[] = transactionsRef.current;
+   247→   247→          const txMap = new Map<string, any>();
+   248→   248→          // Barcha tranzaksiyalarni qo'shamiz (ID bo'yicha dedup)
+   249→   249→          [...localTx, ...backendTx].forEach((t: any) => {
+   250→   250→            if (!txMap.has(t.id)) txMap.set(t.id, t);
+   251→   251→          });
+   252→   252→          const mergedTx = Array.from(txMap.values());
+   253→   253→          if (mergedTx.length !== localTx.length) {
+   254→   254→            transactionsRef.current = mergedTx;
+   255→   255→            setTransactions(mergedTx);
+   256→   256→          }
+   257→   257→        }
+   258→   258→
+   259→   259→        // 7. Load diagnosis templates
+   260→   260→        if (dbData.diagnosisTemplates) {
+   261→   261→          diagnosisTemplatesRef.current = dbData.diagnosisTemplates;
+   262→   262→          setDiagnosisTemplates(dbData.diagnosisTemplates);
+   263→   263→        }
+   264→   264→
+   265→   265→        // 8. Load clinic settings
+   266→   266→        if (dbData.clinicSettings) {
+   267→   267→          clinicSettingsRef.current = dbData.clinicSettings;
+   268→   268→          setClinicSettings(dbData.clinicSettings);
+   269→   269→        }
+   270→   270→
+   271→   271→      } catch (err) {
+   272→   272→        console.warn('⚠️ [API Fallback]: Could not sync from backend.', err);
+   273→   273→      } finally {
+   274→   274→        isSyncingRef.current = false;
+   275→   275→      }
+   276→   276→    };
+   277→   277→
+   278→   278→    initAndSyncData();
+   279→   279→
+   280→   280→    // Avtomatik yangilash - har 5 soniyada backend'dan ma'lumot olish
+   281→   281→    const syncInterval = setInterval(initAndSyncData, 5000);
+   282→   282→
+   283→   283→    return () => {
+   284→   284→      clearInterval(syncInterval);
+   285→   285→    };
+   286→   286→  }, []);
+   287→   287→
+   288→   288→  const saveReceptionStaffList = (updatedStaff: ReceptionStaff[]) => {
+   289→   289→    receptionStaffRef.current = updatedStaff;
+   290→   290→    setReceptionStaff(updatedStaff);
+   291→   291→    lastLocalSaveRef.current = Date.now();
+   292→   292→    saveToBackend('receptionStaff', updatedStaff);
+   293→   293→  };
+   294→   294→
+   295→   295→  const saveDiagnosisTemplates = (updated: any[]) => {
+   296→   296→    diagnosisTemplatesRef.current = updated;
+   297→   297→    setDiagnosisTemplates(updated);
+   298→   298→    lastLocalSaveRef.current = Date.now();
+   299→   299→    saveToBackend('diagnosisTemplates', updated);
+   300→   300→  };
+   301→   301→
+   302→   302→  const saveClinicSettings = (updated: any) => {
+   303→   303→    clinicSettingsRef.current = updated;
+   304→   304→    setClinicSettings(updated);
+   305→   305→    lastLocalSaveRef.current = Date.now();
+   306→   306→    saveToBackend('clinicSettings', updated);
+   307→   307→  };
+   308→   308→
+   309→   309→  // Load session from localStorage on mount
+   310→   310→  useEffect(() => {
+   311→   311→    const savedSession = localStorage.getItem('dr_maruf_session');
+   312→   312→    if (savedSession) {
+   313→   313→      try {
+   314→   314→        const parsed = JSON.parse(savedSession) as UserSession;
+   315→   315→        setSession(parsed);
+   316→   316→        // Set tab based on role
+   317→   317→        if (parsed.role === 'admin') {
+   318→   318→          setActiveTab('admin_panel');
+   319→   319→        } else if (parsed.role === 'reception') {
+   320→   320→          setActiveTab('reception');
+   321→   321→        } else if (parsed.role === 'doctor') {
+   322→   322→          setActiveTab('doctors');
+   323→   323→        }
+   324→   324→      } catch (e) {
+   325→   325→        setSession(null);
+   326→   326→      }
+   327→   327→    }
+   328→   328→  }, []);
+   329→   329→
+   330→   330→  // Securely guard tab navigation based on role permissions
+   331→   331→  useEffect(() => {
+   332→   332→    if (session) {
+   333→   333→      const allowedTabs: string[] = [];
+   334→   334→      if (session.role === 'admin') {
+   335→   335→        allowedTabs.push('admin_panel', 'reception', 'doctors', 'monitor_tab', 'reports');
+   336→   336→      } else if (session.role === 'reception') {
+   337→   337→        allowedTabs.push('reception', 'monitor_tab', 'reports');
+   338→   338→      } else if (session.role === 'doctor') {
+   339→   339→        allowedTabs.push('doctors');
+   340→   340→      }
+   341→   341→      
+   342→   342→      if (!allowedTabs.includes(activeTab)) {
+   343→   343→        setActiveTab(allowedTabs[0] || 'reception');
+   344→   344→      }
+   345→   345→    }
+   346→   346→  }, [session, activeTab]);
+   347→   347→
+   348→   348→  // Save patients — ASYNC + AWAIT. CRITICAL for data safety.
+   349→   349→  // 1. Ref DARHOL yangilanadi (sync'lar eng yangi ma'lumotni ko'radi)
+   350→   350→  // 2. React state yangilanadi (UI tez yangilanadi)
+   351→   351→  // 3. lastLocalSaveRef o'rnatiladi (4 soniya sync'ni o'tkazib yuboradi)
+   352→   352→  // 4. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
+   353→   353→  // Boshqa qurilmalarga broadcast
+   354→   354→  const savePatientsList = async (updatedPatients: Patient[]) => {
+   355→   355→    patientsRef.current = updatedPatients; // REF first — sync sees latest
+   356→   356→    setPatients(updatedPatients);
+   357→   357→    lastLocalSaveRef.current = Date.now();
+   358→   358→    await saveToBackend('patients', updatedPatients); // AWAIT — TiDB saqlaydi
+   359→   359→
+   360→   360→    // Broadcast updates to other tabs
+   361→   361→    try {
+   362→   362→      const channel = new BroadcastChannel('dr_maruf_queue_channel');
+   363→   363→      channel.postMessage({ type: 'CALL_PATIENT', data: updatedPatients });
+   364→   364→      channel.close();
+   365→   365→    } catch (e) {}
+   366→   366→  };
+   367→   367→
+   368→   368→  // Save departments to backend
+   369→   369→  const saveDepartmentsList = (updatedDepts: Department[]) => {
+   370→   370→    departmentsRef.current = updatedDepts;
+   371→   371→    setDepartments(updatedDepts);
+   372→   372→    lastLocalSaveRef.current = Date.now();
+   373→   373→    saveToBackend('departments', updatedDepts);
+   374→   374→  };
+   375→   375→
+   376→   376→  // Save hospital rooms to backend
+   377→   377→  const saveHospitalRoomsList = (updatedRooms: HospitalRoom[]) => {
+   378→   378→    hospitalRoomsRef.current = updatedRooms;
+   379→   379→    setHospitalRooms(updatedRooms);
+   380→   380→    lastLocalSaveRef.current = Date.now();
+   381→   381→    saveToBackend('hospitalRooms', updatedRooms);
+   382→   382→  };
+   383→   383→
+   384→   384→  // Save inpatient stays and auto-update occupancies
+   385→   385→  const saveInpatientStaysList = (updatedStays: InpatientStay[]) => {
+   386→   386→    inpatientStaysRef.current = updatedStays;
+   387→   387→    setInpatientStays(updatedStays);
+   388→   388→    lastLocalSaveRef.current = Date.now();
+   389→   389→    saveToBackend('inpatientStays', updatedStays);
+   390→   390→
+   391→   391→    // Recalculate occupied beds dynamically for active stays
+   392→   392→    const updatedRooms = hospitalRoomsRef.current.map(room => {
+   393→   393→      const activeCount = updatedStays.filter(s => s.roomId === room.id && s.status === 'Davolanmoqda').length;
+   394→   394→      return { ...room, occupiedBeds: activeCount };
+   395→   395→    });
+   396→   396→    hospitalRoomsRef.current = updatedRooms;
+   397→   397→    setHospitalRooms(updatedRooms);
+   398→   398→    saveToBackend('hospitalRooms', updatedRooms);
+   399→   399→  };
+   400→   400→
+   401→   401→
+   402→   402→  const handleLoginSuccess = (newSession: UserSession) => {
+   403→   403→    setSession(newSession);
+   404→   404→    localStorage.setItem('dr_maruf_session', JSON.stringify(newSession));
+   405→   405→    
+   406→   406→    // Set default tab based on role
+   407→   407→    if (newSession.role === 'admin') {
+   408→   408→      setActiveTab('admin_panel');
+   409→   409→    } else if (newSession.role === 'reception') {
+   410→   410→      setActiveTab('reception');
+   411→   411→    } else if (newSession.role === 'doctor') {
+   412→   412→      setActiveTab('doctors');
+   413→   413→    }
+   414→   414→  };
+   415→   415→
+   416→   416→  const handleLogout = () => {
+   417→   417→    setSession(null);
+   418→   418→    localStorage.removeItem('dr_maruf_session');
+   419→   419→  };
+   420→   420→
+   421→   421→  // Save transactions list — ASYNC + AWAIT to backend
+   422→   422→  const saveTransactionsList = async (updatedTx: ClinicTransaction[]) => {
+   423→   423→    transactionsRef.current = updatedTx;
+   424→   424→    setTransactions(updatedTx);
+   425→   425→    lastLocalSaveRef.current = Date.now();
+   426→   426→    await saveToBackend('transactions', updatedTx);
+   427→   427→  };
+   428→   428→
+   429→   429→  // Add new patient registered from reception.
+   430→   430→  // ASYNC: AWAIT bilan TiDB'ga saqlaydi — faqat saqlangandan keyin davom etadi.
+   431→   431→  // Bu "navbat raqami chop etilganda ma'lumot yo'qolmasin" talabini bajaradi.
+   432→   432→  // Agar bemor avval ro'yxatdan o'tgan bo'lsa (previousVisitId bilan kelsa),
+   433→   433→  // avvalgi tashrif ma'lumotlari yangi tashrifning patientHistory ga qo'shiladi
+   434→   434→  const handleAddPatient = async (
+   435→   435→    newPatientData: Omit<Patient, 'id' | 'queueNumber' | 'createdAt' | 'status'>
+   436→   436→  ) => {
+   437→   437→    // Generate sequential ID and Queue number using REF (always latest, no stale)
+   438→   438→    const currentPatients = patientsRef.current;
+   439→   439→    const maxIdNumber = currentPatients.reduce((max, p) => {
+   440→   440→      const num = parseInt(p.id.split('-')[1]);
+   441→   441→      return num > max ? num : max;
+   442→   442→    }, 1000);
+   443→   443→
+   444→   444→    const nextId = `P-${maxIdNumber + 1}`;
+   445→   445→    const nextQueueNumber = currentPatients.length > 0 ? Math.max(...currentPatients.map((p) => p.queueNumber)) + 1 : 1;
+   446→   446→
+   447→   447→    // Agar bemor avvalgi tashrifga asoslangan bo'lsa (returning patient),
+   448→   448→    // avvalgi tashriflarni patientHistory ga to'plash
+   449→   449→    let patientHistory: PatientVisit[] | undefined;
+   450→   450→    let isReturning = false;
+   451→   451→    let visitCount = 1;
+   452→   452→    let previousVisitId: string | undefined;
+   453→   453→
+   454→   454→    const dataPreviousVisitId = (newPatientData as any).previousVisitId;
+   455→   455→    if (dataPreviousVisitId) {
+   456→   456→      previousVisitId = dataPreviousVisitId;
+   457→   457→      isReturning = true;
+   458→   458→      const previousPatient = currentPatients.find((p) => p.id === dataPreviousVisitId);
+   459→   459→      if (previousPatient) {
+   460→   460→        const previousVisit: PatientVisit = {
+   461→   461→          visitId: previousPatient.id,
+   462→   462→          visitDate: previousPatient.createdAt,
+   463→   463→          departmentId: previousPatient.departmentId,
+   464→   464→          departmentName: departmentsRef.current.find((d) => d.id === previousPatient.departmentId)?.name || previousPatient.departmentId,
+   465→   465→          doctorName: previousPatient.doctorName,
+   466→   466→          diagnosis: previousPatient.diagnosis,
+   467→   467→          prescriptions: previousPatient.prescriptions,
+   468→   468→          paymentAmount: previousPatient.paymentAmount,
+   469→   469→          status: previousPatient.status,
+   470→   470→        };
+   471→   471→        const previousHistory = previousPatient.patientHistory || [];
+   472→   472→        patientHistory = [previousVisit, ...previousHistory];
+   473→   473→        visitCount = patientHistory.length + 1;
+   474→   474→      }
+   475→   475→    }
+   476→   476→
+   477→   477→    const newPatient: Patient = {
+   478→   478→      ...newPatientData,
+   479→   479→      id: nextId,
+   480→   480→      queueNumber: nextQueueNumber,
+   481→   481→      status: 'Kutmoqda',
+   482→   482→      createdAt: new Date().toISOString(),
+   483→   483→      isReturning,
+   484→   484→      previousVisitId,
+   485→   485→      visitCount,
+   486→   486→      patientHistory,
+   487→   487→    };
+   488→   488→
+   489→   489→    const updated = [...currentPatients, newPatient];
+   490→   490→    // CRITICAL: AWAIT backend save before returning — ensures TiDB has the data
+   491→   491→    // before the caller (Reception.tsx) prints the queue number to XPrinter
+   492→   492→    await savePatientsList(updated);
+   493→   493→
+   494→   494→    // Dynamic automatic logging of outpatient payment!
+   495→   495→    if (newPatient.paymentStatus === 'To\'langan' && newPatient.paymentAmount > 0) {
+   496→   496→      const getDeptNameLocal = (id: string) => departmentsRef.current.find((d) => d.id === id)?.name || id;
+   497→   497→      const todayDate = new Date().toISOString().split('T')[0];
+   498→   498→      const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+   499→   499→
+   500→   500→      const newTx: ClinicTransaction = {
+   501→   501→        id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+   502→   502→        type: 'Kirim',
+   503→   503→        amount: newPatient.paymentAmount,
+   504→   504→        category: "Ambulator ko'rik",
+   505→   505→        description: `${newPatient.lastName} ${newPatient.firstName} - ${getDeptNameLocal(newPatient.departmentId)} bo'limiga navbat to'lovi`,
+   506→   506→        date: todayDate,
+   507→   507→        time: todayTime,
+   508→   508→        createdAt: new Date().toISOString(),
+   509→   509→        patientId: newPatient.id,
+   510→   510→        patientName: `${newPatient.lastName} ${newPatient.firstName}`
+   511→   511→      };
+   512→   512→
+   513→   513→      const updatedTx = [newTx, ...transactionsRef.current];
+   514→   514→      await saveTransactionsList(updatedTx);
+   515→   515→    }
+   516→   516→  };
+   517→   517→
+   518→   518→  // Toggle patient's payment status — uses REF for latest data
+   519→   519→  const handleUpdatePaymentStatus = (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => {
+   520→   520→    const currentPatients = patientsRef.current;
+   521→   521→    const updated = currentPatients.map((p) => {
+   522→   522→      if (p.id === patientId) {
+   523→   523→        return { ...p, paymentStatus: status };
+   524→   524→      }
+   525→   525→      return p;
+   526→   526→    });
+   527→   527→    savePatientsList(updated);
+   528→   528→
+   529→   529→    // If changing to 'To'langan', log a transaction!
+   530→   530→    const patient = currentPatients.find(p => p.id === patientId);
+   531→   531→    const currentTx = transactionsRef.current;
+   532→   532→    if (patient && status === 'To\'langan' && patient.paymentAmount > 0) {
+   533→   533→      const isAlreadyLogged = currentTx.some(tx => tx.patientId === patientId && tx.category === "Ambulator ko'rik");
+   534→   534→      if (!isAlreadyLogged) {
+   535→   535→        const getDeptNameLocal = (id: string) => departmentsRef.current.find((d) => d.id === id)?.name || id;
+   536→   536→        const todayDate = new Date().toISOString().split('T')[0];
+   537→   537→        const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+   538→   538→
+   539→   539→        const newTx: ClinicTransaction = {
+   540→   540→          id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+   541→   541→          type: 'Kirim',
+   542→   542→          amount: patient.paymentAmount,
+   543→   543→          category: "Ambulator ko'rik",
+   544→   544→          description: `${patient.lastName} ${patient.firstName} - ${getDeptNameLocal(patient.departmentId)} bo'limiga navbat to'lovi`,
+   545→   545→          date: todayDate,
+   546→   546→          time: todayTime,
+   547→   547→          createdAt: new Date().toISOString(),
+   548→   548→          patientId: patient.id,
+   549→   549→          patientName: `${patient.lastName} ${patient.firstName}`
+   550→   550→        };
+   551→   551→        saveTransactionsList([newTx, ...currentTx]);
+   552→   552→      }
+   553→   553→    }
+   554→   554→  };
+   555→   555→
+   556→   556→  // Call / Accept Patient to Doctor Cabinet — uses REF
+   557→   557→  const handleCallPatient = (calledPatient: Patient) => {
+   558→   558→    const updated = patientsRef.current.map((p) => {
+   559→   559→      if (p.id === calledPatient.id) {
+   560→   560→        return {
+   561→   561→          ...p,
+   562→   562→          status: 'Qabulda' as const,
+   563→   563→          calledAt: new Date().toISOString(),
+   564→   564→        };
+   565→   565→      }
+   566→   566→      if (p.departmentId === calledPatient.departmentId && p.status === 'Qabulda') {
+   567→   567→        return {
+   568→   568→          ...p,
+   569→   569→          status: 'Yakunlangan' as const,
+   570→   570→          completedAt: new Date().toISOString(),
+   571→   571→          diagnosis: p.diagnosis || 'Ko\'rik yakunlandi',
+   572→   572→        };
+   573→   573→      }
+   574→   574→      return p;
+   575→   575→    });
+   576→   576→
+   577→   577→    savePatientsList(updated);
+   578→   578→  };
+   579→   579→
+   580→   580→  // Save diagnostic checkup records and prescriptions — uses REF
+   581→   581→  const handleUpdatePatientRecord = (patientId: string, updates: Partial<Patient>) => {
+   582→   582→    const updated = patientsRef.current.map((p) => {
+   583→   583→      if (p.id === patientId) {
+   584→   584→        return { ...p, ...updates };
+   585→   585→      }
+   586→   586→      return p;
+   587→   587→    });
+   588→   588→    savePatientsList(updated);
+   589→   589→  };
+   590→   590→
+   591→   591→  // Reset or clear clinical database history is disabled for safety and audit compliance
+   592→   592→  const handleClearHistory = () => {
+   593→   593→    alert("Arxiv o'chirilmaydi!");
+   594→   594→  };
+   595→   595→
+   596→   596→  // Delete/reject a patient (rad etish) — uses REF
+   597→   597→  const handleDeletePatient = (patientId: string) => {
+   598→   598→    const updated = patientsRef.current.filter((p) => p.id !== patientId);
+   599→   599→    savePatientsList(updated);
+   600→   600→  };
+   601→   601→
+   602→   602→  // To'lov qaytarish (refund) - bemor to'lov qilgan, lekin davolanishdan bosh tortgan
+   603→   603→  // Bu funksiya:
+   604→   604→  // 1. Bemor holatini "Bekor qilingan" ga o'zgartiradi
+   605→   605→  // 2. refundStatus = 'Qaytarildi' qiladi
+   606→   606→  // 3. Kassaga Chiqim (xarajat) tranzaksiyasini qo'shadi - "To'lov qaytarildi" kategoriyasi
+   607→   607→  // 4. Barcha hisobotlarda avtomatik aks etadi
+   608→   608→  const handleRefundPatient = (
+   609→   609→    patientId: string,
+   610→   610→    refundAmount: number,
+   611→   611→    reason: string
+   612→   612→  ) => {
+   613→   613→    const patient = patientsRef.current.find((p) => p.id === patientId);
+   614→   614→    if (!patient) {
+   615→   615→      alert('Bemor topilmadi!');
+   616→   616→      return;
+   617→   617→    }
+   618→   618→
+   619→   619→    if (patient.paymentStatus !== 'To\'langan') {
+   620→   620→      alert('Ushbu bemor to\'lov qilmagan! To\'lov qaytarib bo\'lmaydi.');
+   621→   621→      return;
+   622→   622→    }
+   623→   623→
+   624→   624→    if (refundAmount <= 0 || refundAmount > patient.paymentAmount) {
+   625→   625→      alert(
+   626→   626→        `Noto'g'ri summa! To'lov qaytarish summasi 0 dan katta va ${patient.paymentAmount.toLocaleString()} UZS dan oshmasligi kerak.`
+   627→   627→      );
+   628→   628→      return;
+   629→   629→    }
+   630→   630→
+   631→   631→    // 1. Bemor ma'lumotlarini yangilash
+   632→   632→    const updatedPatients = patientsRef.current.map((p) => {
+   633→   633→      if (p.id === patientId) {
+   634→   634→        return {
+   635→   635→          ...p,
+   636→   636→          status: 'Bekor qilingan' as const,
+   637→   637→          refundStatus: (refundAmount === p.paymentAmount ? 'Qaytarildi' : 'Qisman') as 'Qaytarildi' | 'Qisman',
+   638→   638→          refundedAmount: refundAmount,
+   639→   639→          refundedAt: new Date().toISOString(),
+   640→   640→          refundedReason: reason.trim(),
+   641→   641→        };
+   642→   642→      }
+   643→   643→      return p;
+   644→   644→    });
+   645→   645→    savePatientsList(updatedPatients);
+   646→   646→
+   647→   647→    // 2. Kassaga Chiqim (xarajat) tranzaksiyasini qo'shish
+   648→   648→    const todayDate = new Date().toISOString().split('T')[0];
+   649→   649→    const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
+   650→   650→    const getDeptNameLocal = (id: string) => departmentsRef.current.find((d) => d.id === id)?.name || id;
+   651→   651→
+   652→   652→    const refundTx: ClinicTransaction = {
+   653→   653→      id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+   654→   654→      type: 'Chiqim',
+   655→   655→      amount: refundAmount,
+   656→   656→      category: "To'lov qaytarildi",
+   657→   657→      description: `${patient.lastName} ${patient.firstName} - ${getDeptNameLocal(patient.departmentId)} bo'limi uchun to'lov qaytarildi. Sabab: ${reason.trim() || 'Ko\'rsatilmagan'}`,
+   658→   658→      date: todayDate,
+   659→   659→      time: todayTime,
+   660→   660→      createdAt: new Date().toISOString(),
+   661→   661→      patientId: patient.id,
+   662→   662→      patientName: `${patient.lastName} ${patient.firstName}`,
+   663→   663→    };
+   664→   664→
+   665→   665→    const updatedTx = [refundTx, ...transactionsRef.current];
+   666→   666→    saveTransactionsList(updatedTx);
+   667→   667→  };
+   668→   668→
+   669→   669→  // Open the HDMI TV queue monitor in a separate tab
+   670→   670→  const handleOpenMonitorWindow = () => {
+   671→   671→    const monitorUrl = window.location.origin + '?view=monitor';
+   672→   672→    const newWindow = window.open(monitorUrl, '_blank', 'width=1200,height=800');
+   673→   673→    if (!newWindow) {
+   674→   674→      alert('Tashqi oyna ochish brauzer tomonidan bloklandi! Iltimos, manzil satridagi block belgisi orqali popup ruxsatini bering.');
+   675→   675→    }
+   676→   676→  };
+   677→   677→
+   678→   678→  // If this tab is opened specifically for the external TV (via HDMI)
+   679→   679→  if (isMonitorOnly) {
+   680→   680→    return <TvMonitor patients={patients} inlineMode={false} departments={departments} />;
+   681→   681→  }
+   682→   682→
+   683→   683→  // If user is not logged in, show the beautiful login screen
+   684→   684→  if (!session) {
+   685→   685→    return (
+   686→   686→      <LoginPage
+   687→   687→        departments={departments}
+   688→   688→        receptionStaff={receptionStaff}
+   689→   689→        onLoginSuccess={handleLoginSuccess}
+   690→   690→        openMonitorWindow={handleOpenMonitorWindow}
+   691→   691→      />
+   692→   692→    );
+   693→   693→  }
+   694→   694→
+   695→   695→  return (
+   696→   696→    <div className="min-h-screen text-slate-800 flex flex-col justify-between selection:bg-emerald-200 selection:text-emerald-900 clinic-bg-gradient">
+   697→   697→      
+   698→   698→      {/* Clinic Header bar */}
+   699→   699→      <Header
+   700→   700→        activeTab={activeTab}
+   701→   701→        setActiveTab={setActiveTab}
+   702→   702→        openMonitorWindow={handleOpenMonitorWindow}
+   703→   703→        session={session}
+   704→   704→        onLogout={handleLogout}
+   705→   705→      />
+   706→   706→
+   707→   707→      {/* Main Workspaces based on active tab */}
+   708→   708→      <main className="flex-1 max-w-full w-full px-4 sm:px-8 lg:px-12 py-8">
+   709→   709→        
+   710→   710→        {/* Workspace views */}
+   711→   711→        {activeTab === 'admin_panel' && session.role === 'admin' && (
+   712→   712→          <AdminPanel
+   713→   713→            departments={departments}
+   714→   714→            setDepartments={saveDepartmentsList}
+   715→   715→            patients={patients}
+   716→   716→            setPatients={savePatientsList}
+   717→   717→            hospitalRooms={hospitalRooms}
+   718→   718→            setHospitalRooms={saveHospitalRoomsList}
+   719→   719→            transactions={transactions}
+   720→   720→            onSaveTransactions={saveTransactionsList}
+   721→   721→            inpatientStays={inpatientStays}
+   722→   722→            receptionStaff={receptionStaff}
+   723→   723→            setReceptionStaff={saveReceptionStaffList}
+   724→   724→            diagnosisTemplates={diagnosisTemplates}
+   725→   725→            setDiagnosisTemplates={saveDiagnosisTemplates}
+   726→   726→            clinicSettings={clinicSettings}
+   727→   727→            setClinicSettings={saveClinicSettings}
+   728→   728→          />
+   729→   729→        )}
+   730→   730→
+   731→   731→        {activeTab === 'reception' && (session.role === 'admin' || session.role === 'reception') && (
+   732→   732→          <Reception
+   733→   733→            patients={patients}
+   734→   734→            onAddPatient={handleAddPatient}
+   735→   735→            onUpdatePaymentStatus={handleUpdatePaymentStatus}
+   736→   736→            onDeletePatient={handleDeletePatient}
+   737→   737→            onRefundPatient={handleRefundPatient}
+   738→   738→            departments={departments}
+   739→   739→            hospitalRooms={hospitalRooms}
+   740→   740→            inpatientStays={inpatientStays}
+   741→   741→            onSaveInpatientStays={saveInpatientStaysList}
+   742→   742→            transactions={transactions}
+   743→   743→            onSaveTransactions={saveTransactionsList}
+   744→   744→          />
+   745→   745→        )}
+   746→   746→
+   747→   747→        {activeTab === 'doctors' && (
+   748→   748→          <DoctorCabinet
+   749→   749→            patients={patients}
+   750→   750→            onCallPatient={handleCallPatient}
+   751→   751→            onUpdatePatientRecord={handleUpdatePatientRecord}
+   752→   752→            session={session}
+   753→   753→            departments={departments}
+   754→   754→            inpatientStays={inpatientStays}
+   755→   755→            onSaveInpatientStays={saveInpatientStaysList}
+   756→   756→            diagnosisTemplates={diagnosisTemplates}
+   757→   757→            clinicSettings={clinicSettings}
+   758→   758→          />
+   759→   759→        )}
+   760→   760→
+   761→   761→        {activeTab === 'monitor_tab' && (
+   762→   762→          <div className="space-y-6">
+   763→   763→            {/* Quick HDMI Information box */}
+   764→   764→            <div className="bg-white p-6 rounded-3xl border border-slate-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+   765→   765→              <div className="flex items-start space-x-4">
+   766→   766→                <div className="bg-emerald-50 text-emerald-600 p-3 rounded-2xl flex items-center justify-center shrink-0">
+   767→   767→                  <Monitor className="h-5 w-5" />
+   768→   768→                </div>
+   769→   769→                <div>
+   770→   770→                  <h3 className="text-sm font-bold text-slate-800">Tashqi HDMI Monitor/TV Tizimi</h3>
+   771→   771→                  <p className="text-xs text-slate-400 font-medium leading-relaxed mt-1">
+   772→   772→                    Klinika kutish zaliga o'rnatilgan televizor ekraniga ushbu navbat monitorini uzatishingiz mumkin. Shunchaki quyidagi tugmani bosing va ochilgan oynani ikkinchi monitorga (TV) tortib o'tkazing va <kbd className="px-1 py-0.5 bg-slate-50 border border-slate-200 rounded text-xxs font-mono font-bold text-slate-500">F11</kbd> tugmasini bosib to'liq ekranga qo'ying.
+   773→   773→                  </p>
+   774→   774→                </div>
+   775→   775→              </div>
+   776→   776→              <button
+   777→   777→                onClick={handleOpenMonitorWindow}
+   778→   778→                className="bg-emerald-600 hover:bg-emerald-750 text-white font-semibold text-xs px-5 py-2.5 rounded-xl shadow-sm transition-colors shrink-0 cursor-pointer"
+   779→   779→              >
+   780→   780→                📺 HDMI TV uchun alohida oynada ochish
+   781→   781→              </button>
+   782→   782→            </div>
+   783→   783→
+   784→   784→            {/* Inline Monitor preview */}
+   785→   785→            <TvMonitor patients={patients} inlineMode={true} departments={departments} />
+   786→   786→          </div>
+   787→   787→        )}
+   788→   788→
+   789→   789→        {activeTab === 'reports' && (session.role === 'admin' || session.role === 'reception') && (
+   790→   790→          <Reports
+   791→   791→            patients={patients}
+   792→   792→            onClearHistory={handleClearHistory}
+   793→   793→            departments={departments}
+   794→   794→            inpatientStays={inpatientStays}
+   795→   795→            transactions={transactions}
+   796→   796→            onSaveTransactions={saveTransactionsList}
+   797→   797→          />
+   798→   798→        )}
+   799→   799→
+   800→   800→
+   801→   801→      </main>
+   802→   802→
+   803→   803→      {/* Footer Branding and Instructions */}
+   804→   804→      <footer className="bg-slate-950/40 backdrop-blur-md border-t border-slate-900 py-6 mt-16">
+   805→   805→        <div className="max-w-full px-4 sm:px-8 lg:px-12 text-center sm:text-left flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-4">
+   806→   806→          <div className="flex items-center space-x-2">
+   807→   807→            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+   808→   808→            <span className="font-medium text-slate-400">DR.Maruf Clinic ERP & CRM • Tibbiyot amaliyotini osonlashtirish</span>
+   809→   809→          </div>
+   810→   810→
+   811→   811→          <div className="flex items-center space-x-4">
+   812→   812→            <span className="font-semibold text-slate-500">Toshkent, O'zbekiston • 2026</span>
+   813→   813→          </div>
+   814→   814→        </div>
+   815→   815→      </footer>
+   816→   816→
+   817→   817→    </div>
+   818→   818→  );
+   819→   819→}
+   820→   820→

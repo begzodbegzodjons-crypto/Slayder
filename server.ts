@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { initStorage, loadData, saveCollection, ClinicData } from './db-store';
+// Note: ClinicData is kept for type compatibility; saveCollection now accepts any JSON value
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -30,15 +31,15 @@ async function startServer() {
     }
   });
 
-  // API Route: Save specific clinic collection
+  // API Route: Save specific clinic collection (supports arrays AND objects for clinicSettings)
   app.post('/api/save', async (req, res) => {
     try {
       const { key, data } = req.body;
-      if (!key || !Array.isArray(data)) {
-        return res.status(400).json({ error: 'Kalit va massiv ko\'rinishidagi ma\'lumot kiritilishi shart.' });
+      if (!key || data === undefined || data === null) {
+        return res.status(400).json({ error: 'Kalit va ma\'lumot kiritilishi shart.' });
       }
       
-      const success = await saveCollection(key as keyof ClinicData, data);
+      const success = await saveCollection(key, data);
       if (success) {
         res.json({ success: true, message: `Muvaffaqiyatli saqlandi: ${key}` });
       } else {

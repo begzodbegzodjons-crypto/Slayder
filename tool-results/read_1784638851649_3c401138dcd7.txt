@@ -1,0 +1,700 @@
+     1→// Excel Export Utility - DR.Maruf Clinic ERP
+     2→import ExcelJS from 'exceljs';
+     3→import { Patient, Department, InpatientStay, ClinicTransaction } from '../types';
+     4→
+     5→const COLORS = {
+     6→  primary: { argb: 'FF0F766E' },
+     7→  primaryDark: { argb: 'FF134E4A' },
+     8→  primaryLight: { argb: 'FFCCFBF1' },
+     9→  primaryLighter: { argb: 'FFF0FDFA' },
+    10→  amber: { argb: 'FFF59E0B' },
+    11→  amberLight: { argb: 'FFFEF3C7' },
+    12→  rose: { argb: 'FFE11D48' },
+    13→  roseLight: { argb: 'FFFECDD3' },
+    14→  blue: { argb: 'FF2563EB' },
+    15→  blueLight: { argb: 'FFDBEAFE' },
+    16→  purple: { argb: 'FF7C3AED' },
+    17→  purpleLight: { argb: 'FFEDE9FE' },
+    18→  white: { argb: 'FFFFFFFF' },
+    19→  slate900: { argb: 'FF0F172A' },
+    20→  slate700: { argb: 'FF334155' },
+    21→  slate500: { argb: 'FF64748B' },
+    22→  slate300: { argb: 'FFCBD5E1' },
+    23→  slate200: { argb: 'FFE2E8F0' },
+    24→  slate100: { argb: 'FFF1F5F9' },
+    25→  slate50: { argb: 'FFF8FAFC' },
+    26→  income: { argb: 'FF059669' },
+    27→  expense: { argb: 'FFDC2626' },
+    28→};
+    29→
+    30→const FONT = { family: 'Calibri' };
+    31→
+    32→const formatMoney = (n: number): string => (n || 0).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+    33→const formatDate = (iso: string): string => {
+    34→  if (!iso) return '';
+    35→  try { return new Date(iso).toLocaleDateString('ru-RU'); } catch { return iso; }
+    36→};
+    37→const formatDateTime = (iso: string): string => {
+    38→  if (!iso) return '';
+    39→  try {
+    40→    return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    41→  } catch { return iso; }
+    42→};
+    43→const getDeptName = (deptId: string, departments: Department[]): string => departments.find((d) => d.id === deptId)?.name || deptId;
+    44→
+    45→type DateRange = 'Bugun' | 'Haftalik' | 'Oylik' | 'Yillik' | 'Barchasi';
+    46→
+    47→const filterByDateRange = <T extends Record<string, any>>(items: T[], range: DateRange): T[] => {
+    48→  if (range === 'Barchasi') return items;
+    49→  const now = new Date();
+    50→  return items.filter((item) => {
+    51→    const dateStr = item.createdAt || item.date || item.checkInDate;
+    52→    if (!dateStr) return false;
+    53→    const itemDate = new Date(dateStr);
+    54→    if (isNaN(itemDate.getTime())) return false;
+    55→    if (range === 'Bugun') return itemDate.toDateString() === now.toDateString();
+    56→    if (range === 'Haftalik') { const w = new Date(); w.setDate(now.getDate() - 7); return itemDate >= w; }
+    57→    if (range === 'Oylik') return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
+    58→    if (range === 'Yillik') return itemDate.getFullYear() === now.getFullYear();
+    59→    return true;
+    60→  });
+    61→};
+    62→
+    63→export interface ExportOptions {
+    64→  range: DateRange;
+    65→  patients: Patient[];
+    66→  departments: Department[];
+    67→  inpatientStays: InpatientStay[];
+    68→  transactions: ClinicTransaction[];
+    69→}
+    70→
+    71→export async function exportClinicReportToExcel(opts: ExportOptions): Promise<void> {
+    72→  const { range, patients, departments, inpatientStays, transactions } = opts;
+    73→  const rangePatients = filterByDateRange(patients, range);
+    74→  const rangeStays = filterByDateRange(inpatientStays, range);
+    75→  const rangeTx = filterByDateRange(transactions, range);
+    76→
+    77→  const wb = new ExcelJS.Workbook();
+    78→  wb.creator = 'DR.Maruf Clinic ERP';
+    79→  wb.created = new Date();
+    80→
+    81→  // Sheet 1: Dashboard
+    82→  const ws = wb.addWorksheet('📊 Dashboard', { properties: { tabColor: { argb: COLORS.primary.argb } }, views: [{ showGridLines: false }] });
+    83→  ws.columns = [{ width: 4 }, { width: 32 }, { width: 22 }, { width: 4 }, { width: 32 }, { width: 22 }, { width: 4 }];
+    84→
+    85→  ws.mergeCells('B2:F2');
+    86→  const titleCell = ws.getCell('B2');
+    87→  titleCell.value = 'DR.MARUF CLINIC — HISOBOT';
+    88→  titleCell.font = { name: FONT.family, size: 22, bold: true, color: { argb: COLORS.white.argb } };
+    89→  titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+    90→  titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+    91→  ws.getRow(2).height = 42;
+    92→
+    93→  const totalIncome = rangeTx.filter((t) => t.type === 'Kirim').reduce((s, t) => s + t.amount, 0);
+    94→  const totalExpense = rangeTx.filter((t) => t.type === 'Chiqim').reduce((s, t) => s + t.amount, 0);
+    95→  const netProfit = totalIncome - totalExpense;
+    96→
+    97→  ws.mergeCells('B5:C7');
+    98→  const kpi1 = ws.getCell('B5');
+    99→  kpi1.value = '💰 UMUMIY TUSHUM';
+   100→  kpi1.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   101→  kpi1.alignment = { horizontal: 'center', vertical: 'middle' };
+   102→  kpi1.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.income };
+   103→
+   104→  ws.mergeCells('E5:F7');
+   105→  const kpi2 = ws.getCell('E5');
+   106→  kpi2.value = '💸 UMUMIY XARAJAT';
+   107→  kpi2.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   108→  kpi2.alignment = { horizontal: 'center', vertical: 'middle' };
+   109→  kpi2.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.expense };
+   110→
+   111→  ws.mergeCells('B8:C10');
+   112→  const kpi1Val = ws.getCell('B8');
+   113→  kpi1Val.value = totalIncome;
+   114→  kpi1Val.font = { name: FONT.family, size: 18, bold: true, color: { argb: COLORS.income.argb } };
+   115→  kpi1Val.alignment = { horizontal: 'center', vertical: 'middle' };
+   116→  kpi1Val.numFmt = '#,##0" UZS"';
+   117→  kpi1Val.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.slate50 };
+   118→
+   119→  ws.mergeCells('E8:F10');
+   120→  const kpi2Val = ws.getCell('E8');
+   121→  kpi2Val.value = totalExpense;
+   122→  kpi2Val.font = { name: FONT.family, size: 18, bold: true, color: { argb: COLORS.expense.argb } };
+   123→  kpi2Val.alignment = { horizontal: 'center', vertical: 'middle' };
+   124→  kpi2Val.numFmt = '#,##0" UZS"';
+   125→  kpi2Val.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.slate50 };
+   126→
+   127→  ws.mergeCells('B11:F11');
+   128→  const kpi3Label = ws.getCell('B11');
+   129→  kpi3Label.value = '📈 SOF FOYDA (Tushum - Xarajat)';
+   130→  kpi3Label.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   131→  kpi3Label.alignment = { horizontal: 'center', vertical: 'middle' };
+   132→  kpi3Label.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primary };
+   133→
+   134→  ws.mergeCells('B12:F14');
+   135→  const kpi3Val = ws.getCell('B12');
+   136→  kpi3Val.value = netProfit;
+   137→  kpi3Val.font = { name: FONT.family, size: 22, bold: true, color: { argb: netProfit >= 0 ? COLORS.income.argb : COLORS.expense.argb } };
+   138→  kpi3Val.alignment = { horizontal: 'center', vertical: 'middle' };
+   139→  kpi3Val.numFmt = '#,##0" UZS";[Red]-#,##0" UZS"';
+   140→  kpi3Val.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.slate50 };
+   141→
+   142→  // Stats section
+   143→  const statsStartRow = 16;
+   144→  ws.mergeCells(`B${statsStartRow}:F${statsStartRow}`);
+   145→  const statsHeader = ws.getCell(`B${statsStartRow}`);
+   146→  statsHeader.value = '📋 KLINIKA STATISTIKASI';
+   147→  statsHeader.font = { name: FONT.family, size: 13, bold: true, color: { argb: COLORS.white.argb } };
+   148→  statsHeader.alignment = { horizontal: 'center', vertical: 'middle' };
+   149→  statsHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   150→  ws.getRow(statsStartRow).height = 32;
+   151→
+   152→  const activeInpatients = rangeStays.filter((s) => s.status === 'Davolanmoqda').length;
+   153→  const stats: Array<[string, string, any, any]> = [
+   154→    ['👥 Ambulator bemorlar (jami)', `${rangePatients.length} nafar`, COLORS.blue, COLORS.blueLight],
+   155→    ['✅ Yakunlangan ko\'riklar', `${rangePatients.filter((p) => p.status === 'Yakunlangan').length} nafar`, COLORS.income, COLORS.primaryLight],
+   156→    ['⏳ Kutayotgan bemorlar', `${rangePatients.filter((p) => p.status === 'Kutmoqda').length} nafar`, COLORS.amber, COLORS.amberLight],
+   157→    ['🏥 Statsionarda davolanayotgan', `${activeInpatients} nafar`, COLORS.purple, COLORS.purpleLight],
+   158→    ['💵 To\'langan summa (ambulator)', `${formatMoney(rangePatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0))} UZS`, COLORS.income, COLORS.primaryLight],
+   159→    ['🏥 Statsionar tushum', `${formatMoney(rangeStays.reduce((s, st) => s + st.amountPaid, 0))} UZS`, COLORS.purple, COLORS.purpleLight],
+   160→    ['📝 Tranzaksiyalar soni', `${rangeTx.length} ta`, COLORS.slate700, COLORS.slate100],
+   161→  ];
+   162→
+   163→  stats.forEach((row, idx) => {
+   164→    const r = statsStartRow + 1 + idx;
+   165→    ws.mergeCells(`B${r}:D${r}`);
+   166→    const labelCell = ws.getCell(`B${r}`);
+   167→    labelCell.value = row[0];
+   168→    labelCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: (row[2] as any).argb } };
+   169→    labelCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+   170→    labelCell.fill = { type: 'pattern', pattern: 'solid', fgColor: row[3] as any };
+   171→    ws.mergeCells(`E${r}:F${r}`);
+   172→    const valCell = ws.getCell(`E${r}`);
+   173→    valCell.value = row[1];
+   174→    valCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.slate900.argb } };
+   175→    valCell.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+   176→    valCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.white };
+   177→    ['B', 'C', 'D', 'E', 'F'].forEach((col) => {
+   178→      const cell = ws.getCell(`${col}${r}`);
+   179→      cell.border = { top: { style: 'thin', color: COLORS.slate200 }, bottom: { style: 'thin', color: COLORS.slate200 }, left: { style: 'thin', color: COLORS.slate200 }, right: { style: 'thin', color: COLORS.slate200 } };
+   180→    });
+   181→    ws.getRow(r).height = 24;
+   182→  });
+   183→
+   184→  // Sheet 2: Ambulatory Patients
+   185→  const ws2 = wb.addWorksheet('👥 Ambulator Bemorlar', { properties: { tabColor: { argb: COLORS.blue.argb } }, views: [{ showGridLines: false, state: 'frozen', ySplit: 4, xSplit: 0 }] });
+   186→  const ambColumns = [
+   187→    { header: '№', key: 'num', width: 5 }, { header: 'ID', key: 'id', width: 10 }, { header: 'Navbat', key: 'queue', width: 8 },
+   188→    { header: 'Familiyasi', key: 'lastName', width: 18 }, { header: 'Ismi', key: 'firstName', width: 16 },
+   189→    { header: 'Telefon', key: 'phone', width: 15 }, { header: 'Bo\'lim', key: 'dept', width: 22 }, { header: 'Shifokor', key: 'doctor', width: 22 },
+   190→    { header: 'Ko\'rik narxi', key: 'amount', width: 14 }, { header: 'To\'lov holati', key: 'payment', width: 13 },
+   191→    { header: 'Holati', key: 'status', width: 14 }, { header: 'Qabul vaqti', key: 'createdAt', width: 17 }, { header: 'Tashxis', key: 'diagnosis', width: 30 },
+   192→  ];
+   193→  ws2.columns = ambColumns;
+   194→
+   195→  ws2.mergeCells('A1:M1');
+   196→  const t2 = ws2.getCell('A1');
+   197→  t2.value = '👥 AMBULATOR BEMORLAR RO\'YXATI';
+   198→  t2.font = { name: FONT.family, size: 16, bold: true, color: { argb: COLORS.white.argb } };
+   199→  t2.alignment = { horizontal: 'center', vertical: 'middle' };
+   200→  t2.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.blue };
+   201→  ws2.getRow(1).height = 36;
+   202→
+   203→  ws2.mergeCells('A2:M2');
+   204→  const s2 = ws2.getCell('A2');
+   205→  s2.value = `Jami: ${rangePatients.length} nafar bemor • Sana: ${new Date().toLocaleString('ru-RU')}`;
+   206→  s2.font = { name: FONT.family, size: 10, italic: true, color: { argb: COLORS.slate700.argb } };
+   207→  s2.alignment = { horizontal: 'center', vertical: 'middle' };
+   208→  s2.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.blueLight };
+   209→  ws2.getRow(2).height = 22;
+   210→  ws2.getRow(3).height = 8;
+   211→
+   212→  const hr2 = ws2.getRow(4);
+   213→  ambColumns.forEach((col, idx) => {
+   214→    const cell = hr2.getCell(idx + 1);
+   215→    cell.value = col.header; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.white.argb } };
+   216→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   217→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   218→    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   219→  });
+   220→  ws2.getRow(4).height = 38;
+   221→
+   222→  rangePatients.forEach((p, idx) => {
+   223→    const r = idx + 5;
+   224→    const row = ws2.getRow(r);
+   225→    const isPaid = p.paymentStatus === 'To\'langan';
+   226→    const rowBg = idx % 2 === 0 ? COLORS.white : COLORS.slate50;
+   227→    const vals: any[] = [idx + 1, p.id, `#${p.queueNumber}`, p.lastName, p.firstName, p.phone, getDeptName(p.departmentId, departments), p.doctorName, p.paymentAmount, p.paymentStatus, p.status, formatDateTime(p.createdAt), p.diagnosis || '-'];
+   228→    vals.forEach((val, ci) => {
+   229→      const cell = row.getCell(ci + 1);
+   230→      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+   231→      cell.alignment = { vertical: 'middle', horizontal: [0, 2, 9, 10].includes(ci) ? 'center' : 'left', wrapText: ci === 12, indent: [0, 2, 9, 10].includes(ci) ? 0 : 1 };
+   232→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   233→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   234→      if (ci === 8) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.income.argb } }; }
+   235→      if (ci === 9) { cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: isPaid ? COLORS.income.argb : COLORS.amber.argb } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: isPaid ? COLORS.primaryLight : COLORS.amberLight }; }
+   236→    });
+   237→    ws2.getRow(r).height = 30;
+   238→  });
+   239→
+   240→  // Sheet 3: Inpatient
+   241→  const ws3 = wb.addWorksheet('🏥 Statsionar Bemorlar', { properties: { tabColor: { argb: COLORS.purple.argb } }, views: [{ showGridLines: false, state: 'frozen', ySplit: 4, xSplit: 0 }] });
+   242→  const inpColumns = [
+   243→    { header: '№', key: 'num', width: 5 }, { header: 'ID', key: 'patientId', width: 10 }, { header: 'Familiyasi', key: 'lastName', width: 18 },
+   244→    { header: 'Ismi', key: 'firstName', width: 16 }, { header: 'Palata', key: 'room', width: 10 }, { header: 'Bo\'lim', key: 'dept', width: 20 },
+   245→    { header: 'Shifokor', key: 'doctor', width: 20 }, { header: 'Kelgan sana', key: 'checkIn', width: 13 }, { header: 'Chiqqan', key: 'checkOut', width: 13 },
+   246→    { header: 'Kunlar', key: 'days', width: 8 }, { header: 'Umumiy summa', key: 'total', width: 15 }, { header: 'To\'langan', key: 'paid', width: 14 },
+   247→    { header: 'Qarz', key: 'debt', width: 14 }, { header: 'Holati', key: 'status', width: 14 }, { header: 'Tashxis', key: 'diagnosis', width: 32 },
+   248→  ];
+   249→  ws3.columns = inpColumns;
+   250→
+   251→  ws3.mergeCells('A1:O1');
+   252→  const t3 = ws3.getCell('A1');
+   253→  t3.value = '🏥 STATSIONAR BEMORLAR (Yotib davolanish)';
+   254→  t3.font = { name: FONT.family, size: 16, bold: true, color: { argb: COLORS.white.argb } };
+   255→  t3.alignment = { horizontal: 'center', vertical: 'middle' };
+   256→  t3.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purple };
+   257→  ws3.getRow(1).height = 36;
+   258→
+   259→  ws3.mergeCells('A2:O2');
+   260→  const s3 = ws3.getCell('A2');
+   261→  s3.value = `Jami: ${rangeStays.length} nafar • Sana: ${new Date().toLocaleString('ru-RU')}`;
+   262→  s3.font = { name: FONT.family, size: 10, italic: true, color: { argb: COLORS.slate700.argb } };
+   263→  s3.alignment = { horizontal: 'center', vertical: 'middle' };
+   264→  s3.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purpleLight };
+   265→  ws3.getRow(2).height = 22;
+   266→  ws3.getRow(3).height = 8;
+   267→
+   268→  const hr3 = ws3.getRow(4);
+   269→  inpColumns.forEach((col, idx) => {
+   270→    const cell = hr3.getCell(idx + 1);
+   271→    cell.value = col.header; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.white.argb } };
+   272→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   273→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   274→    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   275→  });
+   276→  ws3.getRow(4).height = 38;
+   277→
+   278→  rangeStays.forEach((s, idx) => {
+   279→    const r = idx + 5;
+   280→    const row = ws3.getRow(r);
+   281→    const rowBg = idx % 2 === 0 ? COLORS.white : COLORS.slate50;
+   282→    const vals: any[] = [idx + 1, s.patientId, s.lastName, s.firstName, s.roomNumber, s.departmentName, s.doctorName, formatDate(s.checkInDate), s.checkOutDate ? formatDate(s.checkOutDate) : '-', s.plannedDays, s.totalCost, s.amountPaid, s.remainingDebt, s.status, s.diagnosis || '-'];
+   283→    vals.forEach((val, ci) => {
+   284→      const cell = row.getCell(ci + 1);
+   285→      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+   286→      cell.alignment = { vertical: 'middle', horizontal: [0, 4, 9, 13].includes(ci) ? 'center' : 'left', wrapText: ci === 14, indent: [0, 4, 9, 13].includes(ci) ? 0 : 1 };
+   287→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   288→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   289→      if ([10, 11, 12].includes(ci)) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: ci === 12 && s.remainingDebt > 0 ? COLORS.rose.argb : COLORS.slate900.argb } }; }
+   290→    });
+   291→    ws3.getRow(r).height = 28;
+   292→  });
+   293→
+   294→  // Sheet 4: Transactions
+   295→  const ws4 = wb.addWorksheet('💰 Kassa & Tranzaksiyalar', { properties: { tabColor: { argb: COLORS.income.argb } }, views: [{ showGridLines: false, state: 'frozen', ySplit: 4, xSplit: 0 }] });
+   296→  const txColumns = [
+   297→    { header: '№', key: 'num', width: 5 }, { header: 'Sana', key: 'date', width: 13 }, { header: 'Vaqt', key: 'time', width: 9 },
+   298→    { header: 'Turi', key: 'type', width: 10 }, { header: 'Kategoriya', key: 'category', width: 22 }, { header: 'Tafsilot', key: 'desc', width: 50 },
+   299→    { header: 'Summa', key: 'amount', width: 16 }, { header: 'Bemor', key: 'patientName', width: 22 },
+   300→  ];
+   301→  ws4.columns = txColumns;
+   302→
+   303→  ws4.mergeCells('A1:H1');
+   304→  const t4 = ws4.getCell('A1');
+   305→  t4.value = '💰 KASSA VA TRANZAKSIYALAR HISOBI';
+   306→  t4.font = { name: FONT.family, size: 16, bold: true, color: { argb: COLORS.white.argb } };
+   307→  t4.alignment = { horizontal: 'center', vertical: 'middle' };
+   308→  t4.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.income };
+   309→  ws4.getRow(1).height = 36;
+   310→
+   311→  ws4.mergeCells('A2:H2');
+   312→  const s4 = ws4.getCell('A2');
+   313→  s4.value = `Jami: ${rangeTx.length} ta • Tushum: ${formatMoney(totalIncome)} UZS • Xarajat: ${formatMoney(totalExpense)} UZS • Sof: ${formatMoney(totalIncome - totalExpense)} UZS`;
+   314→  s4.font = { name: FONT.family, size: 10, italic: true, color: { argb: COLORS.slate700.argb } };
+   315→  s4.alignment = { horizontal: 'center', vertical: 'middle' };
+   316→  s4.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryLighter };
+   317→  ws4.getRow(2).height = 22;
+   318→  ws4.getRow(3).height = 8;
+   319→
+   320→  const hr4 = ws4.getRow(4);
+   321→  txColumns.forEach((col, idx) => {
+   322→    const cell = hr4.getCell(idx + 1);
+   323→    cell.value = col.header; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.white.argb } };
+   324→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   325→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   326→    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   327→  });
+   328→  ws4.getRow(4).height = 36;
+   329→
+   330→  const sortedTx = [...rangeTx].sort((a, b) => {
+   331→    const da = new Date(a.createdAt || `${a.date}T${a.time}`).getTime();
+   332→    const db = new Date(b.createdAt || `${b.date}T${b.time}`).getTime();
+   333→    return db - da;
+   334→  });
+   335→
+   336→  sortedTx.forEach((t, idx) => {
+   337→    const r = idx + 5;
+   338→    const row = ws4.getRow(r);
+   339→    const isIncome = t.type === 'Kirim';
+   340→    const rowBg = idx % 2 === 0 ? COLORS.white : COLORS.slate50;
+   341→    const vals: any[] = [idx + 1, formatDate(t.date), t.time, t.type, t.category, t.description, t.amount, t.patientName || '-'];
+   342→    vals.forEach((val, ci) => {
+   343→      const cell = row.getCell(ci + 1);
+   344→      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+   345→      cell.alignment = { vertical: 'middle', horizontal: [0, 1, 2, 3].includes(ci) ? 'center' : 'left', wrapText: ci === 5, indent: [0, 1, 2, 3].includes(ci) ? 0 : 1 };
+   346→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   347→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   348→      if (ci === 6) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: isIncome ? COLORS.income.argb : COLORS.expense.argb } }; }
+   349→      if (ci === 3) { cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: isIncome ? COLORS.income.argb : COLORS.expense.argb } }; cell.fill = { type: 'pattern', pattern: 'solid', fgColor: isIncome ? COLORS.primaryLight : COLORS.roseLight }; }
+   350→    });
+   351→    ws4.getRow(r).height = 26;
+   352→  });
+   353→
+   354→  // Sheet 5: Department Analysis
+   355→  const ws5 = wb.addWorksheet('🏢 Bo\'limlar Tahlili', { properties: { tabColor: { argb: COLORS.amber.argb } }, views: [{ showGridLines: false }] });
+   356→  ws5.columns = [{ width: 4 }, { width: 28 }, { width: 22 }, { width: 14 }, { width: 14 }, { width: 18 }, { width: 18 }, { width: 4 }];
+   357→  ws5.mergeCells('B2:G2');
+   358→  const t5 = ws5.getCell('B2');
+   359→  t5.value = '🏢 BO\'LIMLAR BO\'YICHA TAHLIL';
+   360→  t5.font = { name: FONT.family, size: 18, bold: true, color: { argb: COLORS.white.argb } };
+   361→  t5.alignment = { horizontal: 'center', vertical: 'middle' };
+   362→  t5.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   363→  ws5.getRow(2).height = 38;
+   364→  ws5.getRow(3).height = 12;
+   365→
+   366→  const headers5 = ['Bo\'lim nomi', 'Shifokor', 'Bemorlar', 'Yakunlangan', 'Ambulator tushum', 'Statsionar tushum'];
+   367→  headers5.forEach((h, idx) => {
+   368→    const cell = ws5.getCell(String.fromCharCode(66 + idx) + '4');
+   369→    cell.value = h; cell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   370→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   371→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primary };
+   372→    cell.border = { top: { style: 'medium', color: COLORS.primary }, bottom: { style: 'medium', color: COLORS.primary }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   373→  });
+   374→  ws5.getRow(4).height = 36;
+   375→
+   376→  departments.forEach((dept, idx) => {
+   377→    const r = 5 + idx;
+   378→    const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+   379→    const deptCompleted = deptPatients.filter((p) => p.status === 'Yakunlangan');
+   380→    const deptAmbIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+   381→    const deptInpIncome = rangeStays.filter((s) => s.departmentName === dept.name).reduce((s, st) => s + st.amountPaid, 0);
+   382→    const rowBg = idx % 2 === 0 ? COLORS.white : COLORS.slate50;
+   383→    const vals: any[] = [dept.name, dept.doctorName, deptPatients.length, deptCompleted.length, deptAmbIncome, deptInpIncome];
+   384→    vals.forEach((val, ci) => {
+   385→      const cell = ws5.getCell(String.fromCharCode(66 + ci) + r);
+   386→      cell.value = val; cell.font = { name: FONT.family, size: 11, color: { argb: COLORS.slate900.argb } };
+   387→      cell.alignment = { vertical: 'middle', horizontal: ci < 2 ? 'left' : 'center', indent: ci < 2 ? 1 : 0 };
+   388→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   389→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   390→      if (ci === 2) cell.font = { name: FONT.family, size: 12, bold: true, color: { argb: COLORS.blue.argb } };
+   391→      if (ci === 4 || ci === 5) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 11, bold: true, color: { argb: val > 0 ? COLORS.income.argb : COLORS.slate500.argb } }; }
+   392→    });
+   393→    ws5.getRow(r).height = 28;
+   394→  });
+   395→
+   396→  // Sheet 6: Department Services Breakdown (qo'shimcha xizmatlar bo'yicha alohida)
+   397→  // PROFESSIONAL: har bir bo'lim alohida, har bir xizmat narxi/soni/daromadi aniq
+   398→  const ws6 = wb.addWorksheet('💊 Xizmatlar Tahlili', { properties: { tabColor: { argb: COLORS.purple.argb } }, views: [{ showGridLines: false }] });
+   399→  ws6.columns = [
+   400→    { width: 4 }, { width: 26 }, { width: 32 }, { width: 16 }, { width: 12 }, { width: 18 }, { width: 4 },
+   401→  ];
+   402→
+   403→  ws6.mergeCells('B2:F2');
+   404→  const t6 = ws6.getCell('B2');
+   405→  t6.value = `💊 BO\'LIMLAR BO\'YICHA QO\'SHIMCHA XIZMATLAR TAHLILI — ${range.toUpperCase()}`;
+   406→  t6.font = { name: FONT.family, size: 15, bold: true, color: { argb: COLORS.white.argb } };
+   407→  t6.alignment = { horizontal: 'center', vertical: 'middle' };
+   408→  t6.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purple };
+   409→  ws6.getRow(2).height = 36;
+   410→
+   411→  ws6.mergeCells('B3:F3');
+   412→  const sub6 = ws6.getCell('B3');
+   413→  sub6.value = `Sana: ${new Date().toLocaleString('ru-RU')} • Bo'limlar soni: ${departments.length}`;
+   414→  sub6.font = { name: FONT.family, size: 10, italic: true, color: { argb: COLORS.slate700.argb } };
+   415→  sub6.alignment = { horizontal: 'center', vertical: 'middle' };
+   416→  sub6.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purpleLight };
+   417→  ws6.getRow(3).height = 20;
+   418→  ws6.getRow(4).height = 8;
+   419→
+   420→  // Headers — Birlik narxi (unit price) qo'shildi
+   421→  const h6 = ['Bo\'lim', 'Xizmat nomi', 'Birlik narxi', 'Mijozlar soni', 'Daromad (UZS)'];
+   422→  h6.forEach((h, idx) => {
+   423→    const cell = ws6.getCell(String.fromCharCode(66 + idx) + '5');
+   424→    cell.value = h; cell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   425→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   426→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   427→    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   428→  });
+   429→  ws6.getRow(5).height = 38;
+   430→
+   431→  // Har bir bo'lim va uning xizmatlari bo'yicha ma'lumotlar
+   432→  let row6 = 6;
+   433→  let grandTotalCount = 0;
+   434→  let grandTotalIncome = 0;
+   435→
+   436→  departments.forEach((dept, deptIdx) => {
+   437→    const deptPatients = rangePatients.filter((p) => p.departmentId === dept.id);
+   438→    const deptServices = dept.services || [];
+   439→
+   440→    // Bo'lim sarlavhasi
+   441→    ws6.mergeCells(`B${row6}:F${row6}`);
+   442→    const deptCell = ws6.getCell(`B${row6}`);
+   443→    deptCell.value = `📋 ${dept.name} — Shifokor: ${dept.doctorName} — Jami ${deptPatients.length} bemor`;
+   444→    deptCell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   445→    deptCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+   446→    deptCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.purple };
+   447→    ws6.getRow(row6).height = 28;
+   448→    row6++;
+   449→
+   450→    // Bo'lim bazaviy narxi (ko'rik)
+   451→    const baseCount = deptPatients.length;
+   452→    const baseIncome = deptPatients.filter((p) => p.paymentStatus === 'To\'langan').reduce((s, p) => s + p.paymentAmount, 0);
+   453→    const servicesIncome = deptPatients.reduce((s, p) => {
+   454→      return s + (p.selectedServices || []).reduce((ss, svc) => ss + (svc.price || 0), 0);
+   455→    }, 0);
+   456→    const baseOnly = baseIncome - servicesIncome;
+   457→    const basePrice = dept.price || 0;
+   458→
+   459→    const rowBg = (deptIdx % 2 === 0) ? COLORS.slate50 : COLORS.white;
+   460→    let deptSubtotalCount = 0;
+   461→    let deptSubtotalIncome = 0;
+   462→
+   463→    // Bo'lim bazaviy ko'rik
+   464→    const baseVals: any[] = [dept.name, '📋 Ko\'rik (bazaviy narxi)', basePrice, baseCount, baseOnly];
+   465→    baseVals.forEach((val, ci) => {
+   466→      const cell = ws6.getCell(String.fromCharCode(66 + ci) + row6);
+   467→      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+   468→      cell.alignment = { vertical: 'middle', horizontal: ci >= 2 ? 'center' : 'left', indent: ci < 2 ? 1 : 0 };
+   469→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   470→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   471→      if (ci === 2) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate700.argb } }; }
+   472→      if (ci === 3) { cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.blue.argb } }; }
+   473→      if (ci === 4) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.income.argb } }; }
+   474→    });
+   475→    deptSubtotalCount += baseCount;
+   476→    deptSubtotalIncome += baseOnly;
+   477→    grandTotalCount += baseCount;
+   478→    grandTotalIncome += baseOnly;
+   479→    ws6.getRow(row6).height = 26;
+   480→    row6++;
+   481→
+   482→    // Har bir xizmat bo'yicha — narxi, soni, daromadi aniq
+   483→    if (deptServices.length > 0) {
+   484→      deptServices.forEach((svc) => {
+   485→        // Shu xizmat tanlangan bemorlar soni
+   486→        const svcPatients = deptPatients.filter((p) => p.selectedServices && p.selectedServices.some((s) => s.id === svc.id || s.name === svc.name));
+   487→        const svcCount = svcPatients.length;
+   488→        const svcIncome = svcCount * svc.price;
+   489→
+   490→        const svcVals: any[] = ['', `  💊 ${svc.name}`, svc.price, svcCount, svcIncome];
+   491→        svcVals.forEach((val, ci) => {
+   492→          const cell = ws6.getCell(String.fromCharCode(66 + ci) + row6);
+   493→          cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate700.argb } };
+   494→          cell.alignment = { vertical: 'middle', horizontal: ci >= 2 ? 'center' : 'left', indent: ci < 2 ? 1 : 0 };
+   495→          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   496→          cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   497→          if (ci === 2) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate700.argb } }; }
+   498→          if (ci === 3 && svcCount > 0) cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.blue.argb } };
+   499→          if (ci === 4 && svcIncome > 0) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.income.argb } }; }
+   500→        });
+   501→        deptSubtotalCount += svcCount;
+   502→        deptSubtotalIncome += svcIncome;
+   503→        grandTotalCount += svcCount;
+   504→        grandTotalIncome += svcIncome;
+   505→        ws6.getRow(row6).height = 24;
+   506→        row6++;
+   507→      });
+   508→    } else {
+   509→      // Xizmatlar yo'q
+   510→      ws6.mergeCells(`C${row6}:F${row6}`);
+   511→      const noSvc = ws6.getCell(`C${row6}`);
+   512→      noSvc.value = '  (Qo\'shimcha xizmatlar kiritilmagan)';
+   513→      noSvc.font = { name: FONT.family, size: 9, italic: true, color: { argb: COLORS.slate500.argb } };
+   514→      noSvc.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   515→      ws6.getRow(row6).height = 22;
+   516→      row6++;
+   517→    }
+   518→
+   519→    // Bo'lim subtotal qatori
+   520→    ws6.mergeCells(`B${row6}:D${row6}`);
+   521→    const subLabel = ws6.getCell(`B${row6}`);
+   522→    subLabel.value = `  ↳ ${dept.name} — JAMI:`;
+   523→    subLabel.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.primaryDark.argb } };
+   524→    subLabel.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+   525→    subLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryLighter };
+   526→
+   527→    const subCountCell = ws6.getCell(`E${row6}`);
+   528→    subCountCell.value = deptSubtotalCount;
+   529→    subCountCell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.primaryDark.argb } };
+   530→    subCountCell.alignment = { horizontal: 'center', vertical: 'middle' };
+   531→    subCountCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryLighter };
+   532→
+   533→    const subIncomeCell = ws6.getCell(`F${row6}`);
+   534→    subIncomeCell.value = deptSubtotalIncome;
+   535→    subIncomeCell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.primaryDark.argb } };
+   536→    subIncomeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+   537→    subIncomeCell.numFmt = '#,##0" UZS"';
+   538→    subIncomeCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryLighter };
+   539→
+   540→    ['B', 'C', 'D', 'E', 'F'].forEach((col) => {
+   541→      const c = ws6.getCell(`${col}${row6}`);
+   542→      c.border = { top: { style: 'thin', color: COLORS.primary }, bottom: { style: 'thin', color: COLORS.primary }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   543→    });
+   544→    ws6.getRow(row6).height = 26;
+   545→    row6++;
+   546→
+   547→    // Bo'sh ajratuvchi qator
+   548→    ws6.getRow(row6).height = 6;
+   549→    row6++;
+   550→  });
+   551→
+   552→  // Jami qator — GRAND TOTAL
+   553→  ws6.mergeCells(`B${row6}:D${row6}`);
+   554→  const totalLabel = ws6.getCell(`B${row6}`);
+   555→  totalLabel.value = '🏆 JAMI (barcha bo\'limlar va xizmatlar):';
+   556→  totalLabel.font = { name: FONT.family, size: 12, bold: true, color: { argb: COLORS.white.argb } };
+   557→  totalLabel.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+   558→  totalLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   559→
+   560→  const totalCountCell = ws6.getCell(`E${row6}`);
+   561→  totalCountCell.value = grandTotalCount;
+   562→  totalCountCell.font = { name: FONT.family, size: 12, bold: true, color: { argb: COLORS.white.argb } };
+   563→  totalCountCell.alignment = { horizontal: 'center', vertical: 'middle' };
+   564→  totalCountCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   565→
+   566→  const totalIncomeCell = ws6.getCell(`F${row6}`);
+   567→  totalIncomeCell.value = grandTotalIncome;
+   568→  totalIncomeCell.font = { name: FONT.family, size: 12, bold: true, color: { argb: COLORS.white.argb } };
+   569→  totalIncomeCell.alignment = { horizontal: 'center', vertical: 'middle' };
+   570→  totalIncomeCell.numFmt = '#,##0" UZS"';
+   571→  totalIncomeCell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   572→  ['B', 'C', 'D', 'E', 'F'].forEach((col) => {
+   573→    const c = ws6.getCell(`${col}${row6}`);
+   574→    c.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   575→  });
+   576→  ws6.getRow(row6).height = 34;
+   577→
+   578→  // =========================================================
+   579→  // Sheet 7: Kunlik Daromad Tahlili (Daily Income Breakdown)
+   580→  // Har bir kun bo'yicha: bemorlar soni, tushum, sana bilan
+   581→  // =========================================================
+   582→  const ws7 = wb.addWorksheet('📅 Kunlik Tahlil', { properties: { tabColor: { argb: COLORS.amber.argb } }, views: [{ showGridLines: false }] });
+   583→  ws7.columns = [
+   584→    { width: 4 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 18 }, { width: 18 }, { width: 18 }, { width: 4 },
+   585→  ];
+   586→
+   587→  ws7.mergeCells('B2:G2');
+   588→  const t7 = ws7.getCell('B2');
+   589→  t7.value = `📅 KUNLIK DAROMAD TAHLILI — ${range.toUpperCase()}`;
+   590→  t7.font = { name: FONT.family, size: 15, bold: true, color: { argb: COLORS.white.argb } };
+   591→  t7.alignment = { horizontal: 'center', vertical: 'middle' };
+   592→  t7.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.amber };
+   593→  ws7.getRow(2).height = 36;
+   594→
+   595→  ws7.mergeCells('B3:G3');
+   596→  const sub7 = ws7.getCell('B3');
+   597→  sub7.value = `Sana: ${new Date().toLocaleString('ru-RU')}`;
+   598→  sub7.font = { name: FONT.family, size: 10, italic: true, color: { argb: COLORS.slate700.argb } };
+   599→  sub7.alignment = { horizontal: 'center', vertical: 'middle' };
+   600→  sub7.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.amberLight };
+   601→  ws7.getRow(3).height = 20;
+   602→  ws7.getRow(4).height = 8;
+   603→
+   604→  const h7 = ['Sana', 'Hafta kuni', 'Ambulator bemorlar', 'Ambulator tushum', 'Statsionar tushum', 'Umumiy tushum'];
+   605→  h7.forEach((h, idx) => {
+   606→    const cell = ws7.getCell(String.fromCharCode(66 + idx) + '5');
+   607→    cell.value = h; cell.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   608→    cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+   609→    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   610→    cell.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   611→  });
+   612→  ws7.getRow(5).height = 38;
+   613→
+   614→  // Group by date
+   615→  const dayMap = new Map<string, { patients: number; ambIncome: number; inpIncome: number }>();
+   616→  rangePatients.forEach((p) => {
+   617→    const dateStr = (p.createdAt || '').split('T')[0];
+   618→    if (!dateStr) return;
+   619→    if (!dayMap.has(dateStr)) dayMap.set(dateStr, { patients: 0, ambIncome: 0, inpIncome: 0 });
+   620→    const d = dayMap.get(dateStr)!;
+   621→    d.patients += 1;
+   622→    if (p.paymentStatus === 'To\'langan') d.ambIncome += p.paymentAmount || 0;
+   623→  });
+   624→  rangeStays.forEach((s) => {
+   625→    const dateStr = (s.checkInDate || '').split('T')[0];
+   626→    if (!dateStr) return;
+   627→    if (!dayMap.has(dateStr)) dayMap.set(dateStr, { patients: 0, ambIncome: 0, inpIncome: 0 });
+   628→    const d = dayMap.get(dateStr)!;
+   629→    d.inpIncome += s.amountPaid || 0;
+   630→  });
+   631→
+   632→  const dayNames = ['Yakshanba', 'Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba'];
+   633→  const sortedDays = Array.from(dayMap.keys()).sort();
+   634→  let grandDayPatients = 0;
+   635→  let grandDayAmb = 0;
+   636→  let grandDayInp = 0;
+   637→
+   638→  sortedDays.forEach((dateStr, idx) => {
+   639→    const r = 6 + idx;
+   640→    const d = dayMap.get(dateStr)!;
+   641→    const dayObj = new Date(dateStr);
+   642→    const dayName = isNaN(dayObj.getTime()) ? '-' : dayNames[dayObj.getDay()];
+   643→    const total = d.ambIncome + d.inpIncome;
+   644→    const rowBg = idx % 2 === 0 ? COLORS.white : COLORS.slate50;
+   645→    const vals: any[] = [formatDate(dateStr), dayName, d.patients, d.ambIncome, d.inpIncome, total];
+   646→    vals.forEach((val, ci) => {
+   647→      const cell = ws7.getCell(String.fromCharCode(66 + ci) + r);
+   648→      cell.value = val; cell.font = { name: FONT.family, size: 10, color: { argb: COLORS.slate900.argb } };
+   649→      cell.alignment = { vertical: 'middle', horizontal: ci >= 2 ? 'center' : 'left', indent: ci < 2 ? 1 : 0 };
+   650→      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: rowBg };
+   651→      cell.border = { top: { style: 'hair', color: COLORS.slate200 }, bottom: { style: 'hair', color: COLORS.slate200 }, left: { style: 'hair', color: COLORS.slate200 }, right: { style: 'hair', color: COLORS.slate200 } };
+   652→      if ([3, 4, 5].includes(ci)) { cell.numFmt = '#,##0" UZS"'; cell.font = { name: FONT.family, size: 10, bold: ci === 5, color: { argb: ci === 5 ? COLORS.income.argb : COLORS.slate900.argb } }; }
+   653→      if (ci === 2) cell.font = { name: FONT.family, size: 10, bold: true, color: { argb: COLORS.blue.argb } };
+   654→    });
+   655→    grandDayPatients += d.patients;
+   656→    grandDayAmb += d.ambIncome;
+   657→    grandDayInp += d.inpIncome;
+   658→    ws7.getRow(r).height = 26;
+   659→  });
+   660→
+   661→  // Total row for daily
+   662→  if (sortedDays.length > 0) {
+   663→    const tr = 6 + sortedDays.length;
+   664→    ws7.mergeCells(`B${tr}:C${tr}`);
+   665→    const tl = ws7.getCell(`B${tr}`);
+   666→    tl.value = 'JAMI:';
+   667→    tl.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   668→    tl.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
+   669→    tl.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   670→    const tdp = ws7.getCell(`D${tr}`);
+   671→    tdp.value = grandDayPatients; tdp.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   672→    tdp.alignment = { horizontal: 'center', vertical: 'middle' }; tdp.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   673→    const tda = ws7.getCell(`E${tr}`);
+   674→    tda.value = grandDayAmb; tda.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   675→    tda.alignment = { horizontal: 'center', vertical: 'middle' }; tda.numFmt = '#,##0" UZS"'; tda.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   676→    const tdi = ws7.getCell(`F${tr}`);
+   677→    tdi.value = grandDayInp; tdi.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   678→    tdi.alignment = { horizontal: 'center', vertical: 'middle' }; tdi.numFmt = '#,##0" UZS"'; tdi.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   679→    const tdt = ws7.getCell(`G${tr}`);
+   680→    tdt.value = grandDayAmb + grandDayInp; tdt.font = { name: FONT.family, size: 11, bold: true, color: { argb: COLORS.white.argb } };
+   681→    tdt.alignment = { horizontal: 'center', vertical: 'middle' }; tdt.numFmt = '#,##0" UZS"'; tdt.fill = { type: 'pattern', pattern: 'solid', fgColor: COLORS.primaryDark };
+   682→    ['B', 'C', 'D', 'E', 'F', 'G'].forEach((col) => {
+   683→      const c = ws7.getCell(`${col}${tr}`);
+   684→      c.border = { top: { style: 'medium', color: COLORS.primaryDark }, bottom: { style: 'medium', color: COLORS.primaryDark }, left: { style: 'thin', color: COLORS.slate300 }, right: { style: 'thin', color: COLORS.slate300 } };
+   685→    });
+   686→    ws7.getRow(tr).height = 32;
+   687→  }
+   688→
+   689→  // Download
+   690→  const today = new Date().toISOString().split('T')[0];
+   691→  const fileName = `DR_Maruf_Hisobot_${range}_${today}.xlsx`;
+   692→  const buffer = await wb.xlsx.writeBuffer();
+   693→  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+   694→  const url = window.URL.createObjectURL(blob);
+   695→  const a = document.createElement('a');
+   696→  a.href = url; a.download = fileName;
+   697→  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+   698→  window.URL.revokeObjectURL(url);
+   699→}
+   700→
