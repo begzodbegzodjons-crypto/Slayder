@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "key": "diagnosisTemplates",
+    "savedAt": "2026-07-21T17:08:15.732Z",
+    "recordCount": 1
+  },
+  "data": [
+    {
+      "id": "t1",
+      "name": "Test",
+      "departmentId": "lor",
+      "medications": []
+    }
+  ]
+}

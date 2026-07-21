@@ -1,0 +1,21 @@
+{
+  "_meta": {
+    "key": "receptionStaff",
+    "savedAt": "2026-07-21T17:08:15.706Z",
+    "recordCount": 2
+  },
+  "data": [
+    {
+      "id": "admin-1",
+      "name": "Administrator",
+      "login": "admin",
+      "password": "admin123"
+    },
+    {
+      "id": "rep-1784275138290",
+      "name": "Munira Mirzayeva",
+      "login": "qabul",
+      "password": "qabul123"
+    }
+  ]
+}

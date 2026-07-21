@@ -363,7 +363,28 @@ export default function App() {
   // 2. React state yangilanadi (UI tez yangilanadi)
   // 3. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
   // 4. Server saqlagandan keyin SSE orqali boshqa qurilmalarga yuboradi
+  // XAVFSIZLIK HIMOYASI: agar updatedPatients soni ref'dan 50%+ kam bo'lsa va
+  // bu forceReplace bo'lmasa — saqlash BLOKLANADI (stale ref sababli ma'lumot
+  // yo'qolishining oldini olish). Mijoz /api/data dan to'liq ma'lumotni qayta yuklaydi.
   const savePatientsList = async (updatedPatients: Patient[], forceReplace: boolean = false) => {
+    const refCount = patientsRef.current.length;
+    // Agar ref to'liq yuklanmagan bo'lsa (0) yoki yangi ro'yxat 50%+ kamaygan bo'lsa
+    // va bu forceReplace emas bo'lsa — xavfsizlik bloklash
+    if (!forceReplace && refCount > 10 && updatedPatients.length < refCount * 0.5) {
+      console.warn(`⚠️ [SAFETY] savePatientsList bloklandi: ref=${refCount}, yangi=${updatedPatients.length}. Stale ref aniqlandi — /api/data dan resync qilinmoqda.`);
+      // To'liq ma'lumotni qayta yuklash
+      try {
+        const r = await fetch(`${API_BASE}/api/data`);
+        if (r.ok) {
+          const d = await r.json();
+          if (d.patients && d.patients.length > updatedPatients.length) {
+            patientsRef.current = d.patients;
+            setPatients(d.patients);
+            return; // saqlash bloklandi, lekin ref yangilandi
+          }
+        }
+      } catch {}
+    }
     patientsRef.current = updatedPatients; // REF first
     setPatients(updatedPatients);
     await saveToBackend('patients', updatedPatients, forceReplace); // AWAIT — TiDB saqlaydi, server SSE broadcast qiladi
@@ -607,11 +628,18 @@ export default function App() {
     alert("Arxiv o'chirilmaydi!");
   };
 
-  // Bemorni o'chirish (rad etish) — uses REF
-  // forceReplace=true — server merge qilmaydi, bemor haqiqatan o'chiriladi
+  // Bemorni rad etish — ma'lumotni O'CHIRMAYDI, faqat "Bekor qilingan" statusiga o'tkazadi.
+  // MUHIM: forceReplace ishlatmaymiz — bu xavfsiz, chunki patientsRef.current to'liq
+  // bo'lmasa ham server merge eski bemorlarni saqlaydi.
   const handleDeletePatient = async (patientId: string) => {
-    const updated = patientsRef.current.filter((p) => p.id !== patientId);
-    await savePatientsList(updated, true);
+    const ts = new Date().toISOString();
+    const updated = patientsRef.current.map((p) => {
+      if (p.id === patientId) {
+        return { ...p, status: 'Bekor qilingan' as const, updatedAt: ts };
+      }
+      return p;
+    });
+    await savePatientsList(updated);
   };
 
   // To'lov qaytarish (refund) - bemor to'lov qilgan, lekin davolanishdan bosh tortgan

@@ -1,0 +1,72 @@
+{
+  "_meta": {
+    "key": "inpatientStays",
+    "savedAt": "2026-07-21T17:08:15.719Z",
+    "recordCount": 3
+  },
+  "data": [
+    {
+      "id": "IS-37800",
+      "patientId": "P-1288",
+      "lastName": "Sobirova",
+      "firstName": "Sanoatxon",
+      "phone": "+998",
+      "roomNumber": "2-xona",
+      "departmentName": "Nevrologiya",
+      "departmentId": "nevrologiya",
+      "doctorName": "Dr. Aliyeva Zarnigor",
+      "checkInDate": "2026-07-21",
+      "checkOutDate": null,
+      "plannedDays": 5,
+      "pricePerDay": 150000,
+      "totalCost": 750000,
+      "amountPaid": 0,
+      "remainingDebt": 750000,
+      "status": "Davolanmoqda",
+      "diagnosis": "Klinik tahlillar va statsionar davolanish",
+      "createdAt": "2026-07-21T12:00:00.000Z"
+    },
+    {
+      "id": "IS-34348",
+      "patientId": "P-1293",
+      "lastName": "Axmedova",
+      "firstName": "Xolisxon",
+      "phone": "+998",
+      "roomNumber": "7-xona",
+      "departmentName": "Nevrologiya",
+      "departmentId": "nevrologiya",
+      "doctorName": "Dr. Aliyeva Zarnigor",
+      "checkInDate": "2026-07-21",
+      "checkOutDate": null,
+      "plannedDays": 5,
+      "pricePerDay": 150000,
+      "totalCost": 750000,
+      "amountPaid": 0,
+      "remainingDebt": 750000,
+      "status": "Davolanmoqda",
+      "diagnosis": "Klinik tahlillar va statsionar davolanish",
+      "createdAt": "2026-07-21T12:00:00.000Z"
+    },
+    {
+      "id": "IS-69763",
+      "patientId": "P-1295",
+      "lastName": "Umarova",
+      "firstName": "Sojida",
+      "phone": "+998",
+      "roomNumber": "8-xona",
+      "departmentName": "Nevrologiya",
+      "departmentId": "nevrologiya",
+      "doctorName": "Dr. Aliyeva Zarnigor",
+      "checkInDate": "2026-07-21",
+      "checkOutDate": null,
+      "plannedDays": 5,
+      "pricePerDay": 150000,
+      "totalCost": 750000,
+      "amountPaid": 0,
+      "remainingDebt": 750000,
+      "status": "Davolanmoqda",
+      "diagnosis": "Klinik tahlillar va statsionar davolanish",
+      "createdAt": "2026-07-21T12:00:00.000Z"
+    }
+  ]
+}

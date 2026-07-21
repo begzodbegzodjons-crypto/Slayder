@@ -1,0 +1,19 @@
+{
+  "_meta": {
+    "key": "transactions",
+    "savedAt": "2026-07-21T17:06:42.149Z",
+    "recordCount": 1
+  },
+  "data": [
+    {
+      "id": "TX-27071",
+      "type": "Kirim",
+      "amount": 150000,
+      "category": "Ambulator ko'rik",
+      "description": "TtsTest OvozBemor - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "date": "2026-07-21",
+      "time": "17:06",
+      "createdAt": "2026-07-21T17:06:00.000Z"
+    }
+  ]
+}

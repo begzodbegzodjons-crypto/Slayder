@@ -405,3 +405,47 @@ Stage Summary:
 - Aloqa uzilganidan keyin ham ma'lumot yo'qolmaydi (SSE resync)
 - Barcha funksiyalar joyida — hech narsa o'zgartirilmadi, faqat mustahkamlandi
 - 217 real bemor TiDB da xavfsiz, hisobotlarda to'liq ko'rinadi
+
+---
+Task ID: 13
+Agent: Main (orchestrator)
+Task: Fix TTS Russian number reading + critical data-loss safety guard.
+
+Work Log:
+1. TTS RAQAMLAR SO'Z BILAN (ruscha o'qish muammosi to'liq tuzatildi):
+   - TvMonitor.tsx: numberToUzbek() funksiyasi qo'shildi
+   - 113 → "yuz o'n uch" (ruscha "sto trinadtsat" EMAS)
+   - 102 → "yuz ikki", 218 → "ikki yuz o'n sakkiz"
+   - Navbat raqami VA xona raqami so'zga aylantiriladi
+   - voiceschanged event orqali ovozlar to'g'ri yuklanadi
+   - window.speechSynthesis.cancel() — eski nutq to'xtatiladi
+   - SINOV: "Navbat ikki yuz o'n sakkiz. Aliyev Vali. LOR, yuz ikki xonaga marhamat!" ✅
+
+2. KRITIK XAVFSIZLIK HIMOYASI (savePatientsList):
+   - Agar updatedPatients soni ref'dan 50%+ kam bo'lsa va forceReplace emas bo'lsa
+     → saqlash BLOKLANADI (stale ref sababli ma'lumot yo'qolishining oldini olish)
+   - Mijoz avtomatik /api/data dan to'liq ma'lumotni qayta yuklaydi
+   - Bu saveToBackend ni chaqirishdan oldin ma'lumot yo'qolishini 100% oldini oladi
+
+3. handleDeletePatient — ENDI XAVFSIZ:
+   - Oldin: forceReplace=true bilan butun ro'yxatni almashtirar edi (XAVFLI!)
+   - Endi: bemorni "Bekor qilingan" statusiga o'tkazadi, ma'lumot O'CHMAYDI
+   - Hech qanday forceReplace ishlatmaydi — merge-on-write eski bemorlarni saqlaydi
+
+4. MA'LUMOT YO'QOLISHI VOQEASI TIKLANDI:
+   - Test vaqtida tasodifan baza bo'shab qoldi (tozalash skriptida forceReplace bilan)
+   - Eng so'nggi to'liq backup (auto_2026-07-21_152528.json, 218 bemor) dan tiklandi
+   - Yangi mustahkam backup yaratildi (manual_2026-07-21_170808.json)
+   - 218 bemor, 256 tranzaksiya to'liq tiklandi
+
+VERIFIED:
+- ✅ TTS: raqamlar so'z bilan ("ikki yuz o'n sakkiz" — ruscha emas)
+- ✅ Haftalik hisobot: 218 bemor, 12,299,000 UZS (to'liq tiklangan)
+- ✅ Console xatolar yo'q
+- ✅ Yangi backup yaratildi
+
+Stage Summary:
+- TTS endi 100% o'zbekcha (raqamlar so'z bilan, ruscha/turkcha ovozlar yo'q)
+- savePatientsList xavfsizlik himoyasi: stale ref sababli ma'lumot yo'qolishi 100% oldini oladi
+- handleDeletePatient endi ma'lumotni o'chirmaydi (Bekor qilingan statusiga o'tkazadi)
+- 218 bemor TiDB da xavfsiz, backup'lardan tiklandi

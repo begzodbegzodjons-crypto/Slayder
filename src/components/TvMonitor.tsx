@@ -194,31 +194,74 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
     }
 
     // 2. Bemor nomini toza o'zbek tilida ovozli e'lon qilish (TTS)
-    // MUHIM: Faqat o'zbek tili (uz-UZ) ishlatiladi — ruscha/turkcha ovozlar OLIB TASHLANDI.
-    // Brauzerda o'zbek ovozi bo'lmasa, default ovozdan foydalaniladi (nutq matni o'zbekcha).
+    // MUHIM: Raqamlar SO'Z bilan yoziladi (113 → "bir yuz o'n uch") — bu istalgan
+    // ovoz bilan to'g'ri o'qinishni ta'minlaydi. Aks holda rus ovozi "sto trinadtsat" o'qiydi.
     try {
       const deptName = getDeptName(patient.departmentId);
       const room = getRoomNumber(patient.departmentId);
-      const speechText = `Navbat ${patient.queueNumber}. ${patient.lastName} ${patient.firstName}. ${deptName}, ${room}ga marhamat!`;
+
+      // Raqamni o'zbek so'zlariga aylantirish — eng ishonchli usul
+      const numberToUzbek = (num: number): string => {
+        if (num === 0) return 'nol';
+        const birliklar = ['', 'bir', 'ikki', 'uch', 'to\'rt', 'besh', 'olti', 'yetti', 'sakkiz', 'to\'qqiz'];
+        const onliklar = ['', 'o\'n', 'yigirma', 'o\'ttiz', 'qirq', 'ellik', 'oltmish', 'yetmish', 'sakson', 'to\'qson'];
+        let result = '';
+        if (num >= 1000) {
+          const ming = Math.floor(num / 1000);
+          result += (ming === 1 ? '' : birliklar[ming] + ' ') + 'ming ';
+          num %= 1000;
+        }
+        if (num >= 100) {
+          const yuz = Math.floor(num / 100);
+          result += (yuz === 1 ? '' : birliklar[yuz] + ' ') + 'yuz ';
+          num %= 100;
+        }
+        if (num >= 10) {
+          const on = Math.floor(num / 10);
+          result += onliklar[on] + ' ';
+          num %= 10;
+        }
+        if (num > 0) {
+          result += birliklar[num];
+        }
+        return result.trim();
+      };
+
+      // Navbat raqamini so'zga aylantirish
+      const queueStr = numberToUzbek(patient.queueNumber);
+
+      // Xona raqamini so'zga aylantirish (faqat raqamlar qismini)
+      const roomNumMatch = room.match(/\d+/);
+      const roomStr = roomNumMatch ? numberToUzbek(parseInt(roomNumMatch[0])) : room;
+
+      // To'liq o'zbekcha matn — raqamlar ham so'z bilan
+      const speechText = `Navbat ${queueStr}. ${patient.lastName} ${patient.firstName}. ${deptName}, ${roomStr} xonaga marhamat!`;
 
       const utterance = new SpeechSynthesisUtterance(speechText);
-      // O'zbek tili majburiy — brauzer o'zbek ovozini tanlaydi
       utterance.lang = 'uz-UZ';
-      utterance.rate = 0.85; // aniq chiqishi uchun biroz sekinroq
+      utterance.rate = 0.82; // aniq chiqishi uchun biroz sekinroq
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      // Faqat o'zbek ovozini tanlaymiz — ruscha/turkcha EMAS
-      const voices = window.speechSynthesis.getVoices();
-      const uzVoice = voices.find(v => v.lang.toLowerCase().startsWith('uz'));
-      if (uzVoice) {
-        utterance.voice = uzVoice;
+      // O'zbek ovozini tanlash — voiceschanged event orqali (brauzer async yuklaydi)
+      const pickVoice = () => {
+        const voices = window.speechSynthesis.getVoices();
+        // 1-prioritet: o'zbek ovozi
+        const uzVoice = voices.find(v => v.lang.toLowerCase().startsWith('uz'));
+        if (uzVoice) { utterance.voice = uzVoice; return true; }
+        return false;
+      };
+
+      // Ovozlarni tanlashga harakat qilamiz
+      if (!pickVoice()) {
+        // O'zbek ovozi topilmasa — voiceschanged event ni tinglaymiz
+        // (brauzer ovozlarni keyinroq yuklashi mumkin)
+        window.speechSynthesis.onvoiceschanged = () => { pickVoice(); };
       }
-      // Agar o'zbek ovozi topilmasa — default ovoz ishlatiladi,
-      // lekin nutq matni (speechText) o'zbekcha bo'lgani uchun
-      // brauzer uni imkon qadar o'zbekcha o'qishga harakat qiladi.
 
       setTimeout(() => {
+        // Eski nutqni to'xtatib, yangisini boshlaymiz
+        window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utterance);
       }, 1000);
     } catch (e) {

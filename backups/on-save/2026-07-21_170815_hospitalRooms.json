@@ -1,0 +1,81 @@
+{
+  "_meta": {
+    "key": "hospitalRooms",
+    "savedAt": "2026-07-21T17:08:15.714Z",
+    "recordCount": 9
+  },
+  "data": [
+    {
+      "id": "room-301",
+      "roomNumber": "1-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "room-302",
+      "roomNumber": "2-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 1,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "room-303",
+      "roomNumber": "3-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283743054",
+      "roomNumber": "4-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283755683",
+      "roomNumber": "5-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283766533",
+      "roomNumber": "6-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283773664",
+      "roomNumber": "7-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 1,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283779829",
+      "roomNumber": "8-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 1,
+      "genderType": "Aralash"
+    },
+    {
+      "id": "R-1784283786576",
+      "roomNumber": "9-xona",
+      "capacity": 2,
+      "pricePerDay": 150000,
+      "occupiedBeds": 0,
+      "genderType": "Aralash"
+    }
+  ]
+}

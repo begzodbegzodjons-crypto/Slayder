@@ -1,0 +1,28 @@
+{
+  "_meta": {
+    "key": "patients",
+    "savedAt": "2026-07-21T17:06:41.584Z",
+    "recordCount": 1
+  },
+  "data": [
+    {
+      "firstName": "OvozBemor",
+      "lastName": "TtsTest",
+      "middleName": "",
+      "birthDate": "1990-01-01",
+      "phone": "+998909990077",
+      "gender": "Erkak",
+      "departmentId": "lor",
+      "doctorName": "Dr. Shavkatov Rustam",
+      "paymentStatus": "To'langan",
+      "paymentAmount": 150000,
+      "id": "P-1001",
+      "queueNumber": 1,
+      "status": "Kutmoqda",
+      "createdAt": "2026-07-21T17:06:26.559Z",
+      "updatedAt": "2026-07-21T17:06:26.559Z",
+      "isReturning": false,
+      "visitCount": 1
+    }
+  ]
+}

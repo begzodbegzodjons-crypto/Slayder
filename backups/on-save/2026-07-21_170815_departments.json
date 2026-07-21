@@ -1,0 +1,100 @@
+{
+  "_meta": {
+    "key": "departments",
+    "savedAt": "2026-07-21T17:08:15.698Z",
+    "recordCount": 5
+  },
+  "data": [
+    {
+      "id": "lor",
+      "name": "LOR (Quloq-Burun-Tomoq)",
+      "doctorName": "Dr. Qambaraliyev Ma'rufjon",
+      "room": "1-xona",
+      "price": 40000,
+      "login": "lor",
+      "password": "lor123",
+      "services": [
+        {
+          "id": "SVC-1784357805161-931",
+          "name": "Burun yuvish",
+          "price": 25000
+        },
+        {
+          "id": "SVC-1784357847192-288",
+          "name": "Quloq yuvish",
+          "price": 20000
+        },
+        {
+          "id": "SVC-1784526854954-789",
+          "name": "tubs",
+          "price": 15000
+        },
+        {
+          "id": "SVC-1784526880912-171",
+          "name": "ingalatsa",
+          "price": 10000
+        }
+      ]
+    },
+    {
+      "id": "nevrologiya",
+      "name": "Nevrologiya",
+      "doctorName": "Dr. Aliyeva Zarnigor",
+      "room": "6-xona",
+      "price": 60000,
+      "login": "nevro",
+      "password": "nevro123",
+      "services": [
+        {
+          "id": "SVC-1784526906938-822",
+          "name": "ekg",
+          "price": 20000
+        }
+      ]
+    },
+    {
+      "id": "kardiologiya",
+      "name": "Kardiologiya",
+      "doctorName": "Dr. Nabijonov Bunyodbek",
+      "room": "2-Xona",
+      "price": 60000,
+      "login": "kardio",
+      "password": "kardio123"
+    },
+    {
+      "id": "labaratoriya",
+      "name": "Laboratoriya (Tahlillar)",
+      "doctorName": "Dr. Yulduzxon",
+      "room": "5-Xona",
+      "price": 30000,
+      "login": "lab",
+      "password": "lab123"
+    },
+    {
+      "id": "fizioterapiya-115",
+      "name": "Fizioterapiya",
+      "doctorName": "Umida",
+      "room": "3",
+      "price": 30000,
+      "login": "Fiz",
+      "password": "Fiz123",
+      "services": [
+        {
+          "id": "SVC-1784526716871-777",
+          "name": "azon",
+          "price": 30000
+        },
+        {
+          "id": "SVC-1784526984164-291",
+          "name": "kun m-si",
+          "price": 20000
+        },
+        {
+          "id": "SVC-1784527018038-481",
+          "name": "fiziya xizmat",
+          "price": 10000
+        }
+      ]
+    }
+  ]
+}
