@@ -136,15 +136,139 @@ export default function App() {
     setTimeout(() => { flushSaveQueue(); }, 3000);
   };
 
-  // Sinxronlash holati — boshqa qurilmalardan kelgan yangi ma'lumotni qabul qilish
-  // Lekin joriy local ma'lumotni BOSMASLIK
-
-  // Load and synchronize all data from backend TiDB database.
-  // Avtomatik yangilash - har 5 soniyada boshqa qurilmalardan kiritilgan ma'lumotlarni olish.
-  // MUHIM: Refs dan foydalanamiz (stale closure emas). Local save'dan keyin 4 soniya ichida
-  // sync o'tkazib yuboriladi — bu race condition'ning oldini oladi.
+  // ===================================================================
+  // REAL-TIME SSE (Server-Sent Events) — polling yo'q!
+  // Bir marta ulanamiz, server ma'lumot o'zgarganda darhol qabul qilamiz.
+  // Boshqa qurilmadan bemor qo'shilsa — shifokor/monitor/kassa darhol ko'radi.
+  // ===================================================================
   useEffect(() => {
-    const initAndSyncData = async () => {
+    // 1) Boshlang'ich ma'lumotni bir marta yuklash
+    const loadInitial = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/api/data`);
+        if (!response.ok) throw new Error('API server unreachable');
+        const dbData = await response.json();
+
+        if (dbData.departments && dbData.departments.length > 0) {
+          departmentsRef.current = dbData.departments;
+          setDepartments(dbData.departments);
+        } else if (departmentsRef.current.length === 0) {
+          departmentsRef.current = DEPARTMENTS;
+          setDepartments(DEPARTMENTS);
+          await saveToBackend('departments', DEPARTMENTS);
+        }
+
+        if (dbData.receptionStaff && dbData.receptionStaff.length > 0) {
+          receptionStaffRef.current = dbData.receptionStaff;
+          setReceptionStaff(dbData.receptionStaff);
+        } else if (receptionStaffRef.current.length === 0) {
+          const def = [{ id: 'rep-1', name: 'Qabulxona xodimi', login: 'qabul', password: 'qabul123' }];
+          receptionStaffRef.current = def;
+          setReceptionStaff(def);
+          await saveToBackend('receptionStaff', def);
+        }
+
+        if (dbData.hospitalRooms !== undefined) {
+          hospitalRoomsRef.current = dbData.hospitalRooms;
+          setHospitalRooms(dbData.hospitalRooms);
+        }
+        if (dbData.inpatientStays !== undefined) {
+          inpatientStaysRef.current = dbData.inpatientStays;
+          setInpatientStays(dbData.inpatientStays);
+        }
+        if (dbData.patients !== undefined) {
+          patientsRef.current = dbData.patients;
+          setPatients(dbData.patients);
+        }
+        if (dbData.transactions !== undefined) {
+          transactionsRef.current = dbData.transactions;
+          setTransactions(dbData.transactions);
+        }
+        if (dbData.diagnosisTemplates !== undefined) {
+          diagnosisTemplatesRef.current = dbData.diagnosisTemplates;
+          setDiagnosisTemplates(dbData.diagnosisTemplates);
+        }
+        if (dbData.clinicSettings !== undefined && dbData.clinicSettings) {
+          clinicSettingsRef.current = dbData.clinicSettings;
+          setClinicSettings(dbData.clinicSettings);
+        }
+      } catch (err) {
+        console.warn('⚠️ [Init]: Could not load from backend.', err);
+      }
+    };
+
+    loadInitial();
+
+    // 2) SSE ulanish — real-time yangilanishlar
+    let es: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectSSE = () => {
+      try {
+        es = new EventSource(`${API_BASE}/api/events`);
+
+        es.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === 'connected') return; // ulanish tasdiqi
+            if (msg.type === 'update' && msg.key && msg.data !== undefined) {
+              // Ma'lumotni darhol state va ref ga yozamiz
+              // MUHIM: o'zimiz saqlagan ma'lumot ham qaytadi — bu xavfsiz (idempotent)
+              switch (msg.key) {
+                case 'patients':
+                  patientsRef.current = msg.data;
+                  setPatients(msg.data);
+                  break;
+                case 'transactions':
+                  transactionsRef.current = msg.data;
+                  setTransactions(msg.data);
+                  break;
+                case 'departments':
+                  departmentsRef.current = msg.data;
+                  setDepartments(msg.data);
+                  break;
+                case 'hospitalRooms':
+                  hospitalRoomsRef.current = msg.data;
+                  setHospitalRooms(msg.data);
+                  break;
+                case 'inpatientStays':
+                  inpatientStaysRef.current = msg.data;
+                  setInpatientStays(msg.data);
+                  break;
+                case 'receptionStaff':
+                  receptionStaffRef.current = msg.data;
+                  setReceptionStaff(msg.data);
+                  break;
+                case 'diagnosisTemplates':
+                  diagnosisTemplatesRef.current = msg.data;
+                  setDiagnosisTemplates(msg.data);
+                  break;
+                case 'clinicSettings':
+                  clinicSettingsRef.current = msg.data;
+                  setClinicSettings(msg.data);
+                  break;
+              }
+            }
+          } catch {}
+        };
+
+        es.onerror = () => {
+          // Ulanish uzildi — avtomatik qayta ulanish (3 soniyadan so'ng)
+          if (es) { try { es.close(); } catch {} es = null; }
+          reconnectTimer = setTimeout(connectSSE, 3000);
+        };
+      } catch {
+        reconnectTimer = setTimeout(connectSSE, 3000);
+      }
+    };
+
+    connectSSE();
+
+    return () => {
+      if (es) { try { es.close(); } catch {} }
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+    };
+  }, []);
       // Agar local save 4 soniya ichida bo'lsa — sync o'tkazamiz (overwrite xavfi yo'q)
       const sinceLastSave = Date.now() - lastLocalSaveRef.current;
       if (sinceLastSave < 4000) return;

@@ -79,6 +79,32 @@ function listAllBackups() {
   return result.sort((a, b) => b.mtime.localeCompare(a.mtime));
 }
 
+// ===================================================================
+// SSE (Server-Sent Events) — REAL-TIME yangilanishlar
+// Polling yo'q — server ma'lumot o'zgarganda darhol yuboradi
+// Barcha ochiq sahifalar (qabulxona, shifokor, monitor, kassa)
+// bir zumda yangi ma'lumotni qabul qiladi
+// ===================================================================
+const sseClients = new Set<import('express').Response>();
+
+function broadcastChange(key: string, data: any) {
+  // Agar palata ma'lumoti o'zgarsa — occupiedBeds ni qayta hisoblash
+  let broadcastData = data;
+  if (key === 'inpatientStays' || key === 'hospitalRooms') {
+    // Bed status ni sinxron saqlash uchun ham rooms ham stays ni yuboramiz
+    // (mijoz tomonda ham hisoblanadi)
+    broadcastData = data;
+  }
+  const msg = `data: ${JSON.stringify({ type: 'update', key, data: broadcastData })}\n\n`;
+  let sent = 0;
+  for (const client of sseClients) {
+    try { client.write(msg); sent++; } catch {}
+  }
+  if (sent > 0) {
+    // console.log(`[SSE] broadcast "${key}" to ${sent} clients`);
+  }
+}
+
 async function startServer() {
   const app = express();
 
@@ -170,8 +196,36 @@ async function startServer() {
     }
   });
 
+  // ===================================================================
+  // SSE ENDPOINT — Real-time yangilanishlar
+  // Mijoz bir marta ulanadi, server ma'lumot o'zarganda darhol yuboradi
+  // Polling yo'q — eng yengil va samarali usul
+  // ===================================================================
+  app.get('/api/events', (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Access-Control-Allow-Origin': '*',
+    });
+    res.write('data: {"type":"connected"}\n\n');
+    sseClients.add(res);
+
+    // Heartbeat har 30 soniyada — ulanish tirik qoladi
+    const heartbeat = setInterval(() => {
+      try { res.write(': heartbeat\n\n'); } catch {}
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      sseClients.delete(res);
+    });
+  });
+
   // API Route: Save specific clinic collection (supports arrays AND objects for clinicSettings)
   // MUHIM: Har saqlashda avtomatik zaxira nusxa olinadi — hech qachon yo'qolmaydi
+  // SAQLASH TUGAGACH — SSE orqali barcha mijozlarga real-time yuboriladi
   app.post('/api/save', async (req, res) => {
     try {
       const { key, data } = req.body;
@@ -184,6 +238,15 @@ async function startServer() {
 
       const success = await saveCollection(key, data);
       if (success) {
+        // Real-time: barcha ochiq sahifalarga darhol yuborish
+        broadcastChange(key, data);
+        // Agar inpatientStays o'zgarsa — hospitalRooms ham yangilanishi kerak
+        // (occupiedBeds server loadData'da qayta hisoblanadi)
+        if (key === 'inpatientStays') {
+          const fresh = await loadData();
+          broadcastChange('hospitalRooms', fresh.hospitalRooms);
+          broadcastChange('inpatientStays', fresh.inpatientStays);
+        }
         res.json({ success: true, message: `Muvaffaqiyatli saqlandi: ${key}` });
       } else {
         res.status(500).json({ error: 'Saqlashda xatolik yuz berdi.' });

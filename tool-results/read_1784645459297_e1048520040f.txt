@@ -1,0 +1,1608 @@
+     1→import React, { useState, useEffect } from 'react';
+     2→import { Patient, Medication, UserSession, Department, InpatientStay, DailyTreatment, DiagnosisTemplate, ClinicSettings } from '../types';
+     3→import {
+     4→  Stethoscope,
+     5→  User,
+     6→  Play,
+     7→  Check,
+     8→  Plus,
+     9→  Trash2,
+    10→  Printer,
+    11→  FileText,
+    12→  Bed,
+    13→  Calendar,
+    14→  Save,
+    15→  PlusCircle,
+    16→  ChevronRight,
+    17→  X,
+    18→  Clock,
+    19→  Activity,
+    20→  Coins,
+    21→  FileSpreadsheet,
+    22→  Eraser,
+    23→  RefreshCw,
+    24→} from 'lucide-react';
+    25→
+    26→interface DoctorCabinetProps {
+    27→  patients: Patient[];
+    28→  onUpdatePatientRecord: (patientId: string, updates: Partial<Patient>) => void;
+    29→  onCallPatient: (patient: Patient) => void;
+    30→  session: UserSession | null;
+    31→  departments: Department[];
+    32→  inpatientStays: InpatientStay[];
+    33→  onSaveInpatientStays: (stays: InpatientStay[]) => void;
+    34→  diagnosisTemplates?: DiagnosisTemplate[];
+    35→  clinicSettings?: ClinicSettings;
+    36→}
+    37→
+    38→export const DoctorCabinet: React.FC<DoctorCabinetProps> = ({
+    39→  patients,
+    40→  onUpdatePatientRecord,
+    41→  onCallPatient,
+    42→  session,
+    43→  departments,
+    44→  inpatientStays = [],
+    45→  onSaveInpatientStays,
+    46→  diagnosisTemplates = [],
+    47→  clinicSettings,
+    48→}) => {
+    49→  // Default clinic settings
+    50→  const cs: ClinicSettings = clinicSettings || {
+    51→    clinicName: 'DR.Maruf Clinic',
+    52→    clinicPhone: '+998 71 123-45-67',
+    53→    clinicAddress: 'Toshkent, O\'zbekiston',
+    54→    recipeHeader: 'SHIFOKOR RETSEPTi (RECIPE)',
+    55→    recipeFooter: 'Sog\'ayib keting! Qayta ko\'rik: Shifokor tavsiyasiga ko\'ra.',
+    56→    ticketHeader: 'Tashrifingiz uchun rahmat!',
+    57→    ticketFooter: 'Shifokor kabineti eshigi ustidagi monitorni kuzatib boring.',
+    58→  };
+    59→  // If role is doctor, active doctor department matches session.doctorId
+    60→  // If role is admin, admin can select which doctor's cabinet to view
+    61→  const [activeDoctorId, setActiveDoctorId] = useState<string>('');
+    62→
+    63→  // Primary Sub-Tab: 'ambulatory' (Ambulator Qabul) vs 'inpatient_wards' (Yotib Davolanayotganlar)
+    64→  const [activeSubTab, setActiveSubTab] = useState<'ambulatory' | 'inpatient_wards' | 'history'>('ambulatory');
+    65→
+    66→  useEffect(() => {
+    67→    if (session) {
+    68→      if (session.role === 'doctor' && session.doctorId) {
+    69→        setActiveDoctorId(session.doctorId);
+    70→      } else if (session.role === 'admin' && departments.length > 0) {
+    71→        // Default to first department for admin to view
+    72→        setActiveDoctorId(departments[0].id);
+    73→      }
+    74→    }
+    75→  }, [session, departments]);
+    76→
+    77→  const currentDoctorId = (session?.role === 'doctor' && session.doctorId) ? session.doctorId : activeDoctorId;
+    78→  const activeDept = departments.find((d) => d.id === currentDoctorId);
+    79→
+    80→  // ==========================================
+    81→  // 1. AMBULATORY QABUL STATES & LOGIC
+    82→  // ==========================================
+    83→  const [activePatient, setActivePatient] = useState<Patient | null>(null);
+    84→  const [complaints, setComplaints] = useState('');
+    85→  const [diagnosis, setDiagnosis] = useState('');
+    86→  const [testResults, setTestResults] = useState('');
+    87→  const [medsList, setMedsList] = useState<Medication[]>([{ name: '', dosage: '', days: '' }]);
+    88→
+    89→  // Update active patient from patients prop if it changes or if currentDoctorId changes
+    90→  useEffect(() => {
+    91→    if (currentDoctorId) {
+    92→      const currentActive = patients.find(
+    93→        (p) => p.departmentId === currentDoctorId && p.status === 'Qabulda'
+    94→      );
+    95→      if (currentActive) {
+    96→        setActivePatient(currentActive);
+    97→        setComplaints(currentActive.complaints || '');
+    98→        setDiagnosis(currentActive.diagnosis || '');
+    99→        setTestResults(currentActive.testResults || '');
+   100→        if (currentActive.prescriptions && currentActive.prescriptions.length > 0) {
+   101→          setMedsList(currentActive.prescriptions);
+   102→        } else {
+   103→          setMedsList([{ name: '', dosage: '', days: '' }]);
+   104→        }
+   105→      } else {
+   106→        setActivePatient(null);
+   107→      }
+   108→    }
+   109→  }, [patients, currentDoctorId]);
+   110→
+   111→  const addMedRow = () => {
+   112→    setMedsList([...medsList, { name: '', dosage: '', days: '' }]);
+   113→  };
+   114→
+   115→  const removeMedRow = (index: number) => {
+   116→    const newList = medsList.filter((_, i) => i !== index);
+   117→    setMedsList(newList.length > 0 ? newList : [{ name: '', dosage: '', days: '' }]);
+   118→  };
+   119→
+   120→  const handleMedChange = (index: number, field: keyof Medication, value: string) => {
+   121→    const newList = [...medsList];
+   122→    newList[index][field] = value;
+   123→    setMedsList(newList);
+   124→  };
+   125→
+   126→  const handleCallPatient = (patient: Patient) => {
+   127→    onCallPatient(patient);
+   128→  };
+   129→
+   130→  const handleSaveCheckup = () => {
+   131→    if (!activePatient) return;
+   132→
+   133→    if (!diagnosis) {
+   134→      alert('Iltimos, tashxisni kiriting!');
+   135→      return;
+   136→    }
+   137→
+   138→    const cleanMeds = medsList.filter((m) => m.name.trim() !== '');
+   139→
+   140→    onUpdatePatientRecord(activePatient.id, {
+   141→      status: 'Yakunlangan',
+   142→      complaints,
+   143→      diagnosis,
+   144→      testResults,
+   145→      prescriptions: cleanMeds,
+   146→      completedAt: new Date().toISOString(),
+   147→    });
+   148→
+   149→    alert('Qabul yakunlandi! Ma\'lumotlar muvaffaqiyatli saqlandi.');
+   150→    setActivePatient(null);
+   151→    setComplaints('');
+   152→    setDiagnosis('');
+   153→    setTestResults('');
+   154→    setMedsList([{ name: '', dosage: '', days: '' }]);
+   155→  };
+   156→
+   157→  const handlePrintRecipe = () => {
+   158→    if (!activePatient || !activeDept) return;
+   159→
+   160→    const printWindow = window.open('', '_blank', 'width=350,height=550');
+   161→    if (!printWindow) {
+   162→      alert('Tashqi oyna ochish bloklandi! Brauzer sozlamalaridan popupga ruxsat bering.');
+   163→      return;
+   164→    }
+   165→
+   166→    const cleanMeds = medsList.filter((m) => m.name.trim() !== '');
+   167→
+   168→    printWindow.document.write(`
+   169→      <html>
+   170→        <head>
+   171→          <title>Retsept - ${activePatient.lastName} ${activePatient.firstName}</title>
+   172→          <style>
+   173→            body {
+   174→              font-family: 'Courier New', Courier, monospace;
+   175→              padding: 15px;
+   176→              width: 290px;
+   177→              margin: 0 auto;
+   178→              color: #000;
+   179→              font-size: 15px;
+   180→              font-weight: bold;
+   181→              line-height: 1.5;
+   182→            }
+   183→            .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 12px; }
+   184→            .clinic-name { font-size: 18px; font-weight: bold; }
+   185→            .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin: 10px 0 5px 0; padding-bottom: 2px; text-transform: uppercase; font-size: 14px; }
+   186→            .med-item { margin-bottom: 12px; padding-left: 10px; }
+   187→            .med-name { font-size: 16px; font-weight: bold; color: #000; }
+   188→            .med-dose { font-size: 14px; font-weight: bold; color: #000; }
+   189→            .footer { border-top: 1px dashed #000; padding-top: 10px; margin-top: 20px; text-align: center; font-size: 13px; font-weight: bold; }
+   190→            .stamp { float: right; border: 2px solid #000; padding: 10px; margin-top: 15px; font-weight: bold; text-transform: uppercase; font-size: 12px; }
+   191→            button { display: block; width: 100%; padding: 10px; margin-top: 25px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+   192→            @media print {
+   193→              button { display: none; }
+   194→            }
+   195→          </style>
+   196→        </head>
+   197→        <body>
+   198→          <div class="header">
+   199→            <div class="clinic-name">${cs.clinicName}</div>
+   200→            <div style="font-size: 10px;">Tel: ${cs.clinicPhone}</div>
+   201→            <div style="font-size: 11px; font-weight: bold; margin-top: 5px;">${cs.recipeHeader}</div>
+   202→          </div>
+   203→
+   204→          <div>
+   205→            <strong>Sana:</strong> ${new Date().toLocaleDateString('uz-UZ')}<br>
+   206→            <strong>Shifokor:</strong> ${activeDept.doctorName}<br>
+   207→            <strong>Xona:</strong> ${activeDept.room}<br>
+   208→            <strong>Mutaxassislik:</strong> ${activeDept.name}<br>
+   209→          </div>
+   210→
+   211→          <div class="section-title">Bemor Ma'lumotlari</div>
+   212→          <div>
+   213→            <strong>F.I.SH:</strong> ${activePatient.lastName} ${activePatient.firstName} ${activePatient.middleName || ''}<br>
+   214→            <strong>Tug'ilgan yil:</strong> ${activePatient.birthDate || 'Kiritilmagan'}<br>
+   215→            <strong>ID:</strong> ${activePatient.id}<br>
+   216→          </div>
+   217→
+   218→          <div class="section-title">Tashxis (Diagnosis)</div>
+   219→          <div style="font-style: italic;">
+   220→            ${diagnosis || 'Kiritish vaqtida tashxis qo\'yilmagan'}
+   221→          </div>
+   222→
+   223→          ${cleanMeds.length > 0 ? `
+   224→            <div class="section-title">Tayinlangan Dorilar (Rx)</div>
+   225→            <ol style="margin: 0; padding-left: 20px;">
+   226→              ${cleanMeds.map((med) => `
+   227→                <li class="med-item" style="margin-bottom: 10px;">
+   228→                  <div class="med-name">${med.name}</div>
+   229→                  <div class="med-dose">↪ Qabul qilish: ${med.dosage} (${med.days})</div>
+   230→                </li>
+   231→              `).join('')}
+   232→            </ol>
+   233→          ` : ''}
+   234→
+   235→          <div class="section-title">Shifokor tavsiyalari</div>
+   236→          <div style="font-size: 13px; font-weight: bold;">
+   237→            Suyuqlik ko'p ichilsin, dori-darmonlar belgilangan vaqtda qat'iy rejimda olinsin.
+   238→          </div>
+   239→
+   240→          <div class="stamp">
+   241→            ${cs.clinicName.toUpperCase()}<br>
+   242→            ${cs.clinicAddress}
+   243→          </div>
+   244→
+   245→          <div class="footer">
+   246→            ${cs.recipeFooter}
+   247→          </div>
+   248→
+   249→          <button onclick="window.print(); window.close();">Retseptni Chop Etish (XPrinter 80mm)</button>
+   250→
+   251→          <script>
+   252→            window.onload = function() {
+   253→              setTimeout(function() {
+   254→                window.print();
+   255→              }, 300);
+   256→            }
+   257→          </script>
+   258→        </body>
+   259→      </html>
+   260→    `);
+   261→    printWindow.document.close();
+   262→  };
+   263→
+   264→  // Navbat ro'yxatini tozalash (vizual - bazadan o'chirmaydi)
+   265→  const [isQueueCleared, setIsQueueCleared] = useState<boolean>(false);
+   266→
+   267→  // Faqat ambulator ko'rik (bazaviy) uchun kelganlar — qo'shimcha xizmatdagilar emas
+   268→  // Bemor faqat bazaviy narx to'lagan bo'lsa yoki selectedServices bo'sh bo'lsa = ambulator ko'rik
+   269→  const allWaitingPatients = patients.filter(
+   270→    (p) => currentDoctorId && p.departmentId === currentDoctorId && p.status === 'Kutmoqda'
+   271→  );
+   272→
+   273→  // Doktor navbatida faqat ambulator ko'rik bemorlari ko'rinsin
+   274→  // Qoida: agar bemorda selectedServices yo'q yoki bo'sh bo'lsa - bu ambulator ko'rik
+   275→  // Agar selectedServices bor lekin u bazaviy ko'rikni ham o'z ichiga olsa (ya'ni to'lov bazaviy narxdan kam bo'lmasa) - ambulator ko'rik
+   276→  const waitingPatients = isQueueCleared ? [] : allWaitingPatients.filter((p) => {
+   277→    // Bemorning selectedServices'i bo'sh bo'lsa - bu ambulator ko'rik
+   278→    if (!p.selectedServices || p.selectedServices.length === 0) return true;
+   279→    // Bemorda selectedServices bor, lekin to'lov summasi bo'lim bazaviy narxiga teng bo'lsa - ambulator ko'rik
+   280→    const dept = departments.find((d) => d.id === p.departmentId);
+   281→    if (dept && p.paymentAmount === dept.price) return true;
+   282→    // Boshqa holatda - qo'shimcha xizmat, doktor navbatida ko'rinmaydi
+   283→    return false;
+   284→  });
+   285→
+   286→  // Ko'rilgan (Yakunlangan) bemorlar tarixi - shu bo'limda
+   287→  const completedPatients = patients.filter(
+   288→    (p) => currentDoctorId && p.departmentId === currentDoctorId && p.status === 'Yakunlangan'
+   289→  ).sort((a, b) => {
+   290→    const da = new Date(a.completedAt || a.createdAt).getTime();
+   291→    const db = new Date(b.completedAt || b.createdAt).getTime();
+   292→    return db - da;
+   293→  });
+   294→
+   295→  // Tarix ko'rish uchun tanlangan bemor
+   296→  const [historyPatientId, setHistoryPatientId] = useState<string | null>(null);
+   297→  const historyPatient = completedPatients.find((p) => p.id === historyPatientId);
+   298→
+   299→  // ==========================================
+   300→  // 2. STATSIONAR PALATALAR PORTAL LOGIC & STATES
+   301→  // ==========================================
+   302→  const [selectedInpatientId, setSelectedInpatientId] = useState<string | null>(null);
+   303→
+   304→  // Form states for adding a daily treatment/recipe log
+   305→  const [inpDate, setInpDate] = useState<string>(new Date().toISOString().split('T')[0]);
+   306→  const [inpProcedures, setInpProcedures] = useState<string>('');
+   307→  const [inpNotes, setInpNotes] = useState<string>('');
+   308→  const [inpMeds, setInpMeds] = useState<Medication[]>([{ name: '', dosage: '', days: '' }]);
+   309→
+   310→  // Filter inpatient stays to only those currently hospitalized (Davolanmoqda)
+   311→  const hospitalizedPatients = inpatientStays.filter((stay) => stay.status === 'Davolanmoqda');
+   312→
+   313→  const selectedInpatient = inpatientStays.find((stay) => stay.id === selectedInpatientId);
+   314→
+   315→  // Load the selected patient's values when clicked
+   316→  const selectInpatientPatient = (stay: InpatientStay) => {
+   317→    setSelectedInpatientId(stay.id);
+   318→    setInpDate(new Date().toISOString().split('T')[0]);
+   319→    setInpProcedures('');
+   320→    setInpNotes('');
+   321→    setInpMeds([{ name: '', dosage: '', days: '' }]);
+   322→  };
+   323→
+   324→  // Add treatment medication row in daily prescription list
+   325→  const addInpMedRow = () => {
+   326→    setInpMeds([...inpMeds, { name: '', dosage: '', days: '' }]);
+   327→  };
+   328→
+   329→  const removeInpMedRow = (index: number) => {
+   330→    const newList = inpMeds.filter((_, i) => i !== index);
+   331→    setInpMeds(newList.length > 0 ? newList : [{ name: '', dosage: '', days: '' }]);
+   332→  };
+   333→
+   334→  const handleInpMedChange = (index: number, field: keyof Medication, value: string) => {
+   335→    const newList = [...inpMeds];
+   336→    newList[index][field] = value;
+   337→    setInpMeds(newList);
+   338→  };
+   339→
+   340→  // Save the daily treatment log to the selected inpatient's stay record
+   341→  const handleSaveDailyTreatment = (e: React.FormEvent) => {
+   342→    e.preventDefault();
+   343→    if (!selectedInpatient) {
+   344→      alert('Xatolik: Bemor tanlanmagan!');
+   345→      return;
+   346→    }
+   347→
+   348→    if (!inpDate) {
+   349→      alert('Iltimos, ko\'rik/muolaja sanasini tanlang!');
+   350→      return;
+   351→    }
+   352→
+   353→    if (!inpProcedures.trim() && !inpNotes.trim() && inpMeds.every(m => m.name.trim() === '')) {
+   354→      alert('Iltimos, muolajalar, shifokor eslatmasi yoki kamida bitta dori kiritilganiga ishonch hosil qiling!');
+   355→      return;
+   356→    }
+   357→
+   358→    const cleanDailyMeds = inpMeds.filter((m) => m.name.trim() !== '');
+   359→
+   360→    const newTreatmentLog: DailyTreatment = {
+   361→      id: 'T-' + Date.now(),
+   362→      date: inpDate,
+   363→      prescriptions: cleanDailyMeds,
+   364→      procedures: inpProcedures.trim(),
+   365→      doctorNotes: inpNotes.trim(),
+   366→    };
+   367→
+   368→    // Append to existing daily treatments
+   369→    const currentLogs = selectedInpatient.dailyTreatments || [];
+   370→    const updatedLogs = [newTreatmentLog, ...currentLogs].sort((a, b) => b.date.localeCompare(a.date));
+   371→
+   372→    // Update global state via callback
+   373→    const updatedStays = inpatientStays.map((stay) => {
+   374→      if (stay.id === selectedInpatient.id) {
+   375→        return {
+   376→          ...stay,
+   377→          dailyTreatments: updatedLogs,
+   378→          // Let's also sync the latest general prescriptions if desired
+   379→          prescriptions: cleanDailyMeds.length > 0 ? cleanDailyMeds : stay.prescriptions,
+   380→        };
+   381→      }
+   382→      return stay;
+   383→    });
+   384→
+   385→    onSaveInpatientStays(updatedStays);
+   386→    alert(`${inpDate} kungi davolash va muolaja varaqasi muvaffaqiyatli saqlandi!`);
+   387→
+   388→    // Reset form states
+   389→    setInpProcedures('');
+   390→    setInpNotes('');
+   391→    setInpMeds([{ name: '', dosage: '', days: '' }]);
+   392→  };
+   393→
+   394→  // Delete a specific daily treatment record
+   395→  const handleDeleteDailyTreatment = (treatmentId: string) => {
+   396→    if (!selectedInpatient) return;
+   397→    if (!confirm('Ushbu kungi davolash yozuvini o\'chirishni xohlaysizmi?')) return;
+   398→
+   399→    const currentLogs = selectedInpatient.dailyTreatments || [];
+   400→    const updatedLogs = currentLogs.filter((log) => log.id !== treatmentId);
+   401→
+   402→    const updatedStays = inpatientStays.map((stay) => {
+   403→      if (stay.id === selectedInpatient.id) {
+   404→        return {
+   405→          ...stay,
+   406→          dailyTreatments: updatedLogs,
+   407→        };
+   408→      }
+   409→      return stay;
+   410→    });
+   411→
+   412→    onSaveInpatientStays(updatedStays);
+   413→  };
+   414→
+   415→  // Print a specific day's treatment & procedures list via XPrinter
+   416→  const printDailyTreatment = (stay: InpatientStay, treatment: DailyTreatment) => {
+   417→    const printWindow = window.open('', '_blank', 'width=350,height=600');
+   418→    if (!printWindow) {
+   419→      alert('Tashqi oyna ochish bloklandi. Iltimos brauzer sozlamalaridan popupga ruxsat bering.');
+   420→      return;
+   421→    }
+   422→
+   423→    const medRows = treatment.prescriptions && treatment.prescriptions.length > 0
+   424→      ? treatment.prescriptions.map((m, idx) => `${idx + 1}. ${m.name}<br>&nbsp;&nbsp;↪ Doza: ${m.dosage} (${m.days})`).join('<br>')
+   425→      : 'Dori vositalari belgilanmagan';
+   426→
+   427→    printWindow.document.write(`
+   428→      <html>
+   429→        <head>
+   430→          <title>Kunlik Davolash - ${stay.lastName} ${stay.firstName}</title>
+   431→          <style>
+   432→            body {
+   433→              font-family: 'Courier New', Courier, monospace;
+   434→              padding: 15px;
+   435→              width: 290px;
+   436→              margin: 0 auto;
+   437→              color: #000;
+   438→              font-size: 12px;
+   439→              line-height: 1.4;
+   440→            }
+   441→            .title { font-size: 15px; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 3px; }
+   442→            .subtitle { font-size: 10px; text-align: center; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 10px; }
+   443→            .info { margin: 8px 0; text-align: left; }
+   444→            .section-title { font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; margin-top: 15px; padding-bottom: 2px; text-transform: uppercase; }
+   445→            .text-block { font-style: italic; margin-top: 5px; white-space: pre-wrap; background: #fafafa; padding: 5px; }
+   446→            .footer { font-size: 9px; text-align: center; border-top: 1px dashed #000; padding-top: 8px; margin-top: 20px; }
+   447→            button { display: block; width: 100%; padding: 8px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+   448→            @media print {
+   449→              button { display: none; }
+   450→            }
+   451→          </style>
+   452→        </head>
+   453→        <body>
+   454→          <div class="title">${cs.clinicName}</div>
+   455→          <div class="subtitle">KUNLIK SHIFO VA MUOLAJA VARAQASI</div>
+   456→
+   457→          <div class="info">
+   458→            <strong>Bemor:</strong> ${stay.lastName.toUpperCase()} ${stay.firstName.toUpperCase()}<br>
+   459→            <strong>ID:</strong> ${stay.patientId}<br>
+   460→            <strong>Palata:</strong> № ${stay.roomNumber}<br>
+   461→            <strong>Ko'rik Sanasi:</strong> ${new Date(treatment.date).toLocaleDateString('uz-UZ')}<br>
+   462→            <strong>Shifokor:</strong> ${stay.doctorName}
+   463→          </div>
+   464→
+   465→          <div class="section-title">Tayinlangan Muolajalar</div>
+   466→          <div class="text-block">
+   467→            ${treatment.procedures || "Muolajalar kiritilmagan"}
+   468→          </div>
+   469→
+   470→          <div class="section-title">Kunlik Retsept (Rx)</div>
+   471→          <div class="info" style="font-size: 11px;">
+   472→            ${medRows}
+   473→          </div>
+   474→
+   475→          <div class="section-title">Shifokor ko'rsatmasi</div>
+   476→          <div class="text-block" style="font-size: 11px;">
+   477→            ${treatment.doctorNotes || "Eslatmalar kiritilmagan"}
+   478→          </div>
+   479→
+   480→          <div class="footer">
+   481→            Ushbu varaqadagi muolajalar faqat belgilangan kunga tegishli.<br>
+   482→            ${cs.recipeFooter}<br>
+   483→            ${cs.clinicName}
+   484→          </div>
+   485→
+   486→          <button onclick="window.print(); window.close();">XPrinterda Chop etish</button>
+   487→          
+   488→          <script>
+   489→            window.onload = function() {
+   490→              setTimeout(function() {
+   491→                window.print();
+   492→              }, 300);
+   493→            }
+   494→          </script>
+   495→        </body>
+   496→      </html>
+   497→    `);
+   498→    printWindow.document.close();
+   499→  };
+   500→
+   501→  // Print all inpatient treatments history summary via XPrinter
+   502→  const printFullStayHistory = (stay: InpatientStay) => {
+   503→    const printWindow = window.open('', '_blank', 'width=350,height=600');
+   504→    if (!printWindow) {
+   505→      alert('Tashqi oyna ochish bloklandi. Iltimos brauzer sozlamalaridan popupga ruxsat bering.');
+   506→      return;
+   507→    }
+   508→
+   509→    const logs = stay.dailyTreatments || [];
+   510→    const logsHtml = logs.length > 0
+   511→      ? logs.map((log) => `
+   512→          <div style="border-bottom: 1px dashed #333; padding-bottom: 8px; margin-bottom: 8px;">
+   513→            <strong>Sana:</strong> ${new Date(log.date).toLocaleDateString('uz-UZ')}<br>
+   514→            <strong>Muolajalar:</strong> ${log.procedures || 'yo\'q'}<br>
+   515→            <strong>Ko'rsatma:</strong> ${log.doctorNotes || 'yo\'q'}<br>
+   516→            <strong>Rx Dorilar:</strong> ${log.prescriptions.map(m => m.name + " (" + m.dosage + ")").join(', ') || 'yo\'q'}
+   517→          </div>
+   518→        `).join('')
+   519→      : 'Kunlik muolajalar tarixi kiritilmagan';
+   520→
+   521→    printWindow.document.write(`
+   522→      <html>
+   523→        <head>
+   524→          <title>Davolanish Tarixi - ${stay.lastName} ${stay.firstName}</title>
+   525→          <style>
+   526→            body {
+   527→              font-family: 'Courier New', Courier, monospace;
+   528→              padding: 15px;
+   529→              width: 290px;
+   530→              margin: 0 auto;
+   531→              color: #000;
+   532→              font-size: 12px;
+   533→              line-height: 1.4;
+   534→            }
+   535→            .title { font-size: 15px; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 3px; }
+   536→            .subtitle { font-size: 10px; text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 10px; }
+   537→            .info { margin: 8px 0; text-align: left; }
+   538→            .section-title { font-size: 11px; font-weight: bold; border-bottom: 1px solid #000; margin-top: 15px; padding-bottom: 2px; text-transform: uppercase; }
+   539→            .footer { font-size: 9px; text-align: center; border-top: 1px dashed #000; padding-top: 8px; margin-top: 20px; }
+   540→            button { display: block; width: 100%; padding: 8px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+   541→            @media print {
+   542→              button { display: none; }
+   543→            }
+   544→          </style>
+   545→        </head>
+   546→        <body>
+   547→          <div class="title">${cs.clinicName}</div>
+   548→          <div class="subtitle">STATSIONAR DAVOLANISH KRONOLOGIYASI</div>
+   549→
+   550→          <div class="info">
+   551→            <strong>Bemor:</strong> ${stay.lastName.toUpperCase()} ${stay.firstName.toUpperCase()}<br>
+   552→            <strong>ID:</strong> ${stay.patientId}<br>
+   553→            <strong>Palata:</strong> № ${stay.roomNumber}<br>
+   554→            <strong>Kirish Sanasi:</strong> ${stay.checkInDate}<br>
+   555→            <strong>Shifokor:</strong> ${stay.doctorName}
+   556→          </div>
+   557→
+   558→          <div class="section-title">Davolash va Muolajalar Tarixi</div>
+   559→          <div class="info" style="font-size: 11px;">
+   560→            ${logsHtml}
+   561→          </div>
+   562→
+   563→          <div class="footer">
+   564→            Klinika Statsionar Bo'limi Hisoboti.<br>
+   565→            ${cs.clinicName}
+   566→          </div>
+   567→
+   568→          <button onclick="window.print(); window.close();">XPrinterda Chop etish</button>
+   569→          
+   570→          <script>
+   571→            window.onload = function() {
+   572→              setTimeout(function() {
+   573→                window.print();
+   574→              }, 300);
+   575→            }
+   576→          </script>
+   577→        </body>
+   578→      </html>
+   579→    `);
+   580→    printWindow.document.close();
+   581→  };
+   582→
+   583→
+   584→  if (!currentDoctorId || !activeDept) {
+   585→    return (
+   586→      <div className="max-w-md mx-auto bg-white/95 backdrop-blur-md p-10 rounded-2xl border border-rose-100 shadow-xl text-center">
+   587→        <p className="text-slate-600 font-bold">Mavjud shifokor yoki bo'limlar topilmadi.</p>
+   588→      </div>
+   589→    );
+   590→  }
+   591→
+   592→  return (
+   593→    <div className="space-y-8">
+   594→      
+   595→      {/* Doctor Cabinet Banner with sub-tab controls */}
+   596→      <div className="bg-white/95 backdrop-blur-md p-6 rounded-3xl border border-emerald-100 shadow-[0_20px_50px_rgba(16,185,129,0.05)] neon-glow-emerald flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 animate-fade-in relative overflow-hidden">
+   597→        {/* Top aesthetic gradient bar */}
+   598→        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+   599→
+   600→        <div className="flex items-center space-x-4 z-10">
+   601→          <div className="bg-emerald-500/10 text-emerald-600 p-3.5 rounded-2xl flex items-center justify-center">
+   602→            <Stethoscope className="h-6 w-6 stroke-[2.5]" />
+   603→          </div>
+   604→          <div>
+   605→            <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
+   606→              {activeDept.doctorName} kabineti
+   607→            </h2>
+   608→            <p className="text-xs text-slate-500 font-bold mt-0.5">
+   609→              Mutaxassislik: <span className="text-emerald-700 font-extrabold">{activeDept.name}</span> • Xona: <span className="text-slate-800 font-black">🚪 {activeDept.room}</span>
+   610→            </p>
+   611→          </div>
+   612→        </div>
+   613→
+   614→        {/* Doctor Portal View Switcher Tabs */}
+   615→        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/60 z-10 w-full lg:w-auto">
+   616→          <button
+   617→            onClick={() => setActiveSubTab('ambulatory')}
+   618→            className={`flex-1 lg:flex-none px-5 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+   619→              activeSubTab === 'ambulatory'
+   620→                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/10'
+   621→                : 'text-slate-600 hover:bg-slate-50'
+   622→            }`}
+   623→          >
+   624→            <Activity className="h-4 w-4" />
+   625→            <span>📈 Ambulator Ko'rik</span>
+   626→          </button>
+   627→          <button
+   628→            onClick={() => setActiveSubTab('history')}
+   629→            className={`flex-1 lg:flex-none px-5 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+   630→              activeSubTab === 'history'
+   631→                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/10'
+   632→                : 'text-slate-600 hover:bg-slate-50'
+   633→            }`}
+   634→          >
+   635→            <FileText className="h-4 w-4" />
+   636→            <span>📋 Ko'rilgan Bemorlar ({completedPatients.length})</span>
+   637→          </button>
+   638→          <button
+   639→            onClick={() => setActiveSubTab('inpatient_wards')}
+   640→            className={`flex-1 lg:flex-none px-5 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+   641→              activeSubTab === 'inpatient_wards'
+   642→                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-500/10'
+   643→                : 'text-slate-600 hover:bg-slate-50'
+   644→            }`}
+   645→          >
+   646→            <Bed className="h-4 w-4" />
+   647→            <span>🛌 Statsionar Palatalar ({hospitalizedPatients.length})</span>
+   648→          </button>
+   649→        </div>
+   650→
+   651→        {/* If Admin is viewing, they can toggle which doctor's cabinet to inspect */}
+   652→        {session?.role === 'admin' && (
+   653→          <div className="flex items-center space-x-2 bg-[#f8fafc] p-2 rounded-2xl border border-slate-200/80 z-10">
+   654→            <span className="text-xs font-bold text-slate-500">Kabinetni tanlash:</span>
+   655→            <select
+   656→              value={activeDoctorId}
+   657→              onChange={(e) => setActiveDoctorId(e.target.value)}
+   658→              className="text-xs font-black text-slate-800 bg-white border border-slate-300 p-2 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 cursor-pointer"
+   659→            >
+   660→              {departments.map((d) => (
+   661→                <option key={d.id} value={d.id}>
+   662→                  {d.doctorName} ({d.name})
+   663→                </option>
+   664→              ))}
+   665→            </select>
+   666→          </div>
+   667→        )}
+   668→      </div>
+   669→
+   670→      {/* ==========================================
+   671→          SUB-TAB 1: AMBULATORY CHECKUP (ORIGINAL CORE)
+   672→          ========================================== */}
+   673→      {activeSubTab === 'ambulatory' && (
+   674→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
+   675→          
+   676→          {/* Left column: Waiting Queue */}
+   677→          <div className="lg:col-span-1 space-y-4">
+   678→            <div className="bg-gradient-to-br from-amber-50/90 to-amber-100/30 p-6 rounded-3xl border border-amber-100 shadow-[0_20px_40px_rgba(245,158,11,0.03)]">
+   679→              <h3 className="text-sm font-black text-slate-900 mb-4 pb-3 border-b border-amber-200/50 flex items-center justify-between">
+   680→                <span>Navbatda Kutayotganlar</span>
+   681→                <div className="flex items-center gap-2">
+   682→                  <span className="bg-amber-100 text-amber-900 border border-amber-200 text-xs px-2.5 py-1 rounded-xl font-black">
+   683→                    {waitingPatients.length} nafar
+   684→                  </span>
+   685→                  {/* Navbatni tozalash tugmasi - vizual, bazadan o'chirmaydi */}
+   686→                  {waitingPatients.length > 0 && !isQueueCleared && (
+   687→                    <button
+   688→                      onClick={() => {
+   689→                        if (window.confirm(
+   690→                          '🧹 NAVBAT RO\'YXATINI TOZALASH\n\n' +
+   691→                          'Bu amal faqat shu ekrandagi navbat ro\'yxatini tozalaydi.\n\n' +
+   692→                          '✅ Bemorlar ma\'lumotlari bazada saqlanadi\n' +
+   693→                          '✅ To\'lovlar va tarix o\'chirilmaydi\n' +
+   694→                          '✅ Hisobotlar o\'zgarishsiz qoladi\n' +
+   695→                          '✅ Qabulxona panelida bemorlar ko\'rinaveradi\n\n' +
+   696→                          'Navbat tozalansinmi?'
+   697→                        )) {
+   698→                          setIsQueueCleared(true);
+   699→                        }
+   700→                      }}
+   701→                      className="text-[10px] font-black px-2 py-1 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200 hover:border-rose-600 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+   702→                      title="Navbat ro'yxatini tozalash (baza o'zgartirilmaydi)"
+   703→                    >
+   704→                      <Eraser className="h-3 w-3" />
+   705→                      Tozalash
+   706→                    </button>
+   707→                  )}
+   708→                  {isQueueCleared && (
+   709→                    <button
+   710→                      onClick={() => setIsQueueCleared(false)}
+   711→                      className="text-[10px] font-black px-2 py-1 bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200 hover:border-emerald-600 rounded-lg transition-all cursor-pointer flex items-center gap-1"
+   712→                      title="Navbatni qayta ko'rsatish"
+   713→                    >
+   714→                      <RefreshCw className="h-3 w-3" />
+   715→                      Qayta ko'rsatish
+   716→                    </button>
+   717→                  )}
+   718→                </div>
+   719→              </h3>
+   720→
+   721→              {waitingPatients.length === 0 ? (
+   722→                <div className="text-center py-12">
+   723→                  {isQueueCleared ? (
+   724→                    <>
+   725→                      <p className="text-emerald-600 font-bold text-xs">🧹 Navbat tozalandi</p>
+   726→                      <p className="text-[10px] text-slate-400 mt-2 font-semibold italic">
+   727→                        ✅ Bemorlar bazada saqlanib qoldi — qabulxona va hisobotlarda ko'rinaveradi.
+   728→                      </p>
+   729→                      <p className="text-[10px] text-emerald-600 mt-1 font-bold">
+   730→                        Yuqoridagi "Qayta ko'rsatish" tugmasi orqali qayta ko'rishingiz mumkin.
+   731→                      </p>
+   732→                    </>
+   733→                  ) : (
+   734→                    <p className="text-slate-400 font-bold text-xs">Sizning bo'limingizda kutayotgan bemorlar yo'q.</p>
+   735→                  )}
+   736→                </div>
+   737→              ) : (
+   738→                <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+   739→                  {waitingPatients.map((patient) => {
+   740→                    return (
+   741→                      <div
+   742→                        key={patient.id}
+   743→                        className="p-3.5 rounded-2xl border border-slate-200 bg-white hover:border-amber-300 hover:shadow-md transition-all flex justify-between items-center gap-3"
+   744→                      >
+   745→                        <div className="min-w-0 flex-1">
+   746→                          <div className="flex items-center space-x-2">
+   747→                            <span className="h-6 w-6 rounded-lg bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 font-black text-[11px] flex items-center justify-center">
+   748→                              {patient.queueNumber}
+   749→                            </span>
+   750→                            <span className="font-bold text-slate-900 text-xs truncate">
+   751→                              {patient.lastName} {patient.firstName}
+   752→                            </span>
+   753→                          </div>
+   754→                          <p className="text-[10px] text-slate-500 font-semibold mt-1.5 pl-8">
+   755→                            ID: <strong className="font-semibold text-slate-700">{patient.id}</strong> • Tel: {patient.phone}
+   756→                          </p>
+   757→                        </div>
+   758→
+   759→                        <button
+   760→                          id={`accept-patient-btn-${patient.id}`}
+   761→                          onClick={() => handleCallPatient(patient)}
+   762→                          disabled={!!activePatient}
+   763→                          className={`px-3 py-1.5 text-[10px] font-black rounded-xl transition-all duration-200 cursor-pointer flex items-center space-x-1 shrink-0 ${
+   764→                            activePatient
+   765→                              ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+   766→                              : 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white shadow-md shadow-emerald-600/10'
+   767→                          }`}
+   768→                          title={activePatient ? "Avval joriy qabulni yakunlang!" : "Bemorga qabulni boshlash"}
+   769→                        >
+   770→                          <Play className="h-2.5 w-2.5 fill-current" />
+   771→                          <span>Qabul</span>
+   772→                        </button>
+   773→                      </div>
+   774→                    );
+   775→                  })}
+   776→                </div>
+   777→              )}
+   778→            </div>
+   779→          </div>
+   780→
+   781→          {/* Middle and Right: Active Checkup form */}
+   782→          <div className="lg:col-span-2">
+   783→            {!activePatient ? (
+   784→              <div className="bg-white/95 backdrop-blur-md p-12 rounded-3xl border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.015)] text-center flex flex-col items-center justify-center space-y-4 min-h-[300px]">
+   785→                <div className="bg-slate-100 text-slate-500 p-4 rounded-full border border-slate-200">
+   786→                  <User className="h-10 w-10 stroke-[1.5]" />
+   787→                </div>
+   788→                <h3 className="font-extrabold text-slate-900 text-sm">Hozirda qabulda bemor yo'q</h3>
+   789→                <p className="text-xs text-slate-500 font-bold max-w-sm leading-relaxed">
+   790→                  Qabulni boshlash uchun chap tomondagi ro'yxatdan navbatdagi bemorning "Qabul" tugmasini bosing. Monitor TVda ushbu bemor navbati chaqiriladi.
+   791→                </p>
+   792→              </div>
+   793→            ) : (
+   794→              <div className="bg-gradient-to-br from-teal-50/40 via-white to-emerald-50/20 p-6 rounded-3xl border border-teal-200/60 shadow-[0_20px_50px_rgba(20,184,166,0.04)] space-y-6 animate-fade-in relative overflow-hidden">
+   795→                {/* Form aesthetic top accent line */}
+   796→                <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
+   797→                
+   798→                {/* Active patient heading */}
+   799→                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-teal-100 gap-4">
+   800→                  <div>
+   801→                    <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-3 py-1 rounded-xl uppercase tracking-wider border border-emerald-200">
+   802→                      Navbatdagi Bemor Qabulda
+   803→                    </span>
+   804→                    <h3 className="text-base font-black text-slate-950 mt-2.5">
+   805→                      #{activePatient.queueNumber} - {activePatient.lastName} {activePatient.firstName} {activePatient.middleName || ''}
+   806→                    </h3>
+   807→                    <p className="text-xs text-slate-500 font-bold">
+   808→                      ID: <strong className="text-slate-800 font-bold">{activePatient.id}</strong> • Jinsi: {activePatient.gender} • Tug'ilgan yili: {activePatient.birthDate || 'noma\'lum'}
+   809→                    </p>
+   810→                  </div>
+   811→
+   812→                  <div className="flex space-x-2 shrink-0">
+   813→                    <button
+   814→                      onClick={handlePrintRecipe}
+   815→                      className="bg-white hover:bg-slate-50 text-slate-700 px-4 py-2.5 text-xs font-bold rounded-xl border border-slate-200 flex items-center space-x-1.5 cursor-pointer transition-all shadow-sm hover:scale-102"
+   816→                    >
+   817→                      <Printer className="h-4 w-4 text-slate-500" />
+   818→                      <span>Retseptni chop etish</span>
+   819→                    </button>
+   820→                  </div>
+   821→                </div>
+   822→
+   823→                {/* Patient examination form */}
+   824→                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+   825→                  {/* Complaints */}
+   826→                  <div>
+   827→                    <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-wide">
+   828→                      1. SHIKOYATLAR VA ANAMNEZ
+   829→                    </label>
+   830→                    <textarea
+   831→                      rows={3}
+   832→                      placeholder="Bemorning shikoyatlari va kasallik tarixi..."
+   833→                      value={complaints}
+   834→                      onChange={(e) => setComplaints(e.target.value)}
+   835→                      className="w-full px-3.5 py-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold transition-all placeholder-slate-400"
+   836→                    />
+   837→                  </div>
+   838→
+   839→                  {/* Test results */}
+   840→                  <div>
+   841→                    <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-wide">
+   842→                      2. TEKSHIRUV VA LABORATORIYA NATIJALARI
+   843→                    </label>
+   844→                    <textarea
+   845→                      rows={3}
+   846→                      placeholder="Ko'rik natijalari, tahlillar yoki apparat ko'rsatkichlari..."
+   847→                      value={testResults}
+   848→                      onChange={(e) => setTestResults(e.target.value)}
+   849→                      className="w-full px-3.5 py-3 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold transition-all placeholder-slate-400"
+   850→                    />
+   851→                  </div>
+   852→                </div>
+   853→
+   854→                {/* Diagnosis */}
+   855→                <div>
+   856→                  <label className="block text-[10px] font-black text-slate-500 mb-1.5 uppercase tracking-wide">
+   857→                    3. YAKUNIY TASHXIS (DIAGNOSIS) *
+   858→                  </label>
+   859→
+   860→                  {/* Kasallik shablonlari dropdown — faqat shu bo'lim uchun */}
+   861→                  {(() => {
+   862→                    const deptTemplates = diagnosisTemplates.filter((t) => t.departmentId === currentDoctorId);
+   863→                    if (deptTemplates.length === 0) return null;
+   864→                    return (
+   865→                      <div className="mb-2">
+   866→                        <label className="block text-[9px] font-bold text-emerald-700 mb-1 uppercase tracking-wide">
+   867→                          💊 Kasallikni tanlang — dorilar avtomatik to'ldiriladi ({activeDept?.name})
+   868→                        </label>
+   869→                        <select
+   870→                          onChange={(e) => {
+   871→                            if (!e.target.value) return;
+   872→                            const template = deptTemplates.find((t) => t.id === e.target.value);
+   873→                            if (template) {
+   874→                              setDiagnosis(template.name);
+   875→                              if (template.medications.length > 0) {
+   876→                                setMedsList(template.medications.map(m => ({ ...m })));
+   877→                              }
+   878→                            }
+   879→                          }}
+   880→                          value=""
+   881→                          className="w-full px-3 py-2.5 text-xs border-2 border-emerald-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-emerald-50/30 text-slate-800 font-bold transition-all cursor-pointer"
+   882→                        >
+   883→                          <option value="">-- {activeDept?.name} bo'limi kasallik shabloni tanlang --</option>
+   884→                          {deptTemplates.map((t) => (
+   885→                            <option key={t.id} value={t.id}>
+   886→                              {t.name} ({t.medications.length} ta dori)
+   887→                            </option>
+   888→                          ))}
+   889→                        </select>
+   890→                      </div>
+   891→                    );
+   892→                  })()}
+   893→
+   894→                  <input
+   895→                    type="text"
+   896→                    placeholder="Klinik yoki yakuniy tashxisni yozing..."
+   897→                    value={diagnosis}
+   898→                    onChange={(e) => setDiagnosis(e.target.value)}
+   899→                    className="w-full px-3.5 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-900 font-black transition-all placeholder-slate-400"
+   900→                  />
+   901→                </div>
+   902→
+   903→                {/* Medications Recipe Grid */}
+   904→                <div className="space-y-4">
+   905→                  <div className="flex justify-between items-center pb-3 border-b border-teal-100">
+   906→                    <span className="text-[10px] font-black text-slate-500 uppercase flex items-center space-x-1.5 tracking-wider">
+   907→                      <FileText className="h-4 w-4 text-emerald-600" />
+   908→                      <span>4. TAYINLANGAN DORILAR (RETSEPT)</span>
+   909→                    </span>
+   910→                    <button
+   911→                      onClick={addMedRow}
+   912→                      className="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 px-4 py-2 rounded-xl text-xs font-extrabold flex items-center space-x-1 cursor-pointer transition-all hover:scale-102"
+   913→                    >
+   914→                      <Plus className="h-3.5 w-3.5 stroke-[3]" />
+   915→                      <span>Dori qo'shish</span>
+   916→                    </button>
+   917→                  </div>
+   918→
+   919→                  <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+   920→                    {medsList.map((med, index) => (
+   921→                      <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+   922→                        {/* Name */}
+   923→                        <input
+   924→                          type="text"
+   925→                          placeholder="Dori nomi va dozasi (masalan: Amoksitsillin 500mg)"
+   926→                          value={med.name}
+   927→                          onChange={(e) => handleMedChange(index, 'name', e.target.value)}
+   928→                          className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold transition-all placeholder-slate-400"
+   929→                        />
+   930→                        {/* Dosage */}
+   931→                        <input
+   932→                          type="text"
+   933→                          placeholder="Qabul qilish (masalan: 3 mahal ovqatdan so'ng)"
+   934→                          value={med.dosage}
+   935→                          onChange={(e) => handleMedChange(index, 'dosage', e.target.value)}
+   936→                          className="w-full px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold transition-all placeholder-slate-400"
+   937→                        />
+   938→                        {/* Days / Row Actions */}
+   939→                        <div className="flex items-center space-x-2">
+   940→                          <input
+   941→                             type="text"
+   942→                             placeholder="Muddati (masalan: 7 kun)"
+   943→                             value={med.days}
+   944→                             onChange={(e) => handleMedChange(index, 'days', e.target.value)}
+   945→                             className="flex-1 px-3 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 bg-[#f8fafc] text-slate-800 font-bold transition-all placeholder-slate-400"
+   946→                          />
+   947→                          <button
+   948→                            onClick={() => removeMedRow(index)}
+   949→                            className="text-slate-400 hover:text-rose-600 hover:bg-rose-50 p-2 rounded-xl transition-all cursor-pointer"
+   950→                            title="Dori satrini o'chirish"
+   951→                          >
+   952→                            <Trash2 className="h-4 w-4" />
+   953→                          </button>
+   954→                        </div>
+   955→                      </div>
+   956→                    ))}
+   957→                  </div>
+   958→                </div>
+   959→
+   960→                {/* Complete and save */}
+   961→                <div className="flex justify-end space-x-2 pt-4 border-t border-slate-100">
+   962→                  <button
+   963→                    id="finish-session-btn"
+   964→                    onClick={handleSaveCheckup}
+   965→                    className="bg-gradient-to-r from-emerald-500 via-teal-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white px-6 py-3 rounded-2xl font-black text-xs shadow-lg shadow-emerald-500/20 transition-all duration-300 hover:scale-102 cursor-pointer flex items-center space-x-1.5"
+   966→                  >
+   967→                    <Check className="h-4.5 w-4.5 stroke-[3]" />
+   968→                    <span>Tekshiruvni Yakunlash & Saqlash</span>
+   969→                  </button>
+   970→                </div>
+   971→
+   972→              </div>
+   973→            )}
+   974→          </div>
+   975→        </div>
+   976→      )}
+   977→
+   978→      {/* ==========================================
+   979→          SUB-TAB: KO'RILGAN BEMORLAR TARIXI
+   980→          ========================================== */}
+   981→      {activeSubTab === 'history' && (
+   982→        <div className="space-y-6 animate-fade-in">
+   983→          {/* Bemor tarixi modal */}
+   984→          {historyPatient && (
+   985→            <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setHistoryPatientId(null)}>
+   986→              <div className="bg-white rounded-3xl p-6 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+   987→                <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+   988→                  <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+   989→                    <FileText className="h-5 w-5 text-blue-600" />
+   990→                    Bemor Ko'rik Tarixi
+   991→                  </h3>
+   992→                  <button onClick={() => setHistoryPatientId(null)} className="text-slate-400 hover:text-slate-600">
+   993→                    <X className="h-5 w-5" />
+   994→                  </button>
+   995→                </div>
+   996→                <div className="space-y-4 mt-4">
+   997→                  <div className="bg-gradient-to-br from-blue-50 to-blue-100/30 p-4 rounded-2xl border border-blue-100">
+   998→                    <h4 className="text-xs font-black text-blue-800 uppercase tracking-wider mb-2">Bemor ma'lumotlari</h4>
+   999→                    <div className="grid grid-cols-2 gap-3 text-xs">
+  1000→                      <div><span className="text-slate-500 font-bold">F.I.SH:</span><p className="font-black text-slate-900">{historyPatient.lastName} {historyPatient.firstName} {historyPatient.middleName || ''}</p></div>
+  1001→                      <div><span className="text-slate-500 font-bold">ID:</span><p className="font-mono font-black text-slate-900">{historyPatient.id}</p></div>
+  1002→                      <div><span className="text-slate-500 font-bold">Telefon:</span><p className="font-bold text-slate-900">{historyPatient.phone}</p></div>
+  1003→                      <div><span className="text-slate-500 font-bold">Jinsi:</span><p className="font-bold text-slate-900">{historyPatient.gender}</p></div>
+  1004→                      <div><span className="text-slate-500 font-bold">Qabul sanasi:</span><p className="font-bold text-slate-900">{new Date(historyPatient.createdAt).toLocaleString('ru-RU')}</p></div>
+  1005→                      <div><span className="text-slate-500 font-bold">Yakunlangan:</span><p className="font-bold text-slate-900">{historyPatient.completedAt ? new Date(historyPatient.completedAt).toLocaleString('ru-RU') : '-'}</p></div>
+  1006→                    </div>
+  1007→                  </div>
+  1008→                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100/30 p-4 rounded-2xl border border-emerald-100">
+  1009→                    <h4 className="text-xs font-black text-emerald-800 uppercase tracking-wider mb-2">Bo'lim va shifokor</h4>
+  1010→                    <div className="grid grid-cols-2 gap-3 text-xs">
+  1011→                      <div><span className="text-slate-500 font-bold">Bo'lim:</span><p className="font-black text-slate-900">{activeDept?.name}</p></div>
+  1012→                      <div><span className="text-slate-500 font-bold">Shifokor:</span><p className="font-bold text-slate-900">{historyPatient.doctorName}</p></div>
+  1013→                    </div>
+  1014→                  </div>
+  1015→                  <div className="bg-gradient-to-br from-amber-50 to-amber-100/30 p-4 rounded-2xl border border-amber-100">
+  1016→                    <h4 className="text-xs font-black text-amber-800 uppercase tracking-wider mb-2">To'lov ma'lumotlari</h4>
+  1017→                    <div className="grid grid-cols-2 gap-3 text-xs">
+  1018→                      <div><span className="text-slate-500 font-bold">Summa:</span><p className="font-black text-slate-900">{historyPatient.paymentAmount.toLocaleString()} UZS</p></div>
+  1019→                      <div><span className="text-slate-500 font-bold">Holati:</span><p className="font-black text-emerald-700">{historyPatient.paymentStatus}</p></div>
+  1020→                    </div>
+  1021→                  </div>
+  1022→                  {historyPatient.selectedServices && historyPatient.selectedServices.length > 0 && (
+  1023→                    <div className="bg-gradient-to-br from-teal-50 to-teal-100/30 p-4 rounded-2xl border border-teal-100">
+  1024→                      <h4 className="text-xs font-black text-teal-800 uppercase tracking-wider mb-2">Tanlangan xizmatlar</h4>
+  1025→                      <div className="space-y-1">
+  1026→                        {historyPatient.selectedServices.map((svc) => (
+  1027→                          <div key={svc.id} className="flex justify-between text-xs bg-white p-2 rounded border border-teal-100">
+  1028→                            <span className="font-bold text-slate-800">{svc.name}</span>
+  1029→                            <span className="font-black text-teal-700">{svc.price.toLocaleString()} UZS</span>
+  1030→                          </div>
+  1031→                        ))}
+  1032→                      </div>
+  1033→                    </div>
+  1034→                  )}
+  1035→                  <div className="bg-gradient-to-br from-slate-50 to-slate-100/30 p-4 rounded-2xl border border-slate-200">
+  1036→                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2">Tibbiy ma'lumotlar</h4>
+  1037→                    <div className="space-y-3 text-xs">
+  1038→                      {historyPatient.complaints && <div><span className="text-slate-500 font-bold block mb-1">Shikoyatlar:</span><p className="text-slate-800 bg-white p-2 rounded border border-slate-100">{historyPatient.complaints}</p></div>}
+  1039→                      {historyPatient.testResults && <div><span className="text-slate-500 font-bold block mb-1">Tahlil natijalari:</span><p className="text-slate-800 bg-white p-2 rounded border border-slate-100">{historyPatient.testResults}</p></div>}
+  1040→                      {historyPatient.diagnosis && <div><span className="text-slate-500 font-bold block mb-1">Tashxis:</span><p className="font-black text-slate-900 bg-emerald-50 p-2 rounded border border-emerald-100">{historyPatient.diagnosis}</p></div>}
+  1041→                      {historyPatient.prescriptions && historyPatient.prescriptions.length > 0 && (
+  1042→                        <div>
+  1043→                          <span className="text-slate-500 font-bold block mb-1">Retseptlar (Dorilar):</span>
+  1044→                          <ul className="list-decimal list-inside text-slate-800 bg-white p-2 rounded border border-slate-100 space-y-1">
+  1045→                            {historyPatient.prescriptions.map((med, idx) => (
+  1046→                              <li key={idx} className="font-bold"><span className="font-black text-slate-900">{med.name}</span> — {med.dosage} ({med.days})</li>
+  1047→                            ))}
+  1048→                          </ul>
+  1049→                        </div>
+  1050→                      )}
+  1051→                      {!historyPatient.complaints && !historyPatient.testResults && !historyPatient.diagnosis && (!historyPatient.prescriptions || historyPatient.prescriptions.length === 0) && (
+  1052→                        <p className="text-slate-400 italic">Tibbiy ma'lumotlar kiritilmagan</p>
+  1053→                      )}
+  1054→                    </div>
+  1055→                  </div>
+  1056→                  {historyPatient.patientHistory && historyPatient.patientHistory.length > 0 && (
+  1057→                    <div className="bg-gradient-to-br from-purple-50 to-purple-100/30 p-4 rounded-2xl border border-purple-100">
+  1058→                      <h4 className="text-xs font-black text-purple-800 uppercase tracking-wider mb-2">Avvalgi Tashriflar ({historyPatient.patientHistory.length} ta)</h4>
+  1059→                      <div className="space-y-2">
+  1060→                        {historyPatient.patientHistory.map((visit, idx) => (
+  1061→                          <div key={idx} className="bg-white p-3 rounded-xl border border-purple-100">
+  1062→                            <div className="flex items-center justify-between mb-1">
+  1063→                              <span className="text-[10px] font-black text-purple-700">Tashrif #{historyPatient.patientHistory!.length - idx}</span>
+  1064→                              <span className="text-[10px] text-slate-500 font-bold">{new Date(visit.visitDate).toLocaleString('ru-RU')}</span>
+  1065→                            </div>
+  1066→                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+  1067→                              <div><span className="text-slate-500 font-bold">Bo'lim:</span><p className="font-bold text-slate-800">{visit.departmentName}</p></div>
+  1068→                              <div><span className="text-slate-500 font-bold">Shifokor:</span><p className="font-bold text-slate-800">{visit.doctorName}</p></div>
+  1069→                            </div>
+  1070→                            {visit.diagnosis && <p className="text-[10px] mt-1 pt-1 border-t border-slate-100"><span className="text-slate-500 font-bold">Tashxis:</span> <span className="font-bold text-slate-900">{visit.diagnosis}</span></p>}
+  1071→                          </div>
+  1072→                        ))}
+  1073→                      </div>
+  1074→                    </div>
+  1075→                  )}
+  1076→                </div>
+  1077→
+  1078→                {/* XPrinter chop etish tugmasi */}
+  1079→                <div className="pt-4 border-t border-slate-100">
+  1080→                  <button
+  1081→                    onClick={() => {
+  1082→                      const p = historyPatient;
+  1083→                      if (!p) return;
+  1084→                      const printWindow = window.open('', '_blank', 'width=350,height=550');
+  1085→                      if (!printWindow) { alert('Tashqi oyna ochish bloklandi.'); return; }
+  1086→                      const cleanMeds = p.prescriptions || [];
+  1087→                      const servicesHtml = p.selectedServices && p.selectedServices.length > 0
+  1088→                        ? p.selectedServices.map((s) => `• ${s.name} — ${s.price.toLocaleString()} UZS`).join('<br>')
+  1089→                        : '';
+  1090→                      printWindow.document.write(`
+  1091→                        <html>
+  1092→                          <head>
+  1093→                            <title>Ko'rik Tarixi - ${p.lastName} ${p.firstName}</title>
+  1094→                            <style>
+  1095→                              body { font-family: 'Courier New', monospace; padding: 15px; width: 290px; margin: 0 auto; color: #000; font-size: 15px; font-weight: bold; line-height: 1.5; }
+  1096→                              .header { text-align: center; border-bottom: 2px double #000; padding-bottom: 8px; margin-bottom: 12px; }
+  1097→                              .clinic-name { font-size: 18px; font-weight: bold; }
+  1098→                              .section-title { font-weight: bold; border-bottom: 1px dashed #000; margin: 10px 0 5px 0; padding-bottom: 2px; text-transform: uppercase; font-size: 14px; }
+  1099→                              .info { margin: 8px 0; line-height: 1.5; }
+  1100→                              .footer { font-size: 13px; font-weight: bold; text-align: center; border-top: 1px dashed #000; padding-top: 10px; margin-top: 15px; }
+  1101→                              button { display: block; width: 100%; padding: 10px; margin-top: 15px; background: #000; color: #fff; border: none; font-weight: bold; cursor: pointer; }
+  1102→                              @media print { button { display: none; } }
+  1103→                            </style>
+  1104→                          </head>
+  1105→                          <body>
+  1106→                            <div class="header">
+  1107→                              <div class="clinic-name">${cs.clinicName}</div>
+  1108→                              <div style="font-size: 13px;">Tel: ${cs.clinicPhone}</div>
+  1109→                              <div style="font-size: 14px; font-weight: bold; margin-top: 5px;">${cs.recipeHeader}</div>
+  1110→                            </div>
+  1111→                            <div class="info">
+  1112→                              <strong>Sana:</strong> ${new Date(p.completedAt || p.createdAt).toLocaleDateString('uz-UZ')}<br>
+  1113→                              <strong>Shifokor:</strong> ${p.doctorName}<br>
+  1114→                              <strong>Bo'lim:</strong> ${activeDept?.name || ''}<br>
+  1115→                              <strong>Xona:</strong> ${activeDept?.room || ''}<br>
+  1116→                            </div>
+  1117→                            <div class="section-title">Bemor Ma'lumotlari</div>
+  1118→                            <div class="info">
+  1119→                              <strong>F.I.SH:</strong> ${p.lastName} ${p.firstName} ${p.middleName || ''}<br>
+  1120→                              <strong>ID:</strong> ${p.id}<br>
+  1121→                              <strong>Tel:</strong> ${p.phone}<br>
+  1122→                              <strong>Jinsi:</strong> ${p.gender}
+  1123→                            </div>
+  1124→                            ${p.complaints ? `<div class="section-title">Shikoyatlar</div><div class="info">${p.complaints}</div>` : ''}
+  1125→                            ${p.testResults ? `<div class="section-title">Tahlil Natijalari</div><div class="info">${p.testResults}</div>` : ''}
+  1126→                            <div class="section-title">Tashxis</div>
+  1127→                            <div class="info">${p.diagnosis || 'Kiritilmagan'}</div>
+  1128→                            ${cleanMeds.length > 0 ? `
+  1129→                              <div class="section-title">Tayinlangan Dorilar (Rx)</div>
+  1130→                              <ol style="margin: 0; padding-left: 20px;">
+  1131→                                ${cleanMeds.map((med) => `<li style="margin-bottom: 10px;"><div style="font-size: 16px; font-weight: bold;">${med.name}</div><div style="font-size: 14px; font-weight: bold;">↪ ${med.dosage} (${med.days})</div></li>`).join('')}
+  1132→                              </ol>
+  1133→                            ` : ''}
+  1134→                            ${servicesHtml ? `<div class="section-title">Tanlangan Xizmatlar</div><div class="info">${servicesHtml}</div>` : ''}
+  1135→                            ${p.patientHistory && p.patientHistory.length > 0 ? `
+  1136→                              <div class="section-title">Avvalgi Tashriflar (${p.patientHistory.length} ta)</div>
+  1137→                              <div class="info" style="font-size: 13px;">
+  1138→                                ${p.patientHistory.map((v, i) => `${i + 1}. ${new Date(v.visitDate).toLocaleDateString('ru-RU')} — ${v.departmentName} — ${v.diagnosis || 'Tashxissiz'}`).join('<br>')}
+  1139→                              </div>
+  1140→                            ` : ''}
+  1141→                            <div class="footer">${cs.recipeFooter}</div>
+  1142→                            <button onclick="window.print(); window.close();">XPrinterda Chop Etish</button>
+  1143→                            <script>window.onload = function() { setTimeout(function() { window.print(); }, 300); }</script>
+  1144→                          </body>
+  1145→                        </html>
+  1146→                      `);
+  1147→                      printWindow.document.close();
+  1148→                    }}
+  1149→                    className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-black shadow-lg flex items-center justify-center gap-1.5 cursor-pointer"
+  1150→                  >
+  1151→                    <Printer className="h-4 w-4" />
+  1152→                    XPrinterda Ko'rik Tarixini Chop Etish
+  1153→                  </button>
+  1154→                </div>
+  1155→              </div>
+  1156→            </div>
+  1157→          )}
+  1158→
+  1159→          {/* Ko'rilgan bemorlar ro'yxati */}
+  1160→          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+  1161→            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-100">
+  1162→              <div>
+  1163→                <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+  1164→                  <FileText className="h-5 w-5 text-emerald-600" />
+  1165→                  {activeDept?.name} — Ko'rilgan Bemorlar Tarixi
+  1166→                </h3>
+  1167→                <p className="text-xs text-slate-500 font-bold mt-0.5">
+  1168→                  Jami: <span className="font-extrabold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">{completedPatients.length} nafar</span>
+  1169→                </p>
+  1170→              </div>
+  1171→            </div>
+  1172→
+  1173→            {completedPatients.length === 0 ? (
+  1174→              <div className="text-center py-12">
+  1175→                <FileText className="h-10 w-10 text-slate-300 mx-auto mb-2" />
+  1176→                <p className="text-sm font-bold text-slate-500">Hozircha ko'rilgan bemorlar yo'q.</p>
+  1177→              </div>
+  1178→            ) : (
+  1179→              <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+  1180→                <table className="w-full text-left border-collapse text-xs">
+  1181→                  <thead className="sticky top-0 z-10">
+  1182→                    <tr className="border-b border-slate-200 bg-emerald-50 text-emerald-800 font-black uppercase text-[9px]">
+  1183→                      <th className="py-3 px-3">№</th>
+  1184→                      <th className="py-3 px-3">Bemor (ID)</th>
+  1185→                      <th className="py-3 px-3">Telefon</th>
+  1186→                      <th className="py-3 px-3">Qabul sanasi</th>
+  1187→                      <th className="py-3 px-3">Yakunlangan</th>
+  1188→                      <th className="py-3 px-3">To'lov</th>
+  1189→                      <th className="py-3 px-3">Tashxis</th>
+  1190→                      <th className="py-3 px-3 text-right">Amal</th>
+  1191→                    </tr>
+  1192→                  </thead>
+  1193→                  <tbody className="divide-y divide-slate-100">
+  1194→                    {completedPatients.map((patient, idx) => (
+  1195→                      <tr key={patient.id} className="hover:bg-slate-50/70 transition-colors bg-white font-semibold">
+  1196→                        <td className="py-3 px-3 text-slate-700">{idx + 1}</td>
+  1197→                        <td className="py-3 px-3">
+  1198→                          <div className="font-extrabold text-slate-900">{patient.lastName} {patient.firstName}</div>
+  1199→                          <div className="text-[9px] text-slate-400 font-bold mt-0.5">{patient.id}</div>
+  1200→                          {patient.isReturning && (
+  1201→                            <span className="inline-block text-[8px] font-black bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded uppercase mt-1">
+  1202→                              Qayta tashrif #{patient.visitCount || 1}
+  1203→                            </span>
+  1204→                          )}
+  1205→                        </td>
+  1206→                        <td className="py-3 px-3 text-slate-600">{patient.phone}</td>
+  1207→                        <td className="py-3 px-3">
+  1208→                          <div className="text-[10px] font-bold text-slate-700">{new Date(patient.createdAt).toLocaleDateString('ru-RU')}</div>
+  1209→                          <div className="text-[9px] text-slate-500">{new Date(patient.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+  1210→                        </td>
+  1211→                        <td className="py-3 px-3">
+  1212→                          <div className="text-[10px] font-bold text-slate-700">{patient.completedAt ? new Date(patient.completedAt).toLocaleDateString('ru-RU') : '-'}</div>
+  1213→                          <div className="text-[9px] text-slate-500">{patient.completedAt ? new Date(patient.completedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : ''}</div>
+  1214→                        </td>
+  1215→                        <td className="py-3 px-3">
+  1216→                          <div className="font-bold text-slate-950">{patient.paymentAmount.toLocaleString()} UZS</div>
+  1217→                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded text-[8px] font-black border bg-emerald-50 text-emerald-700 border-emerald-200">
+  1218→                            {patient.paymentStatus}
+  1219→                          </span>
+  1220→                        </td>
+  1221→                        <td className="py-3 px-3">
+  1222→                          <div className="text-[10px] text-slate-700 max-w-[200px] truncate" title={patient.diagnosis || ''}>
+  1223→                            {patient.diagnosis || <span className="text-slate-400 italic">Kiritilmagan</span>}
+  1224→                          </div>
+  1225→                          {patient.prescriptions && patient.prescriptions.length > 0 && (
+  1226→                            <span className="inline-block text-[8px] font-black bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded mt-1">
+  1227→                              💊 {patient.prescriptions.length} ta dori
+  1228→                            </span>
+  1229→                          )}
+  1230→                        </td>
+  1231→                        <td className="py-3 px-3 text-right">
+  1232→                          <button
+  1233→                            onClick={() => setHistoryPatientId(patient.id)}
+  1234→                            className="px-2 py-1 bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200 rounded-lg font-black text-[9px] transition-all cursor-pointer flex items-center gap-1 ml-auto"
+  1235→                          >
+  1236→                            <FileText className="h-3 w-3" />
+  1237→                            Tafsilot
+  1238→                          </button>
+  1239→                        </td>
+  1240→                      </tr>
+  1241→                    ))}
+  1242→                  </tbody>
+  1243→                </table>
+  1244→              </div>
+  1245→            )}
+  1246→          </div>
+  1247→        </div>
+  1248→      )}
+  1249→
+  1250→      {/* ==========================================
+  1251→          SUB-TAB 2: INPATIENT (STATSIONAR) WARDS PORTAL
+  1252→          ========================================== */}
+  1253→      {activeSubTab === 'inpatient_wards' && (
+  1254→        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in text-xs">
+  1255→          
+  1256→          {/* Left panel: Ward Patient list cards */}
+  1257→          <div className="lg:col-span-1 space-y-4">
+  1258→            <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+  1259→              <div className="pb-3 border-b border-slate-100 flex justify-between items-center">
+  1260→                <div>
+  1261→                  <h3 className="font-black text-slate-900 text-sm flex items-center space-x-1">
+  1262→                    <Bed className="h-4 w-4 text-emerald-600" />
+  1263→                    <span>Yotgan Bemorlar</span>
+  1264→                  </h3>
+  1265→                  <p className="text-[10px] text-slate-400 font-bold mt-0.5">Faol davolanayotgan statsionarlar</p>
+  1266→                </div>
+  1267→                <span className="bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-1 rounded-xl font-black text-[10px]">
+  1268→                  {hospitalizedPatients.length} ta palata
+  1269→                </span>
+  1270→              </div>
+  1271→
+  1272→              {hospitalizedPatients.length === 0 ? (
+  1273→                <div className="text-center py-12">
+  1274→                  <p className="text-slate-400 font-bold">Hozirda shifoxonada yotib davolanayotgan bemorlar yo'q.</p>
+  1275→                </div>
+  1276→              ) : (
+  1277→                <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
+  1278→                  {hospitalizedPatients.map((stay) => {
+  1279→                    const isSelected = selectedInpatientId === stay.id;
+  1280→                    const logCount = stay.dailyTreatments?.length || 0;
+  1281→
+  1282→                    return (
+  1283→                      <button
+  1284→                        key={stay.id}
+  1285→                        onClick={() => selectInpatientPatient(stay)}
+  1286→                        className={`w-full text-left p-4 rounded-2xl border transition-all duration-200 flex flex-col space-y-2 cursor-pointer ${
+  1287→                          isSelected
+  1288→                            ? 'bg-emerald-50/70 border-emerald-500 shadow-sm'
+  1289→                            : 'bg-white border-slate-200 hover:border-slate-300'
+  1290→                        }`}
+  1291→                      >
+  1292→                        <div className="flex justify-between items-start">
+  1293→                          <span className="font-extrabold text-slate-900 text-xs">
+  1294→                            {stay.lastName} {stay.firstName}
+  1295→                          </span>
+  1296→                          <span className="bg-slate-100 border border-slate-200 text-slate-600 font-black px-2 py-0.5 rounded text-[8px] uppercase">
+  1297→                            🚪 {stay.roomNumber}-Xona
+  1298→                          </span>
+  1299→                        </div>
+  1300→
+  1301→                        <div className="text-[10px] text-slate-500 font-bold flex justify-between">
+  1302→                          <span>Shifokor: <strong className="text-slate-700 font-bold">{stay.doctorName}</strong></span>
+  1303→                          <span className="text-indigo-700 font-black">🗓 {stay.plannedDays} kun</span>
+  1304→                        </div>
+  1305→
+  1306→                        <div className="flex justify-between items-center pt-2 border-t border-slate-100/60 mt-1">
+  1307→                          <span className="text-[9px] text-slate-400 font-medium">Sana: {stay.checkInDate} dan</span>
+  1308→                          <span className="bg-emerald-100/60 text-emerald-800 text-[8px] font-black px-1.5 py-0.5 rounded-md">
+  1309→                            {logCount} marta ko'rilgan
+  1310→                          </span>
+  1311→                        </div>
+  1312→                      </button>
+  1313→                    );
+  1314→                  })}
+  1315→                </div>
+  1316→              )}
+  1317→            </div>
+  1318→          </div>
+  1319→
+  1320→          {/* Right panel: Details, logs timeline, and new treatment entry */}
+  1321→          <div className="lg:col-span-2 space-y-6">
+  1322→            {!selectedInpatient ? (
+  1323→              <div className="bg-white/95 p-12 rounded-3xl border border-slate-200 shadow-sm text-center flex flex-col items-center justify-center space-y-4 min-h-[400px]">
+  1324→                <div className="bg-slate-50 text-slate-400 p-5 rounded-full border border-slate-100">
+  1325→                  <FileSpreadsheet className="h-10 w-10 stroke-[1.2]" />
+  1326→                </div>
+  1327→                <h3 className="font-extrabold text-slate-900 text-sm">Bemor kartochkasi tanlanmagan</h3>
+  1328→                <p className="text-xs text-slate-500 font-bold max-w-sm leading-relaxed">
+  1329→                  Kunlik muolajalar, davolash retseptlarini kiritish va xprinterda chop etish uchun chap tomondagi statsionar bemorlardan birini tanlang.
+  1330→                </p>
+  1331→              </div>
+  1332→            ) : (
+  1333→              <div className="space-y-6 animate-fade-in">
+  1334→                
+  1335→                {/* 1. Patient Inpatient Header Card */}
+  1336→                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+  1337→                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-150">
+  1338→                    <div>
+  1339→                      <div className="flex items-center space-x-2">
+  1340→                        <span className="bg-emerald-100 text-emerald-800 font-black text-[9px] px-2 py-0.5 rounded uppercase">
+  1341→                          Bemor Haqida Ma'lumot
+  1342→                        </span>
+  1343→                        <span className="bg-slate-100 text-slate-700 font-bold text-[9px] px-2 py-0.5 rounded">
+  1344→                          ID: {selectedInpatient.patientId}
+  1345→                        </span>
+  1346→                      </div>
+  1347→                      <h3 className="text-sm sm:text-base font-black text-slate-900 uppercase mt-2">
+  1348→                        {selectedInpatient.lastName} {selectedInpatient.firstName} {selectedInpatient.middleName || ''}
+  1349→                      </h3>
+  1350→                      <p className="text-[11px] text-slate-500 font-semibold mt-1">
+  1351→                        Jinsi: <strong className="text-slate-700">{selectedInpatient.gender}</strong> • Telefon: <strong className="text-slate-700">{selectedInpatient.phone}</strong>
+  1352→                      </p>
+  1353→                    </div>
+  1354→
+  1355→                    {/* Print full chronology button */}
+  1356→                    <button
+  1357→                      onClick={() => printFullStayHistory(selectedInpatient)}
+  1358→                      className="bg-slate-900 hover:bg-black text-white px-4 py-2 text-[10px] font-black rounded-xl transition-all cursor-pointer flex items-center space-x-1.5 shadow-sm"
+  1359→                    >
+  1360→                      <Printer className="h-4 w-4" />
+  1361→                      <span>To'liq Davolanish Tarixini Chop Etish</span>
+  1362→                    </button>
+  1363→                  </div>
+  1364→
+  1365→                  {/* Bed and stay duration properties */}
+  1366→                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[11px] font-bold">
+  1367→                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+  1368→                      <span className="text-[9px] text-slate-400 block font-black uppercase">Palata</span>
+  1369→                      <span className="text-indigo-800 font-extrabold">🚪 Xona № {selectedInpatient.roomNumber}</span>
+  1370→                    </div>
+  1371→                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+  1372→                      <span className="text-[9px] text-slate-400 block font-black uppercase">Shifokor</span>
+  1373→                      <span className="text-slate-800 font-extrabold">{selectedInpatient.doctorName}</span>
+  1374→                    </div>
+  1375→                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+  1376→                      <span className="text-[9px] text-slate-400 block font-black uppercase">Kelgan Sana</span>
+  1377→                      <span className="text-slate-800 font-bold">🗓 {selectedInpatient.checkInDate}</span>
+  1378→                    </div>
+  1379→                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+  1380→                      <span className="text-[9px] text-slate-400 block font-black uppercase">Muddati</span>
+  1381→                      <span className="text-emerald-700 font-extrabold">{selectedInpatient.plannedDays} kunlik shartnoma</span>
+  1382→                    </div>
+  1383→                  </div>
+  1384→
+  1385→                  <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-500/10 space-y-1">
+  1386→                    <span className="text-[9px] text-emerald-800 font-black block uppercase tracking-wider">Ushbu Statsionarga qo'yilgan umumiy diagnoz</span>
+  1387→                    <p className="text-slate-900 font-extrabold text-xs">{selectedInpatient.diagnosis || 'Kiritilmagan'}</p>
+  1388→                  </div>
+  1389→                </div>
+  1390→
+  1391→                {/* 2. Form to add a new daily treatment / medication log */}
+  1392→                <div className="bg-gradient-to-br from-slate-50 to-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+  1393→                  <div className="pb-3 border-b border-slate-200 flex justify-between items-center">
+  1394→                    <h4 className="font-black text-slate-900 text-xs uppercase flex items-center space-x-1.5">
+  1395→                      <PlusCircle className="h-4.5 w-4.5 text-emerald-600" />
+  1396→                      <span>Kunlik Muolaja va Dorilarni Yozish</span>
+  1397→                    </h4>
+  1398→                    <span className="text-[10px] text-slate-500 font-bold">Ko'rik varaqasi generatori</span>
+  1399→                  </div>
+  1400→
+  1401→                  <form onSubmit={handleSaveDailyTreatment} className="space-y-4">
+  1402→                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  1403→                      {/* Date selector */}
+  1404→                      <div className="sm:col-span-1">
+  1405→                        <label className="block text-[9px] font-black text-slate-500 mb-1 uppercase">
+  1406→                          Ko'rik / Muolaja Sanasi *
+  1407→                        </label>
+  1408→                        <div className="relative">
+  1409→                          <input
+  1410→                            type="date"
+  1411→                            value={inpDate}
+  1412→                            onChange={(e) => setInpDate(e.target.value)}
+  1413→                            required
+  1414→                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 text-slate-800 cursor-pointer"
+  1415→                          />
+  1416→                        </div>
+  1417→                      </div>
+  1418→
+  1419→                      {/* Procedures list input */}
+  1420→                      <div className="sm:col-span-2">
+  1421→                        <label className="block text-[9px] font-black text-slate-500 mb-1 uppercase">
+  1422→                          Tayinlangan Muolajalar (ukollar, fizioterapiya, bog'lovlar, osma tahlillar va h.z.)
+  1423→                        </label>
+  1424→                        <input
+  1425→                          type="text"
+  1426→                          placeholder="masalan: Osma osildi, 2 mahal vitamin ukol qilinadi"
+  1427→                          value={inpProcedures}
+  1428→                          onChange={(e) => setInpProcedures(e.target.value)}
+  1429→                          className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 text-slate-800"
+  1430→                        />
+  1431→                      </div>
+  1432→                    </div>
+  1433→
+  1434→                    {/* Doctor notes */}
+  1435→                    <div>
+  1436→                      <label className="block text-[9px] font-black text-slate-500 mb-1 uppercase">
+  1437→                        Shifokor Ko'rsatmalari / Kunlik Tavsiyalar
+  1438→                      </label>
+  1439→                      <textarea
+  1440→                        rows={2}
+  1441→                        placeholder="masalan: Qon bosimi o'lchab turilsin, ovqatdan so'ng dam olish tavsiya etildi..."
+  1442→                        value={inpNotes}
+  1443→                        onChange={(e) => setInpNotes(e.target.value)}
+  1444→                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 text-slate-800"
+  1445→                      />
+  1446→                    </div>
+  1447→
+  1448→                    {/* Daily Medications List (Rx) */}
+  1449→                    <div className="space-y-3 pt-2">
+  1450→                      <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+  1451→                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+  1452→                          Bugungi Kungi Dorilar Ro'yxati (Retsept)
+  1453→                        </span>
+  1454→                        <button
+  1455→                          type="button"
+  1456→                          onClick={addInpMedRow}
+  1457→                          className="text-emerald-700 hover:text-emerald-800 font-extrabold text-[10px] flex items-center space-x-1 cursor-pointer"
+  1458→                        >
+  1459→                          <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+  1460→                          <span>Dori qo'shish</span>
+  1461→                        </button>
+  1462→                      </div>
+  1463→
+  1464→                      <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+  1465→                        {inpMeds.map((med, index) => (
+  1466→                          <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-2 items-center">
+  1467→                            <input
+  1468→                              type="text"
+  1469→                              placeholder="Dori nomi (Amoksitsillin)"
+  1470→                              value={med.name}
+  1471→                              onChange={(e) => handleInpMedChange(index, 'name', e.target.value)}
+  1472→                              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none bg-white text-slate-800 placeholder-slate-400"
+  1473→                            />
+  1474→                            <input
+  1475→                              type="text"
+  1476→                              placeholder="Doza (masalan: 1 mahal)"
+  1477→                              value={med.dosage}
+  1478→                              onChange={(e) => handleInpMedChange(index, 'dosage', e.target.value)}
+  1479→                              className="px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none bg-white text-slate-800 placeholder-slate-400"
+  1480→                            />
+  1481→                            <div className="flex items-center space-x-1">
+  1482→                              <input
+  1483→                                type="text"
+  1484→                                placeholder="Kunlar (3 kun)"
+  1485→                                value={med.days}
+  1486→                                onChange={(e) => handleInpMedChange(index, 'days', e.target.value)}
+  1487→                                className="flex-1 px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold focus:outline-none bg-white text-slate-800 placeholder-slate-400"
+  1488→                              />
+  1489→                              <button
+  1490→                                type="button"
+  1491→                                onClick={() => removeInpMedRow(index)}
+  1492→                                className="text-slate-400 hover:text-rose-600 p-1.5 rounded hover:bg-rose-50"
+  1493→                              >
+  1494→                                <Trash2 className="h-4 w-4" />
+  1495→                              </button>
+  1496→                            </div>
+  1497→                          </div>
+  1498→                        ))}
+  1499→                      </div>
+  1500→                    </div>
+  1501→
+  1502→                    <div className="flex justify-end pt-2">
+  1503→                      <button
+  1504→                        type="submit"
+  1505→                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-black text-xs transition-colors flex items-center space-x-1 shadow-md shadow-emerald-500/15 cursor-pointer"
+  1506→                      >
+  1507→                        <Save className="h-4 w-4" />
+  1508→                        <span>Sana Bo'yicha Muolajani Saqlash</span>
+  1509→                      </button>
+  1510→                    </div>
+  1511→                  </form>
+  1512→                </div>
+  1513→
+  1514→                {/* 3. Chronological Daily Treatment History Timeline */}
+  1515→                <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+  1516→                  <div className="pb-3 border-b border-slate-100 flex justify-between items-center">
+  1517→                    <div>
+  1518→                      <h4 className="font-black text-slate-900 text-xs uppercase flex items-center space-x-1.5">
+  1519→                        <Clock className="h-4.5 w-4.5 text-slate-600" />
+  1520→                        <span>Kunlar Bo'yicha Barcha Muolajalar & Retseptlar</span>
+  1521→                      </h4>
+  1522→                      <p className="text-[9px] text-slate-400 font-bold mt-0.5">Sana bo'yicha ketma-ketlikda yozib borilgan tarixdagi varaqalar</p>
+  1523→                    </div>
+  1524→                  </div>
+  1525→
+  1526→                  {!selectedInpatient.dailyTreatments || selectedInpatient.dailyTreatments.length === 0 ? (
+  1527→                    <div className="text-center py-8 bg-slate-50/50 rounded-2xl border border-slate-100">
+  1528→                      <p className="text-slate-400 font-semibold">Ushbu bemorga hali kunlik davolash yozuvlari kiritilmagan.</p>
+  1529→                      <p className="text-[10px] text-slate-400 font-bold mt-1">Yuqoridagi formadan kiritishingiz mumkin.</p>
+  1530→                    </div>
+  1531→                  ) : (
+  1532→                    <div className="space-y-4">
+  1533→                      {selectedInpatient.dailyTreatments.map((treatment) => (
+  1534→                        <div
+  1535→                          key={treatment.id}
+  1536→                          className="p-4 rounded-2xl border border-slate-200 bg-slate-50/40 hover:bg-slate-50 transition-colors space-y-3 relative"
+  1537→                        >
+  1538→                          <div className="flex justify-between items-center pb-2 border-b border-slate-200/60">
+  1539→                            <span className="font-extrabold text-slate-950 text-xs flex items-center space-x-1.5">
+  1540→                              <Calendar className="h-4 w-4 text-slate-500" />
+  1541→                              <span>{new Date(treatment.date).toLocaleDateString('uz-UZ')} ko'rik bayoni</span>
+  1542→                            </span>
+  1543→
+  1544→                            <div className="flex items-center space-x-2">
+  1545→                              {/* Print single treatment record */}
+  1546→                              <button
+  1547→                                onClick={() => printDailyTreatment(selectedInpatient, treatment)}
+  1548→                                className="text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg font-black text-[9px] flex items-center space-x-1 transition-all cursor-pointer"
+  1549→                              >
+  1550→                                <Printer className="h-3 w-3" />
+  1551→                                <span>XPrinterda Chop etish</span>
+  1552→                              </button>
+  1553→
+  1554→                              {/* Delete option */}
+  1555→                              <button
+  1556→                                onClick={() => handleDeleteDailyTreatment(treatment.id)}
+  1557→                                className="text-rose-600 hover:bg-rose-50 p-1 rounded-lg"
+  1558→                                title="Yozuvni o'chirish"
+  1559→                              >
+  1560→                                <Trash2 className="h-3.5 w-3.5" />
+  1561→                              </button>
+  1562→                            </div>
+  1563→                          </div>
+  1564→
+  1565→                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-700">
+  1566→                            <div>
+  1567→                              <span className="text-[9px] text-slate-400 block font-black uppercase">Amalga oshirilgan muolajalar</span>
+  1568→                              <p className="text-slate-800 font-bold text-[11px] leading-relaxed">
+  1569→                                {treatment.procedures || "Kiritilmagan"}
+  1570→                              </p>
+  1571→                            </div>
+  1572→                            <div>
+  1573→                              <span className="text-[9px] text-slate-400 block font-black uppercase">Shifokor eslatmalari</span>
+  1574→                              <p className="text-slate-800 font-semibold italic text-[11px] leading-relaxed">
+  1575→                                {treatment.doctorNotes || "Eslatmalar kiritilmagan"}
+  1576→                              </p>
+  1577→                            </div>
+  1578→                          </div>
+  1579→
+  1580→                          {treatment.prescriptions && treatment.prescriptions.length > 0 && (
+  1581→                            <div className="pt-2 border-t border-slate-200/40">
+  1582→                              <span className="text-[9px] text-slate-400 block font-black uppercase mb-1">Berilgan dorilar (Retsept)</span>
+  1583→                              <div className="flex flex-wrap gap-2">
+  1584→                                {treatment.prescriptions.map((m, idx) => (
+  1585→                                  <span key={idx} className="bg-white border border-slate-200 text-slate-800 text-[10px] px-2.5 py-1 rounded-lg font-bold">
+  1586→                                    💊 <strong className="font-black text-slate-900">{m.name}</strong> - {m.dosage} ({m.days})
+  1587→                                  </span>
+  1588→                                ))}
+  1589→                              </div>
+  1590→                            </div>
+  1591→                          )}
+  1592→                        </div>
+  1593→                      ))}
+  1594→                    </div>
+  1595→                  )}
+  1596→                </div>
+  1597→
+  1598→              </div>
+  1599→            )}
+  1600→          </div>
+  1601→
+  1602→        </div>
+  1603→      )}
+  1604→
+  1605→    </div>
+  1606→  );
+  1607→};
+  1608→

@@ -1,0 +1,896 @@
+     1→import React, { useState, useEffect } from 'react';
+     2→import { Patient, DepartmentId, Department } from '../types';
+     3→import { DEPARTMENTS as STATIC_DEPARTMENTS } from '../data';
+     4→import { Tv, Volume2, VolumeX, AlertCircle, Clock, Bell, Maximize2, Minimize2, ZoomIn, ZoomOut, Eraser } from 'lucide-react';
+     5→
+     6→interface TvMonitorProps {
+     7→  patients: Patient[];
+     8→  inlineMode?: boolean; // If true, it's displayed inside the admin panel. If false, it's the fullscreen HDMI view.
+     9→  departments?: Department[];
+    10→}
+    11→
+    12→export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = false, departments }) => {
+    13→  const [activeCalled, setActiveCalled] = useState<Patient | null>(null);
+    14→  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+    15→  const [lastCalledId, setLastCalledId] = useState<string>('');
+    16→  const [flashScreen, setFlashScreen] = useState<boolean>(false);
+    17→  const [localPatients, setLocalPatients] = useState<Patient[]>(patients);
+    18→  const [localDepts, setLocalDepts] = useState<Department[]>(departments || STATIC_DEPARTMENTS);
+    19→  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+    20→  const [zoomLevel, setZoomLevel] = useState<number>(1.0); // 0.8 to 1.5
+    21→  const [connectionStatus, setConnectionStatus] = useState<'online' | 'offline'>('online');
+    22→  const [hasInteracted, setHasInteracted] = useState<boolean>(false);
+    23→  // Monitor tozalash - vizual ko'rinishni tozalaydi, bazodan hech narsa o'chirmaydi
+    24→  const [isMonitorCleared, setIsMonitorCleared] = useState<boolean>(false);
+    25→
+    26→
+    27→  // Sync fullscreen state with native browser fullscreen
+    28→  useEffect(() => {
+    29→    const handleFullscreenChange = () => {
+    30→      setIsFullscreen(!!document.fullscreenElement);
+    31→    };
+    32→    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    33→    return () => {
+    34→      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    35→    };
+    36→  }, []);
+    37→
+    38→  const toggleFullscreen = () => {
+    39→    if (!document.fullscreenElement) {
+    40→      document.documentElement.requestFullscreen().catch((err) => {
+    41→        console.error("Fullscreen entry error:", err);
+    42→      });
+    43→    } else {
+    44→      document.exitFullscreen().catch((err) => {
+    45→        console.error("Fullscreen exit error:", err);
+    46→      });
+    47→    }
+    48→  };
+    49→
+    50→  const handleZoomIn = () => {
+    51→    setZoomLevel((prev) => Math.min(prev + 0.1, 1.6));
+    52→  };
+    53→
+    54→  const handleZoomOut = () => {
+    55→    setZoomLevel((prev) => Math.max(prev - 0.1, 0.7));
+    56→  };
+    57→
+    58→  // Sync state from localStorage & Live database API polling for multi-tab/multi-device HDMI operation
+    59→  useEffect(() => {
+    60→    // 1. Storage / Local cache fallback sync
+    61→    const handleSyncFromLocal = () => {
+    62→      const savedPatients = localStorage.getItem('dr_maruf_patients_list');
+    63→      if (savedPatients) {
+    64→        try {
+    65→          const parsed = JSON.parse(savedPatients) as Patient[];
+    66→          setLocalPatients(parsed);
+    67→        } catch (e) {
+    68→          // Ignored
+    69→        }
+    70→      }
+    71→
+    72→      const savedDepts = localStorage.getItem('dr_maruf_departments');
+    73→      if (savedDepts) {
+    74→        try {
+    75→          const parsed = JSON.parse(savedDepts) as Department[];
+    76→          setLocalDepts(parsed);
+    77→        } catch (e) {
+    78→          // Ignored
+    79→        }
+    80→      }
+    81→    };
+    82→
+    83→    // 2. Main Live API Fetch Sync (with active retry and status management)
+    84→    const handleSyncFromDatabase = async () => {
+    85→      try {
+    86→        const res = await fetch('https://medical-pro-api.norinkomp.workers.dev/api/data');
+    87→        if (!res.ok) throw new Error('API server down');
+    88→        
+    89→        const dbData = await res.json();
+    90→        
+    91→        // Sync patients list
+    92→        if (dbData.patients) {
+    93→          setLocalPatients(dbData.patients);
+    94→          localStorage.setItem('dr_maruf_patients_list', JSON.stringify(dbData.patients));
+    95→        }
+    96→
+    97→        // Sync departments list
+    98→        if (dbData.departments) {
+    99→          setLocalDepts(dbData.departments);
+   100→          localStorage.setItem('dr_maruf_departments', JSON.stringify(dbData.departments));
+   101→        }
+   102→
+   103→        setConnectionStatus('online');
+   104→      } catch (err) {
+   105→        console.warn('⚠️ [TV Monitor Sync]: Server unreachable, falling back to cached local storage.', err);
+   106→        setConnectionStatus('offline');
+   107→        handleSyncFromLocal();
+   108→      }
+   109→    };
+   110→
+   111→    // Initial load
+   112→    handleSyncFromDatabase();
+   113→
+   114→    // Check storage changes
+   115→    window.addEventListener('storage', handleSyncFromLocal);
+   116→
+   117→    // Sync via broadcast channel if supported
+   118→    let channel: BroadcastChannel | null = null;
+   119→    try {
+   120→      channel = new BroadcastChannel('dr_maruf_queue_channel');
+   121→      channel.onmessage = (event) => {
+   122→        if (event.data) {
+   123→          if (event.data.type === 'CALL_PATIENT' && event.data.data) {
+   124→            setLocalPatients(event.data.data);
+   125→            localStorage.setItem('dr_maruf_patients_list', JSON.stringify(event.data.data));
+   126→          } else if (event.data.type === 'UPDATE_DEPARTMENTS' && event.data.data) {
+   127→            setLocalDepts(event.data.data);
+   128→            localStorage.setItem('dr_maruf_departments', JSON.stringify(event.data.data));
+   129→          } else {
+   130→            handleSyncFromDatabase();
+   131→          }
+   132→        }
+   133→      };
+   134→    } catch (e) {
+   135→      // Ignored
+   136→    }
+   137→
+   138→    // Polling interval (Every 1.5 seconds for instant queue updates on HDMI screen)
+   139→    const interval = setInterval(handleSyncFromDatabase, 1500);
+   140→
+   141→    return () => {
+   142→      window.removeEventListener('storage', handleSyncFromLocal);
+   143→      if (channel) channel.close();
+   144→      clearInterval(interval);
+   145→    };
+   146→  }, []);
+   147→
+   148→  // Update localPatients instantly when patients prop changes (important for same-tab simulator)
+   149→  useEffect(() => {
+   150→    if (patients) {
+   151→      setLocalPatients(patients);
+   152→    }
+   153→  }, [patients]);
+   154→
+   155→  // Update depts if prop updates
+   156→  useEffect(() => {
+   157→    if (departments && departments.length > 0) {
+   158→      setLocalDepts(departments);
+   159→    }
+   160→  }, [departments]);
+   161→
+   162→  // Set the current active called patient
+   163→  useEffect(() => {
+   164→    // Active is the one with status = 'Qabulda' and most recently called (max calledAt)
+   165→    const activeOnes = localPatients.filter((p) => p.status === 'Qabulda');
+   166→    if (activeOnes.length > 0) {
+   167→      // Sort by calledAt descending
+   168→      activeOnes.sort((a, b) => {
+   169→        const t1 = a.calledAt ? new Date(a.calledAt).getTime() : 0;
+   170→        const t2 = b.calledAt ? new Date(b.calledAt).getTime() : 0;
+   171→        return t2 - t1;
+   172→      });
+   173→      const current = activeOnes[0];
+   174→      setActiveCalled(current);
+   175→
+   176→      // Check if this is a newly called patient to play sound/TTS
+   177→      if (current && current.id !== lastCalledId) {
+   178→        setLastCalledId(current.id);
+   179→        triggerCallAlert(current);
+   180→      }
+   181→    } else {
+   182→      setActiveCalled(null);
+   183→    }
+   184→  }, [localPatients, lastCalledId]);
+   185→
+   186→  const getDeptName = (id: DepartmentId) => {
+   187→    return localDepts.find((d) => d.id === id)?.name || id;
+   188→  };
+   189→
+   190→  const getRoomNumber = (id: DepartmentId) => {
+   191→    return localDepts.find((d) => d.id === id)?.room || 'Noma\'lum';
+   192→  };
+   193→
+   194→  const triggerCallAlert = (patient: Patient) => {
+   195→    // Flash screen effect
+   196→    setFlashScreen(true);
+   197→    setTimeout(() => setFlashScreen(false), 2500);
+   198→
+   199→    if (!soundEnabled) return;
+   200→
+   201→    // 1. Play professional chime audio using AudioContext
+   202→    try {
+   203→      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+   204→      
+   205→      // Chime note sequence
+   206→      const playTone = (freq: number, start: number, duration: number) => {
+   207→        const osc = audioCtx.createOscillator();
+   208→        const gainNode = audioCtx.createGain();
+   209→        osc.connect(gainNode);
+   210→        gainNode.connect(audioCtx.destination);
+   211→        osc.frequency.setValueAtTime(freq, start);
+   212→        gainNode.gain.setValueAtTime(0, start);
+   213→        gainNode.gain.linearRampToValueAtTime(0.3, start + 0.05);
+   214→        gainNode.gain.exponentialRampToValueAtTime(0.001, start + duration - 0.05);
+   215→        osc.start(start);
+   216→        osc.stop(start + duration);
+   217→      };
+   218→
+   219→      const now = audioCtx.currentTime;
+   220→      playTone(523.25, now, 0.4); // C5
+   221→      playTone(659.25, now + 0.15, 0.4); // E5
+   222→      playTone(783.99, now + 0.3, 0.4); // G5
+   223→      playTone(1046.50, now + 0.5, 0.6); // C6
+   224→    } catch (e) {
+   225→      console.log('Audio error:', e);
+   226→    }
+   227→
+   228→    // 2. Play professional voice notification (TTS) in Uzbek
+   229→    try {
+   230→      const deptName = getDeptName(patient.departmentId);
+   231→      const room = getRoomNumber(patient.departmentId);
+   232→      const speechText = `Navbat ${patient.queueNumber}. ${patient.lastName} ${patient.firstName}. ${deptName}, ${room}ga marhamat!`;
+   233→      
+   234→      const utterance = new SpeechSynthesisUtterance(speechText);
+   235→      // Select appropriate voice rate and pitch
+   236→      utterance.rate = 0.85; // slightly slower for clarity
+   237→      utterance.pitch = 1.0;
+   238→      utterance.volume = 1.0;
+   239→      
+   240→      // Try to find a Turkic/Uzbek or Russian voice for better phonetics if available
+   241→      const voices = window.speechSynthesis.getVoices();
+   242→      const trVoice = voices.find(v => v.lang.startsWith('tr'));
+   243→      const ruVoice = voices.find(v => v.lang.startsWith('ru'));
+   244→      if (trVoice) {
+   245→        utterance.voice = trVoice;
+   246→      } else if (ruVoice) {
+   247→        utterance.voice = ruVoice;
+   248→      }
+   249→      
+   250→      setTimeout(() => {
+   251→        window.speechSynthesis.speak(utterance);
+   252→      }, 1000);
+   253→    } catch (e) {
+   254→      console.log('TTS error:', e);
+   255→    }
+   256→  };
+   257→
+   258→  // Helper to retrieve color coding and styling for each department
+   259→  const getDeptColorInfo = (id: string) => {
+   260→    const normId = id.toLowerCase();
+   261→    if (normId.includes('lor')) {
+   262→      return {
+   263→        colorName: "KO'K (LOR)",
+   264→        badgeBg: 'bg-gradient-to-r from-sky-500 to-blue-600 shadow-[0_4px_12px_rgba(14,165,233,0.15)]',
+   265→        badgeText: 'text-white',
+   266→        borderClass: 'border-sky-100',
+   267→        rowBg: 'bg-white hover:bg-sky-50/20 border border-slate-100',
+   268→        textColor: 'text-sky-600 font-extrabold',
+   269→        roomBg: 'bg-sky-50 text-sky-800 border-sky-100',
+   270→        lightBg: 'bg-sky-50/50',
+   271→        glow: 'shadow-[0_10px_30px_rgba(14,165,233,0.06)]',
+   272→        accentGlow: 'bg-sky-50 border border-sky-100 text-sky-700',
+   273→      };
+   274→    }
+   275→    if (normId.includes('nevro')) {
+   276→      return {
+   277→        colorName: "SARIQ (NEVROLOGIYA)",
+   278→        badgeBg: 'bg-gradient-to-r from-amber-400 to-amber-500 shadow-[0_4px_12px_rgba(245,158,11,0.15)]',
+   279→        badgeText: 'text-slate-900',
+   280→        borderClass: 'border-amber-100',
+   281→        rowBg: 'bg-white hover:bg-amber-50/20 border border-slate-100',
+   282→        textColor: 'text-amber-700 font-extrabold',
+   283→        roomBg: 'bg-amber-50 text-amber-900 border-amber-100',
+   284→        lightBg: 'bg-amber-50/50',
+   285→        glow: 'shadow-[0_10px_30px_rgba(245,158,11,0.06)]',
+   286→        accentGlow: 'bg-amber-50 border border-amber-100 text-amber-800',
+   287→      };
+   288→    }
+   289→    if (normId.includes('kardio')) {
+   290→      return {
+   291→        colorName: "QIZIL (KARDIOLOGIYA)",
+   292→        badgeBg: 'bg-gradient-to-r from-rose-500 to-red-600 shadow-[0_4px_12px_rgba(244,63,94,0.15)]',
+   293→        badgeText: 'text-white',
+   294→        borderClass: 'border-rose-100',
+   295→        rowBg: 'bg-white hover:bg-rose-50/20 border border-slate-100',
+   296→        textColor: 'text-rose-600 font-extrabold',
+   297→        roomBg: 'bg-rose-50 text-rose-800 border-rose-100',
+   298→        lightBg: 'bg-rose-50/50',
+   299→        glow: 'shadow-[0_10px_30px_rgba(244,63,94,0.06)]',
+   300→        accentGlow: 'bg-rose-50 border border-rose-100 text-rose-700',
+   301→      };
+   302→    }
+   303→    // Default (e.g. labaratoriya, others)
+   304→    return {
+   305→      colorName: "BINAFSHA (LABORATORIYA)",
+   306→      badgeBg: 'bg-gradient-to-r from-purple-500 to-indigo-600 shadow-[0_4px_12px_rgba(168,85,247,0.15)]',
+   307→      badgeText: 'text-white',
+   308→      borderClass: 'border-purple-100',
+   309→      rowBg: 'bg-white hover:bg-purple-50/20 border border-slate-100',
+   310→      textColor: 'text-purple-600 font-extrabold',
+   311→      roomBg: 'bg-purple-50 text-purple-800 border-purple-100',
+   312→      lightBg: 'bg-purple-50/50',
+   313→      glow: 'shadow-[0_10px_30px_rgba(168,85,247,0.06)]',
+   314→      accentGlow: 'bg-purple-50 border border-purple-100 text-purple-700',
+   315→    };
+   316→  };
+   317→
+   318→  // Next waiting list (exclude active called ones and completed ones)
+   319→  // Agar monitor tozalangan bo'lsa, bo'sh ro'yxat ko'rsatamiz (bazodan o'chirmaymiz)
+   320→  const waitingQueue = isMonitorCleared ? [] : localPatients
+   321→    .filter((p) => p.status === 'Kutmoqda')
+   322→    .sort((a, b) => a.queueNumber - b.queueNumber)
+   323→    .slice(0, 20);
+   324→
+   325→  // Unified list of patients to display in the main center board: shows active 'Qabulda' first, then 'Kutmoqda'
+   326→  // Agar monitor tozalangan bo'lsa, faqat faol qabuldagi bemorni ko'rsatamiz (navbatni tozalaymiz)
+   327→  const displayPatients = isMonitorCleared ? [] : localPatients
+   328→    .filter((p) => p.status === 'Qabulda' || p.status === 'Kutmoqda')
+   329→    .sort((a, b) => {
+   330→      if (a.status === 'Qabulda' && b.status !== 'Qabulda') return -1;
+   331→      if (a.status !== 'Qabulda' && b.status === 'Qabulda') return 1;
+   332→      return a.queueNumber - b.queueNumber;
+   333→    })
+   334→    .slice(0, 10); // Display top 10 for absolute legibility and spacing on high-res TVs
+   335→
+   336→  const testTriggerVoice = () => {
+   337→    if (activeCalled) {
+   338→      triggerCallAlert(activeCalled);
+   339→    } else if (localPatients.length > 0) {
+   340→      const mockPatient = localPatients[0];
+   341→      triggerCallAlert(mockPatient);
+   342→    } else {
+   343→      alert('Chaqirish uchun bemorlar ro\'yxati bo\'sh!');
+   344→    }
+   345→  };
+   346→
+   347→  // Agar monitor tozalangan bo'lsa, faol bemor ham ko'rinmaydi
+   348→  const displayActiveCalled = isMonitorCleared ? null : activeCalled;
+   349→
+   350→  // Monitor tozalash funksiyasi - faqat vizual ko'rinishni tozalaydi
+   351→  // Bazodan hech narsa o'chmaydi! Bemorlar, to'lovlar, tarix — hammasi saqlanib qoladi
+   352→  const handleClearMonitor = () => {
+   353→    if (!isMonitorCleared) {
+   354→      if (window.confirm(
+   355→        '🧹 NAVBAT MONITORINI TOZALASH\n\n' +
+   356→        'Bu amal faqat monitor ekranidagi navbat ro\'yxatini tozalaydi.\n\n' +
+   357→        '✅ Bemorlar ma\'lumotlari bazada saqlanib qoladi\n' +
+   358→        '✅ To\'lovlar va tarix o\'chirilmaydi\n' +
+   359→        '✅ Hisobotlar o\'zgarishsiz qoladi\n\n' +
+   360→        'Monitor tozalansinmi?'
+   361→      )) {
+   362→        setIsMonitorCleared(true);
+   363→      }
+   364→    } else {
+   365→      // Qayta ko'rsatish
+   366→      setIsMonitorCleared(false);
+   367→    }
+   368→  };
+   369→
+   370→  // Dynamic ticker content to show patients and queue numbers on the moving footer
+   371→  const getDynamicTickerText = () => {
+   372→    const parts = [
+   373→      "🌟 DR.MARUF CLINIK SHIFOKORLARI SIZGA MUSTAHKAM SOG'LIK TILAYDI!",
+   374→    ];
+   375→
+   376→    if (displayActiveCalled) {
+   377→      parts.push(
+   378→        `📣 HOZIRGI QABULDAGI BEMOR: NAVBAT #${displayActiveCalled.queueNumber} - ${displayActiveCalled.lastName.toUpperCase()} ${displayActiveCalled.firstName.toUpperCase()} (${getDeptName(displayActiveCalled.departmentId).toUpperCase()} xona: ${getRoomNumber(displayActiveCalled.departmentId)})`
+   379→      );
+   380→    }
+   381→
+   382→    const waitings = localPatients.filter((p) => p.status === 'Kutmoqda').sort((a, b) => a.queueNumber - b.queueNumber);
+   383→    if (waitings.length > 0) {
+   384→      const waitStr = waitings.map((p) => `#${p.queueNumber} ${p.lastName.toUpperCase()}`).slice(0, 10).join(', ');
+   385→      parts.push(`⏱️ NAVBATDAGI BEMORLAR RAQAMLARI: ${waitStr}`);
+   386→    } else {
+   387→      parts.push("⏱️ NAVBATDAGI BEMORLAR RO'YXATI BO'SH");
+   388→    }
+   389→
+   390→    parts.push(
+   391→      "🩺 ILTIMOS, NAVBATINGIZ KELGANDA KABINETLARGA TARTIB BILAN KIRING!",
+   392→      "🏢 SHIFOKOR KO'RIGIDAN KEYIN RETSEPTINGIZNI OLISHNI UNUTMANG!",
+   393→      "🌟 SALOMATLIGINGIZ O'Z QO'LINGIZDA!"
+   394→    );
+   395→
+   396→    return parts.join("   •   ");
+   397→  };
+   398→
+   399→  if (inlineMode) {
+   400→    // Small preview card in the admin workspace
+   401→    return (
+   402→      <div className="bg-white p-6 rounded-3xl border border-slate-200/50 shadow-[0_8px_30px_rgb(0,0,0,0.02)] space-y-4 animate-fade-in">
+   403→        <div className="flex justify-between items-center pb-3.5 border-b border-slate-100">
+   404→          <div className="flex items-center space-x-3">
+   405→            <div className="bg-emerald-50 text-emerald-600 p-2.5 rounded-xl">
+   406→              <Tv className="h-5 w-5" />
+   407→            </div>
+   408→            <div>
+   409→              <h3 className="text-sm font-bold text-slate-800">Tashqi Monitor (HDMI TV) Simulyatori</h3>
+   410→              <p className="text-xxs text-slate-400 font-medium">Kasalxona kutish zalidagi televizor displeyi</p>
+   411→            </div>
+   412→          </div>
+   413→          <button
+   414→            onClick={() => window.open(window.location.origin + '?view=monitor', '_blank')}
+   415→            className="px-3 py-1.5 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border border-emerald-100/60 rounded-xl text-xxs font-semibold transition-all cursor-pointer animate-pulse"
+   416→          >
+   417→            📺 Alohida tabda ochish (Full HD)
+   418→          </button>
+   419→        </div>
+   420→
+   421→        {/* Monitor tozalash tugmasi (inline mode uchun) */}
+   422→        <div className="flex items-center gap-2">
+   423→          <button
+   424→            onClick={handleClearMonitor}
+   425→            className={`px-3 py-1.5 rounded-xl transition-all border text-xxs font-bold cursor-pointer flex items-center gap-1.5 ${
+   426→              isMonitorCleared
+   427→                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+   428→                : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-300'
+   429→            }`}
+   430→            title={isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : 'Monitor ekranini tozalash (baza o\'zgartirilmaydi)'}
+   431→          >
+   432→            <Eraser className="h-3.5 w-3.5" />
+   433→            {isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : '🧹 Monitorni tozalash'}
+   434→          </button>
+   435→          {isMonitorCleared && (
+   436→            <span className="text-[10px] text-emerald-600 font-bold italic">
+   437→              ✅ Monitor tozalandi — baza o'zgartirilmadi
+   438→            </span>
+   439→          )}
+   440→        </div>
+   441→
+   442→        {/* Small preview block */}
+   443→        <div className="bg-slate-50 text-slate-800 rounded-2xl p-5 font-sans relative overflow-hidden border border-slate-200/80 shadow-inner">
+   444→          <div className="flex justify-between items-center border-b border-slate-200 pb-2.5 mb-4 text-xxs font-mono text-slate-400">
+   445→            <span className="font-bold text-slate-500">🖥️ MONITOR TV SCREEN PREVIEW</span>
+   446→            <div className="flex items-center space-x-2">
+   447→              <button
+   448→                onClick={() => setSoundEnabled(!soundEnabled)}
+   449→                className="hover:text-slate-600 cursor-pointer"
+   450→                title="Ovozli chaqiruvni yoqish/o'chirish"
+   451→              >
+   452→                {soundEnabled ? <Volume2 className="h-3.5 w-3.5 text-[#00966d] animate-pulse" /> : <VolumeX className="h-3.5 w-3.5 text-rose-500" />}
+   453→              </button>
+   454→              <button onClick={testTriggerVoice} className="text-xxs text-[#00966d] font-bold hover:underline">
+   455→                🔊 Chaqirish test
+   456→              </button>
+   457→            </div>
+   458→          </div>
+   459→
+   460→          <div className="grid grid-cols-3 gap-3">
+   461→            {/* Active called */}
+   462→            <div className="col-span-2 bg-white p-4 rounded-xl border border-slate-150 text-center flex flex-col justify-center shadow-sm">
+   463→              {displayActiveCalled ? (
+   464→                <div className="space-y-1">
+   465→                  <div className="text-[10px] font-bold text-emerald-600 tracking-wider">CHAQIRILAYOTGAN BEMOR</div>
+   466→                  <div className="text-2xl font-extrabold text-emerald-700">#{displayActiveCalled.queueNumber}</div>
+   467→                  <div className="text-xs font-bold truncate text-slate-850">{displayActiveCalled.lastName} {activeCalled.firstName}</div>
+   468→                  <div className="text-xxs text-slate-400 font-medium">
+   469→                    {getDeptName(displayActiveCalled.departmentId)} ({getRoomNumber(activeCalled.departmentId)})
+   470→                  </div>
+   471→                </div>
+   472→              ) : (
+   473→                <div className="text-slate-400 text-xxs py-4 font-bold uppercase">Chaqirilgan bemorlar yo'q</div>
+   474→              )}
+   475→            </div>
+   476→
+   477→            {/* Waiting queue */}
+   478→            <div className="col-span-1 bg-white p-3 rounded-xl border border-slate-150 shadow-sm">
+   479→              <div className="text-xxs font-bold text-slate-400 border-b border-slate-100 pb-1.5 mb-2 text-center">Navbatdagilar</div>
+   480→              <div className="space-y-1">
+   481→                {waitingQueue.length === 0 ? (
+   482→                  <div className="text-slate-400 text-[10px] text-center py-2">Navbat bo'sh</div>
+   483→                ) : (
+   484→                  waitingQueue.slice(0, 5).map((p) => {
+   485→                    const colors = getDeptColorInfo(p.departmentId);
+   486→                    return (
+   487→                      <div key={p.id} className={`flex justify-between text-[10px] ${colors.lightBg} px-1.5 py-0.5 rounded border ${colors.borderClass}`}>
+   488→                        <span className={`font-bold ${colors.textColor}`}>#{p.queueNumber}</span>
+   489→                        <span className="truncate max-w-[50px] text-slate-500 font-medium">{p.lastName}</span>
+   490→                      </div>
+   491→                    );
+   492→                  })
+   493→                )}
+   494→              </div>
+   495→            </div>
+   496→          </div>
+   497→          
+   498→          <div className="mt-3.5 bg-emerald-50 text-emerald-700 border border-emerald-100 py-1.5 px-2 rounded-xl text-[9px] font-mono whitespace-nowrap overflow-hidden text-center">
+   499→            DR.Maruf Clinic sihat-salomatlik tilaydi!
+   500→          </div>
+   501→        </div>
+   502→      </div>
+   503→    );
+   504→  }
+   505→
+   506→  // STANDALONE FULLSCREEN MONITOR VIEW FOR EXTERNAL TV (via HDMI)
+   507→  return (
+   508→    <div
+   509→      onClick={() => setHasInteracted(true)}
+   510→      className={`h-screen overflow-hidden clinic-bg-gradient text-slate-800 font-sans flex flex-col justify-between transition-all duration-300 ${
+   511→        flashScreen ? 'bg-emerald-50 border-b border-emerald-500/20' : ''
+   512→      }`}
+   513→    >
+   514→      {/* Interaction Warning for Audio */}
+   515→      {!hasInteracted && soundEnabled && (
+   516→        <div className="bg-amber-500 text-white font-black text-xs py-2 px-4 text-center cursor-pointer animate-pulse border-b border-amber-600 flex items-center justify-center space-x-2 z-50">
+   517→          <Volume2 className="h-4 w-4 animate-bounce" />
+   518→          <span>OVOZLI CHAQIRUVLARNI FAOLLASHTIRISH UCHUN EKRANGA BIR MARTA BOSING (CLICK TO ENABLE TV AUDIO CALLS)</span>
+   519→        </div>
+   520→      )}
+   521→
+   522→      {/* Standalone Header */}
+   523→      <header className="bg-white border-b border-slate-200/80 px-8 py-5 flex justify-between items-center shadow-md relative overflow-hidden">
+   524→        {/* Top aesthetic gradient bar */}
+   525→        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-600"></div>
+   526→
+   527→        <div className="flex items-center space-x-4">
+   528→          <div className="bg-[#009e74] p-3 rounded-2xl flex items-center justify-center shadow-md shadow-emerald-500/10">
+   529→            <Tv className="h-8 w-8 text-white animate-pulse" />
+   530→          </div>
+   531→          <div>
+   532→            <div className="flex items-center space-x-2.5">
+   533→              <h1 className="text-3xl font-black tracking-tight text-slate-900">
+   534→                DR.Maruf <span className="text-emerald-600">Clinic</span>
+   535→              </h1>
+   536→              
+   537→              {/* Live Connection Status indicator dot and badge */}
+   538→              <div className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-full border text-[10px] font-bold ${
+   539→                connectionStatus === 'online' 
+   540→                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+   541→                  : 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse'
+   542→              }`}>
+   543→                <span className={`h-2 w-2 rounded-full ${connectionStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500 animate-ping'} inline-block`}></span>
+   544→                <span>{connectionStatus === 'online' ? 'Ulanish: OK (Faol)' : 'Tarmoq kutilmoqda...'}</span>
+   545→              </div>
+   546→            </div>
+   547→            <p className="text-xs font-bold text-slate-500 font-mono uppercase tracking-widest mt-0.5">
+   548→              Elektron Navbat Tizimi • Monitor Displeyi
+   549→            </p>
+   550→          </div>
+   551→        </div>
+   552→
+   553→        {/* Control toolbar on standalone TV */}
+   554→        <div className="flex items-center space-x-4 z-10">
+   555→          {/* Zoom controls for fitting different TV/HDMI dimensions */}
+   556→          <div className="flex items-center bg-slate-100 rounded-xl border border-slate-200 overflow-hidden p-1">
+   557→            <button
+   558→              onClick={handleZoomOut}
+   559→              disabled={zoomLevel <= 0.7}
+   560→              className="p-1.5 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+   561→              title="Shriftni kichiklashtirish"
+   562→            >
+   563→              <ZoomOut className="h-4 w-4" />
+   564→            </button>
+   565→            <span className="text-xs font-mono font-black text-slate-700 px-2 min-w-[65px] text-center">
+   566→              {Math.round(zoomLevel * 100)}%
+   567→            </span>
+   568→            <button
+   569→              onClick={handleZoomIn}
+   570→              disabled={zoomLevel >= 1.6}
+   571→              className="p-1.5 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+   572→              title="Shriftni kattalashtirish"
+   573→            >
+   574→              <ZoomIn className="h-4 w-4" />
+   575→            </button>
+   576→          </div>
+   577→
+   578→          {/* Fullscreen control for perfect TV coverage */}
+   579→          <button
+   580→            onClick={toggleFullscreen}
+   581→            className="p-3 bg-white hover:bg-slate-50 text-slate-800 rounded-xl transition-all border border-slate-200 shadow-xs cursor-pointer flex items-center gap-2 font-bold text-xs"
+   582→            title="To'liq ekranga o'tkazish"
+   583→          >
+   584→            {isFullscreen ? (
+   585→              <>
+   586→                <Minimize2 className="h-5 w-5 text-emerald-600" />
+   587→                <span className="hidden md:inline text-slate-700">Kichraytirish</span>
+   588→              </>
+   589→            ) : (
+   590→              <>
+   591→                <Maximize2 className="h-5 w-5 text-emerald-600 animate-pulse" />
+   592→                <span className="hidden md:inline text-emerald-600 font-extrabold">To'liq Ekran</span>
+   593→              </>
+   594→            )}
+   595→          </button>
+   596→
+   597→          <button
+   598→            onClick={() => setSoundEnabled(!soundEnabled)}
+   599→            className="p-3 bg-white hover:bg-slate-50 text-slate-800 rounded-xl transition-colors border border-slate-200 shadow-xs cursor-pointer"
+   600→            title="Tovushni yoqish/o'chirish"
+   601→          >
+   602→            {soundEnabled ? (
+   603→              <Volume2 className="h-5 w-5 text-emerald-600 animate-bounce" />
+   604→            ) : (
+   605→              <VolumeX className="h-5 w-5 text-rose-500" />
+   606→            )}
+   607→          </button>
+   608→
+   609→          {/* Monitor tozalash tugmasi - faqat vizual ko'rinishni tozalaydi, bazodan o'chirmaydi */}
+   610→          <button
+   611→            onClick={handleClearMonitor}
+   612→            className={`p-3 rounded-xl transition-all border shadow-xs cursor-pointer flex items-center gap-2 font-bold text-xs ${
+   613→              isMonitorCleared
+   614→                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-700'
+   615→                : 'bg-white hover:bg-rose-50 text-rose-600 border-rose-200 hover:border-rose-300'
+   616→            }`}
+   617→            title={isMonitorCleared ? 'Navbatni qayta ko\'rsatish (baza o\'zgartirilmagan)' : 'Monitor ekranini tozalash (baza o\'zgartirilmaydi)'}
+   618→          >
+   619→            <Eraser className="h-5 w-5" />
+   620→            <span className="hidden md:inline">
+   621→              {isMonitorCleared ? 'Navbatni qayta ko\'rsatish' : 'Monitorni tozalash'}
+   622→            </span>
+   623→          </button>
+   624→
+   625→          <div className="bg-emerald-50 border border-emerald-200 px-5 py-2.5 rounded-xl text-emerald-800 flex items-center space-x-2 font-mono text-base font-black shadow-sm">
+   626→            <Clock className="h-5 w-5 text-emerald-600 animate-spin-slow" />
+   627→            <span>
+   628→              {new Date().toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+   629→            </span>
+   630→          </div>
+   631→        </div>
+   632→      </header>
+   633→
+   634→      {/* Main Container */}
+   635→      <main 
+   636→        className="flex-1 p-8 flex flex-col space-y-8 min-h-0 transition-all duration-200"
+   637→        style={{ zoom: zoomLevel }}
+   638→      >
+   639→        
+   640→        {/* UPPER BANNER SECTION */}
+   641→        {displayActiveCalled ? (
+   642→          (() => {
+   643→            const activeColors = getDeptColorInfo(displayActiveCalled.departmentId);
+   644→            return (
+   645→              <div
+   646→                className={`bg-white border rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative transition-all duration-300 overflow-hidden ${
+   647→                  flashScreen
+   648→                    ? 'border-emerald-400 bg-emerald-50/30 shadow-emerald-500/10'
+   649→                    : `border-slate-200/80 shadow-md`
+   650→                }`}
+   651→              >
+   652→                {/* Left side accent band */}
+   653→                <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-emerald-500 via-teal-400 to-emerald-600"></div>
+   654→
+   655→                {flashScreen && (
+   656→                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-8 py-2.5 rounded-b-2xl text-xs font-black tracking-widest uppercase flex items-center space-x-2 shadow-lg animate-bounce z-20">
+   657→                    <Bell className="h-4 w-4 animate-ring" />
+   658→                    <span>YANGI CHAQIRUV • MARHAMAT!</span>
+   659→                  </div>
+   660→                )}
+   661→
+   662→                {/* Left section: Huge animated queue number, designed like a beautiful premium container */}
+   663→                <div className="flex items-center shrink-0 z-10 pl-2">
+   664→                  <div className={`p-4 rounded-3xl border border-slate-150 ${activeColors.roomBg} text-center min-w-[160px] md:min-w-[200px] flex flex-col justify-center relative overflow-hidden shadow-inner`}>
+   665→                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1.5">
+   666→                      NAVBAT RAQAMI
+   667→                    </span>
+   668→                    <span className={`text-6xl md:text-7xl font-black block py-4 px-4 rounded-2xl ${activeColors.badgeBg} ${activeColors.badgeText} shadow-md tracking-tight`}>
+   669→                      #{displayActiveCalled.queueNumber}
+   670→                    </span>
+   671→                  </div>
+   672→                </div>
+   673→
+   674→                {/* Middle section: Patient Name */}
+   675→                <div className="flex-1 text-center md:text-left z-10">
+   676→                  <span className="text-[11px] font-black text-slate-400 tracking-widest uppercase block mb-1">
+   677→                    QABULGA TAKLIF ETILADI
+   678→                  </span>
+   679→                  <h2 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight uppercase">
+   680→                    {displayActiveCalled.lastName} {displayActiveCalled.firstName} {displayActiveCalled.middleName || ''}
+   681→                  </h2>
+   682→                </div>
+   683→
+   684→                {/* Right section: Department Info with Specific Color Theme */}
+   685→                <div className="flex flex-col sm:flex-row gap-4 shrink-0 w-full md:w-auto z-10">
+   686→                  <div className={`p-4 rounded-2xl border border-slate-150 ${activeColors.accentGlow} text-center min-w-[200px] flex flex-col justify-center`}>
+   687→                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+   688→                      KABINET / YO'NALISH
+   689→                    </span>
+   690→                    <span className="text-xl font-black block">
+   691→                      {getDeptName(displayActiveCalled.departmentId).toUpperCase()}
+   692→                    </span>
+   693→                  </div>
+   694→
+   695→                  <div className={`p-4 rounded-2xl border border-slate-150 ${activeColors.roomBg} text-center min-w-[120px] flex flex-col justify-center`}>
+   696→                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-1">
+   697→                      XONA
+   698→                    </span>
+   699→                    <span className="text-3xl font-black block text-slate-900">
+   700→                      {getRoomNumber(displayActiveCalled.departmentId)}
+   701→                    </span>
+   702→                  </div>
+   703→                </div>
+   704→              </div>
+   705→            );
+   706→          })()
+   707→        ) : (
+   708→          /* Welcome Banner when there is no current active called patient */
+   709→          <div className="bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 rounded-3xl p-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
+   710→            <div className="absolute right-0 top-0 translate-x-10 -translate-y-10 w-40 h-40 bg-white/10 rounded-full blur-3xl pointer-events-none"></div>
+   711→            
+   712→            <div className="flex items-center space-x-5 text-center md:text-left z-10">
+   713→              <div className="p-4 bg-white/15 border border-white/20 rounded-2xl text-white shadow-sm shrink-0">
+   714→                <Bell className="h-10 w-10 animate-bounce" />
+   715→              </div>
+   716→              <div>
+   717→                <h2 className="text-2xl font-black text-white tracking-tight">
+   718→                  TIZIM FAOL • SHIFOKOR CHAQIRUVINI KUTING
+   719→                </h2>
+   720→                <p className="text-emerald-50 text-sm mt-1 max-w-xl font-bold">
+   721→                  Kutish zalidagi hurmatli bemorlar, navbatingiz kelganda ism-familiyangiz va navbat raqamingiz ekran yuqorisida ko'rsatiladi va ovozli e'lon qilinadi.
+   722→                </p>
+   723→              </div>
+   724→            </div>
+   725→
+   726→            {/* Live Stats display instead of blank text */}
+   727→            <div className="grid grid-cols-2 gap-4 shrink-0 w-full md:w-auto z-10">
+   728→              <div className="bg-white/15 border border-white/20 p-4 rounded-2xl text-center min-w-[150px] shadow-inner">
+   729→                <span className="text-[10px] text-emerald-100 font-black tracking-widest uppercase block mb-1">NAVBDATDAGILAR</span>
+   730→                <span className="text-2xl font-black text-white">
+   731→                  {localPatients.filter((p) => p.status === 'Kutmoqda').length} ta bemor
+   732→                </span>
+   733→              </div>
+   734→              <div className="bg-white/15 border border-white/20 p-4 rounded-2xl text-center min-w-[150px] shadow-inner">
+   735→                <span className="text-[10px] text-emerald-100 font-black tracking-widest uppercase block mb-1">XIZMAT KO'RSATILDI</span>
+   736→                <span className="text-2xl font-black text-white">
+   737→                  {localPatients.filter((p) => p.status === 'Yakunlangan').length} ta
+   738→                </span>
+   739→              </div>
+   740→            </div>
+   741→          </div>
+   742→        )}
+   743→
+   744→        {/* CENTRAL HERO CLINICAL BOARD TABLE */}
+   745→        <div className="bg-white border border-slate-200/80 rounded-3xl p-8 shadow-xl flex-1 flex flex-col min-h-0 relative overflow-hidden">
+   746→          {/* Top aesthetic color bar inside container */}
+   747→          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-teal-400 to-emerald-500"></div>
+   748→
+   749→          <div className="flex justify-between items-center mb-6 pb-4 border-b border-slate-100">
+   750→            <div className="flex items-center space-x-3">
+   751→              <div className="h-3 w-3 rounded-full bg-emerald-500 animate-ping"></div>
+   752→              <h2 className="text-2xl font-black text-slate-900 tracking-wider">
+   753→                📋 NAVBATDAGI BEMORLAR TAQSIMOT JADVALI
+   754→              </h2>
+   755→            </div>
+   756→            <div className="flex flex-wrap items-center gap-3">
+   757→              <span className="bg-sky-50 text-sky-800 border border-sky-100 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-xs">
+   758→                🔵 LOR: KO'K
+   759→              </span>
+   760→              <span className="bg-amber-50 text-amber-800 border border-amber-100 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-xs">
+   761→                🟡 NEVRO: SARIQ
+   762→              </span>
+   763→              <span className="bg-rose-50 text-rose-800 border border-rose-100 px-3 py-1.5 rounded-xl text-xs font-extrabold shadow-xs">
+   764→                🔴 KARDIO: QIZIL
+   765→              </span>
+   766→              <span className="bg-slate-50 text-slate-500 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-mono font-black">
+   767→                Jami navbatda: {displayPatients.length} ta
+   768→              </span>
+   769→            </div>
+   770→          </div>
+   771→
+   772→          {/* Majestic High-Legibility Table */}
+   773→          <div className="flex-1 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+   774→            <table className="w-full text-left border-separate border-spacing-y-4">
+   775→              <thead>
+   776→                <tr className="text-slate-500 text-sm font-black tracking-widest uppercase border-b border-slate-100">
+   777→                  <th className="py-3 px-6 text-center w-32">NAVBAT №</th>
+   778→                  <th className="py-3 px-6">BEMORNING F.I.SH.</th>
+   779→                  <th className="py-3 px-6">QABUL QILUVCHI BO'LIM</th>
+   780→                  <th className="py-3 px-6 text-center w-40">KABINET / XONA</th>
+   781→                  <th className="py-3 px-6 text-center w-52">XOLATI</th>
+   782→                </tr>
+   783→              </thead>
+   784→              <tbody>
+   785→                {displayPatients.length === 0 ? (
+   786→                  <tr>
+   787→                    <td colSpan={5} className="py-24 text-center">
+   788→                      <div className="flex flex-col items-center justify-center space-y-3 text-slate-400">
+   789→                        <Tv className="h-16 w-16 text-slate-300 animate-pulse" />
+   790→                        <p className="text-xl font-bold">Hozircha navbatda bemorlar yo'q</p>
+   791→                        <p className="text-sm">Qabulxonadan yangi bemorlar ro'yxatdan o'tganda shu yerda ko'rinadi.</p>
+   792→                      </div>
+   793→                    </td>
+   794→                  </tr>
+   795→                ) : (
+   796→                  displayPatients.map((patient) => {
+   797→                    const colors = getDeptColorInfo(patient.departmentId);
+   798→                    const isActive = patient.status === 'Qabulda';
+   799→                    const docName = localDepts.find((d) => d.id === patient.departmentId)?.doctorName || 'Malakali Shifokor';
+   800→                    
+   801→                    // Card style classes based on status and department
+   802→                    const cardBg = isActive 
+   803→                      ? `${colors.rowBg} ring-2 ring-emerald-500/80 shadow-lg ${colors.glow}` 
+   804→                      : `${colors.rowBg} shadow-xs`;
+   805→                    const borderStyle = isActive 
+   806→                      ? 'border-emerald-400/50' 
+   807→                      : 'border-slate-100';
+   808→
+   809→                    return (
+   810→                      <tr
+   811→                        key={patient.id}
+   812→                        className={`transition-all duration-300 transform ${isActive ? 'scale-[1.01] z-10 relative' : 'hover:scale-[1.002]'}`}
+   813→                      >
+   814→                        {/* Queue Number Badge styled as a clean container with label */}
+   815→                        <td className={`py-5 px-6 text-center rounded-l-3xl border-l border-y ${borderStyle} ${cardBg}`}>
+   816→                          <div className={`mx-auto inline-block px-6 py-2 rounded-2xl border text-center min-w-[120px] ${colors.roomBg} border-slate-150 shadow-inner`}>
+   817→                            <span className="text-[10px] font-bold text-slate-400 block mb-0.5 tracking-wider uppercase">NAVBAT №</span>
+   818→                            <span className={`text-2xl font-black ${colors.textColor}`}>#{patient.queueNumber}</span>
+   819→                          </div>
+   820→                        </td>
+   821→
+   822→                        {/* Patient Name */}
+   823→                        <td className={`py-5 px-6 border-y ${borderStyle} ${cardBg}`}>
+   824→                          <div className="font-black text-2xl text-slate-950 tracking-tight">
+   825→                            {patient.lastName.toUpperCase()} {patient.firstName.toUpperCase()}
+   826→                          </div>
+   827→                          <div className="text-xs font-bold text-slate-500 mt-0.5 font-mono uppercase tracking-widest">
+   828→                            ID: {patient.id} • {patient.gender === 'Erkak' ? ' Erkak' : ' Ayol'}
+   829→                          </div>
+   830→                        </td>
+   831→
+   832→                        {/* Department & Doctor Name */}
+   833→                        <td className={`py-5 px-6 border-y ${borderStyle} ${cardBg}`}>
+   834→                          <div className={`font-black text-xl tracking-wide ${colors.textColor}`}>
+   835→                            {getDeptName(patient.departmentId)}
+   836→                          </div>
+   837→                          <div className="text-sm font-bold text-slate-600 mt-0.5">
+   838→                            🧑‍⚕️ {docName}
+   839→                          </div>
+   840→                        </td>
+   841→
+   842→                        {/* Room Number Block */}
+   843→                        <td className={`py-5 px-6 text-center border-y ${borderStyle} ${cardBg}`}>
+   844→                          <div className={`mx-auto inline-block px-6 py-2 rounded-2xl border text-center min-w-[120px] ${colors.roomBg} border-slate-150 shadow-inner`}>
+   845→                            <span className="text-[10px] font-bold text-slate-400 block mb-0.5 tracking-wider uppercase">XONA</span>
+   846→                            <span className="text-2xl font-black text-slate-800">{getRoomNumber(patient.departmentId)}</span>
+   847→                          </div>
+   848→                        </td>
+   849→
+   850→                        {/* Status Badge */}
+   851→                        <td className={`py-5 px-6 text-center rounded-r-3xl border-r border-y ${borderStyle} ${cardBg}`}>
+   852→                          {isActive ? (
+   853→                            <div className="mx-auto bg-emerald-50 border border-emerald-300 text-emerald-700 font-black text-sm py-2.5 px-4 rounded-2xl flex items-center justify-center gap-2 shadow-sm animate-pulse">
+   854→                              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+   855→                              <span>🟢 ICHKARIGA MARHAMAT</span>
+   856→                            </div>
+   857→                          ) : (
+   858→                            <div className="mx-auto bg-slate-50 border border-slate-150 text-slate-500 font-bold text-sm py-2.5 px-4 rounded-2xl flex items-center justify-center gap-1.5 shadow-xs">
+   859→                              <span>⏱️ NAVBATDA KUTMOQDA</span>
+   860→                            </div>
+   861→                          )}
+   862→                        </td>
+   863→                      </tr>
+   864→                    );
+   865→                  })
+   866→                )}
+   867→              </tbody>
+   868→            </table>
+   869→          </div>
+   870→        </div>
+   871→      </main>
+   872→
+   873→      {/* Marquee ticker at the bottom */}
+   874→      <footer className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-black py-4 overflow-hidden relative border-t border-emerald-700 shadow-inner">
+   875→        <div className="flex items-center animate-marquee whitespace-nowrap text-lg space-x-8">
+   876→          <span>{getDynamicTickerText()}</span>
+   877→        </div>
+   878→      </footer>
+   879→      
+   880→      {/* Styled keyframe for Marquee */}
+   881→      <style>{`
+   882→        @keyframes marquee {
+   883→          0% { transform: translateX(100%); }
+   884→          100% { transform: translateX(-100%); }
+   885→        }
+   886→        .animate-marquee {
+   887→          animation: marquee 25s linear infinite;
+   888→        }
+   889→        .animate-spin-slow {
+   890→          animation: spin 8s linear infinite;
+   891→        }
+   892→      `}</style>
+   893→    </div>
+   894→  );
+   895→};
+   896→

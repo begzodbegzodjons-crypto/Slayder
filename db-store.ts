@@ -115,12 +115,31 @@ export async function loadData(): Promise<ClinicData> {
       }
 
       if (dataMap.size > 0) {
+        const hospitalRooms: any[] = dataMap.get('hospitalRooms') || [];
+        const inpatientStays: any[] = dataMap.get('inpatientStays') || [];
+
+        // =====================================================
+        // PALATA BED STATUS — har doim to'g'ri hisoblanadi
+        // occupiedBeds = shu palatada hozirda davolanayotgan
+        // (status='Davolanmoqda') statsionar bemorlar soni
+        // roomId YOKI roomNumber bo'yicha mos keladi
+        // =====================================================
+        const recalculatedRooms = hospitalRooms.map(room => {
+          const activeCount = inpatientStays.filter(s => {
+            if (s.status !== 'Davolanmoqda') return false;
+            if (s.roomId && s.roomId === room.id) return true;
+            if (s.roomNumber && s.roomNumber === room.roomNumber) return true;
+            return false;
+          }).length;
+          return { ...room, occupiedBeds: activeCount };
+        });
+
         return {
           patients: dataMap.get('patients') || [],
           departments: dataMap.get('departments') || [],
           receptionStaff: dataMap.get('receptionStaff') || [],
-          hospitalRooms: dataMap.get('hospitalRooms') || [],
-          inpatientStays: dataMap.get('inpatientStays') || [],
+          hospitalRooms: recalculatedRooms,
+          inpatientStays,
           transactions: dataMap.get('transactions') || [],
           diagnosisTemplates: dataMap.get('diagnosisTemplates') || [],
           clinicSettings: dataMap.get('clinicSettings') || null,
