@@ -228,6 +228,7 @@ export const Reception: React.FC<ReceptionProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   // Sana filtri - default bugun (har safar yangilanadi)
   const [queueDateFilter, setQueueDateFilter] = useState<string>(new Date().toISOString().split('T')[0]);
 
@@ -381,12 +382,13 @@ export const Reception: React.FC<ReceptionProps> = ({
 
     const matchesDept = deptFilter === 'all' || patient.departmentId === deptFilter;
     const matchesPayment = paymentFilter === 'all' || patient.paymentStatus === paymentFilter;
+    const matchesStatus = statusFilter === 'all' || patient.status === statusFilter;
 
     // Sana filtri - bemor createdAt sanasi queueDateFilter ga teng bo'lishi kerak
     const patientDate = new Date(patient.createdAt).toISOString().split('T')[0];
     const matchesDate = patientDate === queueDateFilter;
 
-    return matchesSearch && matchesDept && matchesPayment && matchesDate;
+    return matchesSearch && matchesDept && matchesPayment && matchesStatus && matchesDate;
   });
 
   // Bo'lim prefiksli navbat raqami (LOR-01, KARDIO-01, NEVRO-01)
@@ -1561,6 +1563,9 @@ export const Reception: React.FC<ReceptionProps> = ({
                   <span className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl font-extrabold shadow-sm">
                     Tugallangan: {filteredPatients.filter(p => p.status === 'Yakunlangan').length}
                   </span>
+                  <span className="px-3 py-1.5 bg-rose-600 text-white rounded-xl font-extrabold shadow-sm">
+                    Rad etilgan: {filteredPatients.filter(p => p.status === 'Bekor qilingan').length}
+                  </span>
                 </div>
               </div>
 
@@ -1625,6 +1630,29 @@ export const Reception: React.FC<ReceptionProps> = ({
                     <option value="Kutilmoqda">Kutilmoqda</option>
                   </select>
                 </div>
+              </div>
+
+              {/* Holat bo'yicha filtr */}
+              <div className="flex bg-slate-100 p-1 rounded-xl gap-1 mb-4">
+                {(['all', 'Kutmoqda', 'Yakunlangan', 'Bekor qilingan'] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`flex-1 py-1.5 text-[10px] font-black rounded-lg transition-all cursor-pointer ${
+                      statusFilter === st
+                        ? st === 'Kutmoqda'
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : st === 'Yakunlangan'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : st === 'Bekor qilingan'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'bg-slate-600 text-white shadow-sm'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {st === 'all' ? 'Barchasi' : st === 'Kutmoqda' ? 'Kutmoqda' : st === 'Yakunlangan' ? 'Yakunlangan' : 'Rad etilgan'}
+                  </button>
+                ))}
               </div>
 
               {/* Patients list table */}
