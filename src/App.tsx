@@ -120,42 +120,85 @@ export default function App() {
         }
         setInpatientStays(activeStays);
 
-        // 5. Load patients
-        let activePatients = INITIAL_PATIENTS;
+        // 5. Load patients — SMART MERGE: local ma'lumot hech qachon yo'qolmaydi
+        let activePatients: any[] = [];
         if (dbData.patients !== undefined) {
-          // Merge: backend'dan kelgan ma'lumotni local ma'lumot bilan birlashtiramiz
-          // Agar local'da bemorning selectedServices'i bor lekin backend'da yo'q bo'lsa
-          // (sync poygasi tufayli yo'qolgan bo'lsa), local ma'lumotni saqlab qolamiz
           const backendPatients = dbData.patients;
-          const localPatientsStr = localStorage.getItem('dr_maruf_patients_list');
-          let localPatients: any[] = [];
-          if (localPatientsStr) {
-            try { localPatients = JSON.parse(localPatientsStr); } catch (e) {}
-          }
 
-          // Merge: backend patients + local patients (selectedServices yo'qolmasin)
-          const localMap = new Map(localPatients.map((p: any) => [p.id, p]));
-          activePatients = backendPatients.map((bp: any) => {
-            const lp = localMap.get(bp.id);
-            if (lp) {
-              // Agar local'da selectedServices bor lekin backend'da yo'q bo'lsa - local'nikini saqlaymiz
-              if (lp.selectedServices && lp.selectedServices.length > 0 && (!bp.selectedServices || bp.selectedServices.length === 0)) {
-                return { ...bp, selectedServices: lp.selectedServices };
+          // Joriy local state'ni olish (React state'dan)
+          const currentLocal = patients; // joriy React state
+          const localMap = new Map(currentLocal.map((p: any) => [p.id, p]));
+          const backendMap = new Map(backendPatients.map((p: any) => [p.id, p]));
+
+          // Merge strategiyasi:
+          // 1. Agar bemor faqat backend'da bo'lsa — qo'shamiz
+          // 2. Agar bemor faqat local'da bo'lsa — saqlaymiz
+          // 3. Agar ikkalasida bo'lsa — BO'SH bo'lmagan maydonlarni saqlaymiz
+          //    (selectedServices, diagnosis, prescriptions, paymentAmount va h.k.)
+          const mergedMap = new Map();
+
+          // Barcha ID'larni yig'amiz
+          const allIds = new Set([...localMap.keys(), ...backendMap.keys()]);
+
+          for (const id of allIds) {
+            const lp = localMap.get(id) as any;
+            const bp = backendMap.get(id) as any;
+
+            if (lp && bp) {
+              // Ikkalasida bor — eng boy ma'lumotni olamiz
+              const merged: any = { ...bp }; // backend asos
+
+              // Local'da BO'SH bo'lmagan maydonlarni saqlaymiz
+              // selectedServices
+              if (lp.selectedServices && lp.selectedServices.length > 0) {
+                if (!bp.selectedServices || bp.selectedServices.length === 0) {
+                  merged.selectedServices = lp.selectedServices;
+                }
               }
-              // Agar local'da ko'proq ma'lumot bo'lsa (prescriptions, diagnosis va h.k.)
-              return { ...bp, ...lp, ...bp }; // backend ustun, lekin local bo'sh bo'lmagan maydonlarni saqlaymiz
-            }
-            return bp;
-          });
+              // paymentAmount — agar local'da ko'p bo'lsa (xizmatlar bilan)
+              if (lp.paymentAmount > bp.paymentAmount) {
+                merged.paymentAmount = lp.paymentAmount;
+              }
+              // diagnosis
+              if (lp.diagnosis && !bp.diagnosis) merged.diagnosis = lp.diagnosis;
+              // prescriptions
+              if (lp.prescriptions && lp.prescriptions.length > 0 && (!bp.prescriptions || bp.prescriptions.length === 0)) {
+                merged.prescriptions = lp.prescriptions;
+              }
+              // complaints
+              if (lp.complaints && !bp.complaints) merged.complaints = lp.complaints;
+              // testResults
+              if (lp.testResults && !bp.testResults) merged.testResults = lp.testResults;
+              // refundStatus
+              if (lp.refundStatus && !bp.refundStatus) merged.refundStatus = lp.refundStatus;
+              if (lp.refundedAmount && !bp.refundedAmount) merged.refundedAmount = lp.refundedAmount;
+              // patientHistory
+              if (lp.patientHistory && lp.patientHistory.length > 0 && (!bp.patientHistory || bp.patientHistory.length === 0)) {
+                merged.patientHistory = lp.patientHistory;
+              }
+              // isReturning
+              if (lp.isReturning && !bp.isReturning) merged.isReturning = lp.isReturning;
+              if (lp.visitCount && !bp.visitCount) merged.visitCount = lp.visitCount;
 
-          // Local'da bor lekin backend'da yo'q bemorlarni qo'shamiz
-          const backendIds = new Set(backendPatients.map((p: any) => p.id));
-          for (const lp of localPatients) {
-            if (!backendIds.has(lp.id)) {
-              activePatients.push(lp);
+              // Status: agar local'da "Qabulda" yoki "Yakunlangan" bo'lsa va backend'da "Kutmoqda" bo'lsa
+              // local'nikini saqlaymiz (doktor ko'rgani/ko'rmagani muhim)
+              if ((lp.status === 'Qabulda' || lp.status === 'Yakunlangan') && bp.status === 'Kutmoqda') {
+                merged.status = lp.status;
+              }
+              if (lp.calledAt && !bp.calledAt) merged.calledAt = lp.calledAt;
+              if (lp.completedAt && !bp.completedAt) merged.completedAt = lp.completedAt;
+
+              mergedMap.set(id, merged);
+            } else if (lp) {
+              // Faqat local'da bor — saqlaymiz
+              mergedMap.set(id, lp);
+            } else if (bp) {
+              // Faqat backend'da bor — qo'shamiz
+              mergedMap.set(id, bp);
             }
           }
 
+          activePatients = Array.from(mergedMap.values());
           localStorage.setItem('dr_maruf_patients_list', JSON.stringify(activePatients));
         } else {
           const saved = localStorage.getItem('dr_maruf_patients_list');
