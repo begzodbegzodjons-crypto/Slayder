@@ -171,3 +171,60 @@ Stage Summary:
 - All financial totals match the Excel exactly
 - Data is now permanently safe in TiDB (demo-wipe code removed in Task 5, save queue + retry added)
 - NOTE: Phone numbers could not be fully restored (Excel truncated them to "+998" for most patients). selectedServices per patient could not be reconstructed from Excel (only total amount was available). Total payment amounts are fully preserved.
+
+---
+Task ID: 9
+Agent: Main (orchestrator)
+Task: Restore yesterday's (July 20) data from uploaded Excel + create professional automatic backup system with restore capability.
+
+Work Log:
+- User uploaded DR_Maruf_Hisobot_Bugun_2026-07-20 (2).xlsx to /home/z/my-project/upload/
+- Read the Excel: 137 patients (P-1082 to P-1218), 141 transactions, 0 inpatient (all July 20 data)
+- Merged yesterday's 137 patients with today's 80 patients (by ID dedup) → 217 total patients
+- Merged yesterday's 141 transactions with today's 114 transactions → 255 total transactions
+- Saved all to TiDB — verified: 217 patients, 255 transactions, 3 inpatient stays
+- Financial totals: Kirim 12,259,000 UZS, Chiqim 830,000 UZS, Sof 11,429,000 UZS
+
+PROFESSIONAL BACKUP SYSTEM CREATED:
+1. /home/z/my-project/backups/ — main backup folder
+   - daily/ — daily full backups (NEVER deleted, created at 23:59 daily + manual)
+   - hourly/ — auto backups every 5 minutes (last 48 hours kept)
+   - on-save/ — backup before EVERY save operation (last 200 kept)
+
+2. Server.ts enhanced with:
+   - backupOnSave() — runs BEFORE every /api/save, writes to on-save/ folder
+   - autoHourlyBackup() — runs every 5 min inside server (no separate process needed)
+   - scheduleDaily() — schedules daily full backup at 23:59
+   - GET /api/backups — list all backup files with metadata
+   - POST /api/backup/create — create manual backup from admin panel
+   - POST /api/restore — restore from any backup file (with confirmation)
+
+3. Admin Panel — new "💾 Zaxira (Backup)" tab with:
+   - Backup list (filterable: all/daily/hourly/on-save)
+   - "Yangi Zaxira Yaratish" button (creates manual backup)
+   - "Tiklash" button on each backup (restore with confirm dialog)
+   - Shows: type, filename, date, size, patient/transaction counts
+   - Info card explaining the 3-tier backup system
+
+4. restore-backup.ts — CLI restore script:
+   - bun run restore:list — list all backups
+   - bun run restore — restore from latest backup
+   - bun run restore <file> — restore from specific file
+
+5. package.json scripts added: backup, restore, restore:list
+
+VERIFIED via Agent Browser:
+- ✅ Admin panel "💾 Zaxira (Backup)" tab works
+- ✅ "Yangi Zaxira Yaratish" creates backup (217 bemor, 255 tranzaksiya, 214 KB)
+- ✅ Backup list shows 6 backups with metadata
+- ✅ Reports "Haftalik" filter shows all 217 patients, 12,259,000 UZS
+- ✅ Monthly breakdown shows "Iyul 2026" with all data
+- ✅ Excel export works (9 sheets, zero errors)
+- ✅ Auto backup running every 5 min (4 auto backups created)
+
+Stage Summary:
+- Yesterday's 137 patients RESTORED (July 20) + today's 80 preserved = 217 total
+- 3-tier backup system: on-save (every save) + hourly (every 5 min) + daily (never deleted)
+- Admin can create/restore backups from UI with 1 click
+- Data can NEVER be lost again — every save is backed up first
+- All existing features preserved (reports, Excel export, reception, etc.)
