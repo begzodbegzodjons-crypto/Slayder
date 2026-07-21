@@ -449,3 +449,29 @@ Stage Summary:
 - savePatientsList xavfsizlik himoyasi: stale ref sababli ma'lumot yo'qolishi 100% oldini oladi
 - handleDeletePatient endi ma'lumotni o'chirmaydi (Bekor qilingan statusiga o'tkazadi)
 - 218 bemor TiDB da xavfsiz, backup'lardan tiklandi
+
+---
+Task ID: 14
+Agent: Main (orchestrator)
+Task: TTS Russian voice FINAL fix — block Russian voice completely.
+
+ROOT CAUSE (topildi):
+- Oldingi kodda utterance.lang='uz-UZ' qo'yildi, lekin utterance.voice EXPLICIT tanlanmadi
+- Brauzerda o'zbek ovozi bo'lmasa → brauzer DEFAULT ovozini ishlatadi
+- Foydalanuvchi brauzerida DEFAULT ovoz = RUSCHA (Microsoft Irina)
+- Rus ovozi o'zbekcha matnni ruscha talaffuz bilan o'qidi → "suka blya" kabi eshitildi
+
+YECHIM (100% blok):
+1. pickSafeVoice() — ovoz tanlash funksiyasi:
+   - 1-prioritet: o'zbek ovozi (uz*)
+   - 2-prioritet: INGLIZ ovozi (en*) — NIMA BO'LMSA HAM RUSCHA EMAS
+   - 3-prioritet: ruscha/turkcha bo'lmagan istalgan ovoz
+   - Oxirgi chora: faqat ruscha bo'lsa → O'QISH BEKOR QILINADI
+2. utterance.voice EXPLICIT tanlanadi — brauzer ruschaga qaytib ketmaydi
+3. utterance.lang = voice.lang — ovoz tiliga moslangan
+4. Raqamlar SO'Z bilan: 113 → "yuz o'n uch"
+
+SINOV:
+- Ruscha+Ingliz ovozlar bor → Ingliz tanlandi (Microsoft David) ✅
+- Faqat ruscha ovoz bor → O'qish bekor qilindi ✅
+- Matn: "Navbat yuz o'n uch. Aliyev Vali. LOR, yuz ikki xonaga marhamat!" ✅
