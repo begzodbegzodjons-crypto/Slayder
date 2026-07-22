@@ -483,12 +483,47 @@ async function startServer() {
       const keys = Object.keys(data).filter((k: string) => !k.startsWith('_'));
       let restored = 0;
       for (const key of keys) {
-        // forceReplace=true — backup'dagi ma'lumot to'liq tiklanadi (merge emas)
-        const success = await saveCollection(key, data[key], true);
-        if (success) {
-          restored++;
-          // Tiklangan ma'lumotni SSE orqali broadcast qilish
-          broadcastChange(key, data[key]);
+        if (key === 'patients') {
+          // Relational jadval: har bir bemorni insertPatient (ON DUPLICATE KEY UPDATE) bilan
+          const patients = data[key];
+          if (Array.isArray(patients)) {
+            for (const p of patients) {
+              if (p && p.id) {
+                await insertPatient(p, 'restore');
+              }
+            }
+            restored++;
+            broadcastChange('patients', await loadAllPatients());
+          }
+        } else if (key === 'transactions') {
+          const txs = data[key];
+          if (Array.isArray(txs)) {
+            for (const t of txs) {
+              if (t && t.id) {
+                await insertTransaction(t);
+              }
+            }
+            restored++;
+            broadcastChange('transactions', await loadAllTransactions());
+          }
+        } else if (key === 'inpatientStays') {
+          const stays = data[key];
+          if (Array.isArray(stays)) {
+            for (const s of stays) {
+              if (s && s.id) {
+                await insertInpatientStay(s);
+              }
+            }
+            restored++;
+            broadcastChange('inpatientStays', await loadAllInpatientStays());
+          }
+        } else {
+          // Qolgan kalitlar (departments, rooms, settings) — JSON blob
+          const success = await saveCollection(key, data[key], true);
+          if (success) {
+            restored++;
+            broadcastChange(key, data[key]);
+          }
         }
       }
       res.json({ success: true, message: `${restored} ta kalit tiklandi`, restored, keys });
