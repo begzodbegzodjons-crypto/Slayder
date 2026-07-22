@@ -1,6 +1,5 @@
 node_modules/
 build/
-dist/
 coverage/
 .DS_Store
 *.log
@@ -24,3 +23,4 @@ remigrate*.mjs
 check*.mjs
 restore-backup.ts
 backup-service.ts
+dist/
