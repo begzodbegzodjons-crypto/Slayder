@@ -82,31 +82,47 @@ export async function initStorage() {
     console.log('✅ [DB Connection]: Successfully connected to TiDB/MySQL Database.');
 
     // =====================================================
-    // PROFESSIONAL RELATIONAL SCHEMA
-    // Har bir entity alohida jadvalda — INSERT/UPDATE/DELETE
-    // row-level, SQL transactions bilan. JSON merge YO'Q.
+    // PROFESSIONAL RELATIONAL SCHEMA (3NF)
+    // Asosiy ma'lumotlar alohida ustunlarda — JSON emas.
+    // extra_data faqat kam ishlatiladigan qo'shimcha ma'lumotlar uchun.
     // =====================================================
 
-    // 1. Bemorlar jadvali — har bir bemor alohida row
+    // 1. Bemorlar jadvali — professional ustunlar
     await conn.query(`
       CREATE TABLE IF NOT EXISTS patients (
         id VARCHAR(50) PRIMARY KEY,
-        queue_number INT,
-        status VARCHAR(50),
+        patient_code VARCHAR(50) UNIQUE,
+        full_name VARCHAR(255),
+        phone VARCHAR(30),
+        birth_date VARCHAR(20),
+        gender VARCHAR(10),
         department_id VARCHAR(50),
+        doctor_id VARCHAR(50),
+        doctor_name VARCHAR(255),
+        status VARCHAR(50),
         payment_status VARCHAR(50),
         payment_amount INT,
-        doctor_name VARCHAR(255),
+        queue_number INT,
+        diagnosis TEXT,
         created_at TIMESTAMP,
         updated_at TIMESTAMP,
-        data LONGTEXT NOT NULL,
-        INDEX idx_status (status),
+        called_at TIMESTAMP NULL,
+        completed_at TIMESTAMP NULL,
+        extra_data LONGTEXT,
+        UNIQUE INDEX idx_patient_code (patient_code),
+        INDEX idx_phone (phone),
         INDEX idx_department (department_id),
+        INDEX idx_doctor (doctor_id),
+        INDEX idx_status (status),
+        INDEX idx_payment_status (payment_status),
         INDEX idx_created (created_at)
       );
     `);
 
-    // 2. Tranzaksiyalar jadvali — append-only (faqat INSERT)
+    // Eski schema (data LONGTEXT) dan yangi schema ga migratsiya
+    await migratePatientsSchema(conn);
+
+    // 2. Tranzaksiyalar jadvali — proper ustunlar
     await conn.query(`
       CREATE TABLE IF NOT EXISTS transactions (
         id VARCHAR(50) PRIMARY KEY,
@@ -114,28 +130,49 @@ export async function initStorage() {
         amount INT,
         category VARCHAR(100),
         patient_id VARCHAR(50),
+        patient_name VARCHAR(255),
+        date VARCHAR(20),
+        time VARCHAR(10),
         created_at TIMESTAMP,
-        data LONGTEXT NOT NULL,
+        description TEXT,
+        extra_data LONGTEXT,
         INDEX idx_type (type),
         INDEX idx_patient (patient_id),
+        INDEX idx_category (category),
         INDEX idx_created (created_at)
       );
     `);
+    await migrateTransactionsSchema(conn);
 
-    // 3. Statsionar bemorlar jadvali
+    // 3. Statsionar bemorlar jadvali — proper ustunlar
     await conn.query(`
       CREATE TABLE IF NOT EXISTS inpatient_stays (
         id VARCHAR(50) PRIMARY KEY,
         patient_id VARCHAR(50),
+        patient_name VARCHAR(255),
+        room_id VARCHAR(50),
         room_number VARCHAR(50),
+        department_id VARCHAR(50),
         department_name VARCHAR(255),
+        doctor_name VARCHAR(255),
         status VARCHAR(50),
+        check_in_date VARCHAR(20),
+        check_out_date VARCHAR(20),
+        planned_days INT,
+        price_per_day INT,
+        total_cost INT,
+        amount_paid INT,
+        remaining_debt INT,
+        diagnosis TEXT,
         created_at TIMESTAMP,
-        data LONGTEXT NOT NULL,
+        extra_data LONGTEXT,
         INDEX idx_status (status),
-        INDEX idx_patient (patient_id)
+        INDEX idx_patient (patient_id),
+        INDEX idx_room (room_number),
+        INDEX idx_department (department_id)
       );
     `);
+    await migrateInpatientStaysSchema(conn);
 
     // 4. Eski JSON-blob jadval (departments, rooms, settings uchun hozircha qoladi)
     await conn.query(`
@@ -154,6 +191,7 @@ export async function initStorage() {
 
     conn.release();
     isDbActive = true;
+    // Old migration below — migrateJsonToRelational handles JSON blob → relational
     // ⚠️ MUHIM: Demo ma'lumotlarni tozalash OLIB TASHLANDI!
     // Bu kod har safar server ishga tushganda "Azizbek" ismli bemor topilsa
     // BARCHA bemorlar/tranzaksiyalar ma'lumotlarini O'CHIRIB TASHLARDI.
@@ -367,30 +405,30 @@ export async function saveCollection(key: string, items: any, forceReplace: bool
 // Migratsiya: JSON blob'dan relational jadvallarga (bir marta)
 async function migrateJsonToRelational(conn: mysql.PoolConnection) {
   try {
-    // patients migratsiyasi
+    // patients migratsiyasi — proper columns bilan (patientToRow ishlatamiz)
     const [patRows]: any[] = await conn.query("SELECT json_value FROM clinic_erp_data WHERE key_name = 'patients'");
     if (patRows.length > 0) {
       const patients = JSON.parse(patRows[0].json_value);
       if (Array.isArray(patients) && patients.length > 0) {
-        // Jadvallarda nechta bemor borligini tekshiramiz
         const [countRow]: any[] = await conn.query("SELECT COUNT(*) as cnt FROM patients");
         if (countRow[0].cnt === 0) {
           console.log(`📦 [Migration]: ${patients.length} ta bemor relational jadvalga ko'chirilmoqda...`);
           for (const p of patients) {
             if (!p.id) continue;
-            const created = p.createdAt ? new Date(p.createdAt) : new Date();
-            const updated = p.updatedAt ? new Date(p.updatedAt) : created;
-            await conn.query(
-              `INSERT IGNORE INTO patients (id, queue_number, status, department_id, payment_status, payment_amount, doctor_name, created_at, updated_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [p.id, p.queueNumber || 0, p.status || 'Kutmoqda', p.departmentId || '', p.paymentStatus || '', p.paymentAmount || 0, p.doctorName || '', created, updated, JSON.stringify(p)]
-            );
+            const r = patientToRow(p);
+            try {
+              await conn.query(
+                `INSERT IGNORE INTO patients (id, patient_code, full_name, phone, birth_date, gender, department_id, doctor_id, doctor_name, status, payment_status, payment_amount, queue_number, diagnosis, created_at, updated_at, called_at, completed_at, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [r.id, r.patient_code, r.full_name, r.phone, r.birth_date, r.gender, r.department_id, r.doctor_id, r.doctor_name, r.status, r.payment_status, r.payment_amount, r.queue_number, r.diagnosis, r.created_at, r.updated_at, r.called_at, r.completed_at, r.extra_data]
+              );
+            } catch {}
           }
           console.log(`✅ [Migration]: patients jadvali tayyor`);
         }
       }
     }
 
-    // transactions migratsiyasi
+    // transactions migratsiyasi — proper columns bilan
     const [txRows]: any[] = await conn.query("SELECT json_value FROM clinic_erp_data WHERE key_name = 'transactions'");
     if (txRows.length > 0) {
       const txs = JSON.parse(txRows[0].json_value);
@@ -401,10 +439,15 @@ async function migrateJsonToRelational(conn: mysql.PoolConnection) {
           for (const t of txs) {
             if (!t.id) continue;
             const created = t.createdAt ? new Date(t.createdAt) : new Date();
-            await conn.query(
-              `INSERT IGNORE INTO transactions (id, type, amount, category, patient_id, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [t.id, t.type || 'Kirim', t.amount || 0, t.category || '', t.patientId || '', created, JSON.stringify(t)]
-            );
+            let extra: any = {};
+            const extraFields = ['description', 'patientName'];
+            for (const f of extraFields) { if (t[f] !== undefined) extra[f] = t[f]; }
+            try {
+              await conn.query(
+                `INSERT IGNORE INTO transactions (id, type, amount, category, patient_id, patient_name, date, time, created_at, description, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [t.id, t.type || 'Kirim', t.amount || 0, t.category || '', t.patientId || '', t.patientName || '', t.date || '', t.time || '', created, t.description || '', Object.keys(extra).length > 0 ? JSON.stringify(extra) : null]
+              );
+            } catch {}
           }
           console.log(`✅ [Migration]: transactions jadvali tayyor`);
         }
@@ -422,10 +465,12 @@ async function migrateJsonToRelational(conn: mysql.PoolConnection) {
           for (const s of stays) {
             if (!s.id) continue;
             const created = s.createdAt || s.checkInDate ? new Date(s.createdAt || s.checkInDate) : new Date();
-            await conn.query(
-              `INSERT IGNORE INTO inpatient_stays (id, patient_id, room_number, department_name, status, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-              [s.id, s.patientId || '', s.roomNumber || '', s.departmentName || '', s.status || 'Davolanmoqda', created, JSON.stringify(s)]
-            );
+            try {
+              await conn.query(
+                `INSERT IGNORE INTO inpatient_stays (id, patient_id, room_number, department_name, status, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [s.id, s.patientId || '', s.roomNumber || '', s.departmentName || '', s.status || 'Davolanmoqda', created, JSON.stringify(s)]
+              );
+            } catch {}
           }
           console.log(`✅ [Migration]: inpatient_stays jadvali tayyor`);
         }
@@ -436,19 +481,188 @@ async function migrateJsonToRelational(conn: mysql.PoolConnection) {
   }
 }
 
-// PATIENT CRUD — SQL Transaction bilan
+// ===================================================================
+// HELPER: Patient object ↔ DB row conversion (proper columns)
+// Asosiy maydonlar alohida ustunlarda, qo'shimchalar extra_data JSON da
+// ===================================================================
 
-// Bemor qo'shish (INSERT) — transaction ichida
+// Patient object → DB columns + extra_data
+function patientToRow(p: any) {
+  const fullName = [p.lastName, p.firstName, p.middleName].filter(Boolean).join(' ');
+  // extra_data ga kam ishlatiladigan maydonlarni yig'amiz
+  let extra: any = {};
+  const extraFields = ['prescriptions', 'complaints', 'testResults', 'selectedServices',
+    'refundStatus', 'refundedAmount', 'refundedAt', 'refundedReason',
+    'patientHistory', 'isReturning', 'previousVisitId', 'visitCount'];
+  for (const f of extraFields) {
+    if (p[f] !== undefined) extra[f] = p[f];
+  }
+  return {
+    id: p.id,
+    patient_code: p.patientCode || p.id,
+    full_name: fullName || '',
+    phone: p.phone || '',
+    birth_date: p.birthDate || '',
+    gender: p.gender || '',
+    department_id: p.departmentId || '',
+    doctor_id: p.doctorId || p.departmentId || '',
+    doctor_name: p.doctorName || '',
+    status: p.status || 'Kutmoqda',
+    payment_status: p.paymentStatus || '',
+    payment_amount: p.paymentAmount || 0,
+    queue_number: p.queueNumber || 0,
+    diagnosis: p.diagnosis || null,
+    created_at: p.createdAt ? new Date(p.createdAt) : new Date(),
+    updated_at: p.updatedAt ? new Date(p.updatedAt) : new Date(),
+    called_at: p.calledAt ? new Date(p.calledAt) : null,
+    completed_at: p.completedAt ? new Date(p.completedAt) : null,
+    extra_data: Object.keys(extra).length > 0 ? JSON.stringify(extra) : null,
+  };
+}
+
+// DB row → Patient object
+function rowToPatient(row: any): any {
+  // Parse extra_data
+  let extra: any = {};
+  if (row.extra_data) {
+    try { extra = JSON.parse(typeof row.extra_data === 'string' ? row.extra_data : JSON.stringify(row.extra_data)); } catch {}
+  }
+  // full_name → firstName, lastName, middleName
+  const parts = (row.full_name || '').split(' ');
+  return {
+    id: row.id,
+    patientCode: row.patient_code,
+    lastName: parts[0] || '',
+    firstName: parts[1] || '',
+    middleName: parts.slice(2).join(' ') || undefined,
+    phone: row.phone || '',
+    birthDate: row.birth_date || '',
+    gender: row.gender || '',
+    departmentId: row.department_id || '',
+    doctorId: row.doctor_id || '',
+    doctorName: row.doctor_name || '',
+    status: row.status || 'Kutmoqda',
+    paymentStatus: row.payment_status || '',
+    paymentAmount: row.payment_amount || 0,
+    queueNumber: row.queue_number || 0,
+    diagnosis: row.diagnosis || undefined,
+    createdAt: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString() : undefined,
+    calledAt: row.called_at ? new Date(row.called_at).toISOString() : undefined,
+    completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : undefined,
+    ...extra,
+  };
+}
+
+// Partial updates → SET clause (camelCase → snake_case)
+const PATIENT_COLUMN_MAP: Record<string, string> = {
+  paymentStatus: 'payment_status',
+  paymentAmount: 'payment_amount',
+  departmentId: 'department_id',
+  doctorId: 'doctor_id',
+  doctorName: 'doctor_name',
+  queueNumber: 'queue_number',
+  birthDate: 'birth_date',
+  patientCode: 'patient_code',
+  fullName: 'full_name',
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  calledAt: 'called_at',
+  completedAt: 'completed_at',
+};
+const PATIENT_EXTRA_FIELDS = new Set(['prescriptions', 'complaints', 'testResults',
+  'selectedServices', 'refundStatus', 'refundedAmount', 'refundedAt', 'refundedReason',
+  'patientHistory', 'isReturning', 'previousVisitId', 'visitCount']);
+
+// ===================================================================
+// SCHEMA MIGRATION: eski `data` column → proper columns
+// ===================================================================
+async function migratePatientsSchema(conn: mysql.PoolConnection) {
+  try {
+    const [cols]: any[] = await conn.query("SHOW COLUMNS FROM patients LIKE 'data'");
+    if (cols.length === 0) return; // already new schema
+    console.log('📦 [Migration]: patients jadvali yangi schema ga ko\'chirilmoqda...');
+    const [rows]: any[] = await conn.query('SELECT id, data FROM patients');
+    for (const row of rows) {
+      try {
+        const p = JSON.parse(typeof row.data === 'string' ? row.data : JSON.stringify(row.data));
+        const r = patientToRow(p);
+        await conn.query(
+          `UPDATE patients SET patient_code=?, full_name=?, phone=?, birth_date=?, gender=?, department_id=?, doctor_id=?, doctor_name=?, status=?, payment_status=?, payment_amount=?, queue_number=?, diagnosis=?, updated_at=?, called_at=?, completed_at=?, extra_data=? WHERE id=?`,
+          [r.patient_code, r.full_name, r.phone, r.birth_date, r.gender, r.department_id, r.doctor_id, r.doctor_name, r.status, r.payment_status, r.payment_amount, r.queue_number, r.diagnosis, r.updated_at, r.called_at, r.completed_at, r.extra_data, r.id]
+        );
+      } catch {}
+    }
+    // Eski data ustunini o'chirish
+    try { await conn.query('ALTER TABLE patients DROP COLUMN data'); } catch {}
+    console.log(`✅ [Migration]: patients yangi schema ga ko'chirildi (${rows.length} row)`);
+  } catch (err: any) {
+    // Column mavjud emas — allaqachon yangi schema
+  }
+}
+
+async function migrateTransactionsSchema(conn: mysql.PoolConnection) {
+  try {
+    const [cols]: any[] = await conn.query("SHOW COLUMNS FROM transactions LIKE 'data'");
+    if (cols.length === 0) return;
+    console.log('📦 [Migration]: transactions jadvali yangi schema ga ko\'chirilmoqda...');
+    const [rows]: any[] = await conn.query('SELECT id, data FROM transactions');
+    for (const row of rows) {
+      try {
+        const t = JSON.parse(typeof row.data === 'string' ? row.data : JSON.stringify(row.data));
+        const created = t.createdAt ? new Date(t.createdAt) : new Date();
+        let extra: any = {};
+        if (t.extra_data) extra = t.extra_data;
+        await conn.query(
+          `UPDATE transactions SET type=?, amount=?, category=?, patient_id=?, patient_name=?, date=?, time=?, created_at=?, description=?, extra_data=? WHERE id=?`,
+          [t.type || 'Kirim', t.amount || 0, t.category || '', t.patientId || '', t.patientName || '', t.date || '', t.time || '', created, t.description || '', Object.keys(extra).length > 0 ? JSON.stringify(extra) : null, t.id]
+        );
+      } catch {}
+    }
+    try { await conn.query('ALTER TABLE transactions DROP COLUMN data'); } catch {}
+    console.log(`✅ [Migration]: transactions yangi schema ga ko'chirildi (${rows.length} row)`);
+  } catch {}
+}
+
+async function migrateInpatientStaysSchema(conn: mysql.PoolConnection) {
+  try {
+    const [cols]: any[] = await conn.query("SHOW COLUMNS FROM inpatient_stays LIKE 'data'");
+    if (cols.length === 0) return;
+    console.log('📦 [Migration]: inpatient_stays jadvali yangi schema ga ko\'chirilmoqda...');
+    const [rows]: any[] = await conn.query('SELECT id, data FROM inpatient_stays');
+    for (const row of rows) {
+      try {
+        const s = JSON.parse(typeof row.data === 'string' ? row.data : JSON.stringify(row.data));
+        const created = s.createdAt ? new Date(s.createdAt) : new Date();
+        let extra: any = {};
+        if (s.prescriptions) extra.prescriptions = s.prescriptions;
+        if (s.gender) extra.gender = s.gender;
+        if (s.phone) extra.phone = s.phone;
+        await conn.query(
+          `UPDATE inpatient_stays SET patient_id=?, patient_name=?, room_id=?, room_number=?, department_id=?, department_name=?, doctor_name=?, status=?, check_in_date=?, check_out_date=?, planned_days=?, price_per_day=?, total_cost=?, amount_paid=?, remaining_debt=?, diagnosis=?, created_at=?, extra_data=? WHERE id=?`,
+          [s.patientId || '', `${s.lastName||''} ${s.firstName||''}`, s.roomId || '', s.roomNumber || '', s.departmentId || '', s.departmentName || '', s.doctorName || '', s.status || 'Davolanmoqda', s.checkInDate || '', s.checkOutDate || '', s.plannedDays || 0, s.pricePerDay || 0, s.totalCost || 0, s.amountPaid || 0, s.remainingDebt || 0, s.diagnosis || '', created, Object.keys(extra).length > 0 ? JSON.stringify(extra) : null, s.id]
+        );
+      } catch {}
+    }
+    try { await conn.query('ALTER TABLE inpatient_stays DROP COLUMN data'); } catch {}
+    console.log(`✅ [Migration]: inpatient_stays yangi schema ga ko'chirildi (${rows.length} row)`);
+  } catch {}
+}
+
+// ===================================================================
+// PATIENT CRUD — PROFESSIONAL COLUMNS + SQL Transaction
+// ===================================================================
+
+// INSERT — proper columns
 export async function insertPatient(patient: any): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const created = patient.createdAt ? new Date(patient.createdAt) : new Date();
-    const updated = patient.updatedAt ? new Date(patient.updatedAt) : created;
+    const r = patientToRow(patient);
     await conn.query(
-      `INSERT INTO patients (id, queue_number, status, department_id, payment_status, payment_amount, doctor_name, created_at, updated_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = VALUES(updated_at)`,
-      [patient.id, patient.queueNumber || 0, patient.status || 'Kutmoqda', patient.departmentId || '', patient.paymentStatus || '', patient.paymentAmount || 0, patient.doctorName || '', created, updated, JSON.stringify(patient)]
+      `INSERT INTO patients (id, patient_code, full_name, phone, birth_date, gender, department_id, doctor_id, doctor_name, status, payment_status, payment_amount, queue_number, diagnosis, created_at, updated_at, called_at, completed_at, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE full_name=VALUES(full_name), phone=VALUES(phone), status=VALUES(status), payment_status=VALUES(payment_status), payment_amount=VALUES(payment_amount), diagnosis=VALUES(diagnosis), updated_at=VALUES(updated_at), extra_data=VALUES(extra_data)`,
+      [r.id, r.patient_code, r.full_name, r.phone, r.birth_date, r.gender, r.department_id, r.doctor_id, r.doctor_name, r.status, r.payment_status, r.payment_amount, r.queue_number, r.diagnosis, r.created_at, r.updated_at, r.called_at, r.completed_at, r.extra_data]
     );
     await conn.commit();
     return true;
@@ -461,25 +675,45 @@ export async function insertPatient(patient: any): Promise<boolean> {
   }
 }
 
-// Bemor yangilash (UPDATE) — transaction ichida, faqat shu ID
+// UPDATE — proper columns, FOR UPDATE row lock
 export async function updatePatient(id: string, updates: any): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    // Joriy ma'lumotni o'qish (FOR UPDATE — row lock, race condition yo'q)
-    const [rows]: any[] = await conn.query('SELECT data FROM patients WHERE id = ? FOR UPDATE', [id]);
+    // Row lock
+    const [rows]: any[] = await conn.query('SELECT extra_data FROM patients WHERE id = ? FOR UPDATE', [id]);
     if (rows.length === 0) {
       await conn.rollback();
       return false;
     }
-    const current = JSON.parse(typeof rows[0].data === 'string' ? rows[0].data : JSON.stringify(rows[0].data));
-    const updated = { ...current, ...updates, id };
-    const ts = new Date();
-    await conn.query(
-      `UPDATE patients SET status = ?, department_id = ?, payment_status = ?, payment_amount = ?, doctor_name = ?, updated_at = ?, data = ? WHERE id = ?`,
-      [updated.status || 'Kutmoqda', updated.departmentId || '', updated.paymentStatus || '', updated.paymentAmount || 0, updated.doctorName || '', ts, JSON.stringify(updated), id]
-    );
+    // SET clause ni quramiz
+    const setClauses: string[] = ['updated_at = ?'];
+    const values: any[] = [new Date()];
+    let extraUpdates: any = {};
+    // existing extra_data ni parse
+    let existingExtra: any = {};
+    if (rows[0].extra_data) {
+      try { existingExtra = JSON.parse(typeof rows[0].extra_data === 'string' ? rows[0].extra_data : JSON.stringify(rows[0].extra_data)); } catch {}
+    }
+    for (const [key, val] of Object.entries(updates)) {
+      if (key === 'id') continue;
+      if (PATIENT_EXTRA_FIELDS.has(key)) {
+        extraUpdates[key] = val;
+      } else {
+        const col = PATIENT_COLUMN_MAP[key] || key;
+        setClauses.push(`${col} = ?`);
+        values.push(val);
+      }
+    }
+    // extra_data merge
+    if (Object.keys(extraUpdates).length > 0) {
+      const mergedExtra = { ...existingExtra, ...extraUpdates };
+      setClauses.push('extra_data = ?');
+      values.push(JSON.stringify(mergedExtra));
+    }
+    values.push(id);
+    await conn.query(`UPDATE patients SET ${setClauses.join(', ')} WHERE id = ?`, values);
     await conn.commit();
     return true;
   } catch (err: any) {
@@ -491,7 +725,7 @@ export async function updatePatient(id: string, updates: any): Promise<boolean> 
   }
 }
 
-// Bemor o'chirish (DELETE) — transaction ichida, faqat shu ID
+// DELETE
 export async function deletePatient(id: string): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
@@ -509,7 +743,9 @@ export async function deletePatient(id: string): Promise<boolean> {
   }
 }
 
-// TRANSACTION CRUD (append-only — faqat INSERT)
+// ===================================================================
+// TRANSACTION CRUD — proper columns
+// ===================================================================
 
 export async function insertTransaction(tx: any): Promise<boolean> {
   if (!isDbActive || !pool) return false;
@@ -517,9 +753,11 @@ export async function insertTransaction(tx: any): Promise<boolean> {
   try {
     await conn.beginTransaction();
     const created = tx.createdAt ? new Date(tx.createdAt) : new Date();
+    let extra: any = {};
+    if (tx.extra_data) extra = tx.extra_data;
     await conn.query(
-      `INSERT INTO transactions (id, type, amount, category, patient_id, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
-      [tx.id, tx.type || 'Kirim', tx.amount || 0, tx.category || '', tx.patientId || '', created, JSON.stringify(tx)]
+      `INSERT INTO transactions (id, type, amount, category, patient_id, patient_name, date, time, created_at, description, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE amount=VALUES(amount), description=VALUES(description)`,
+      [tx.id, tx.type || 'Kirim', tx.amount || 0, tx.category || '', tx.patientId || '', tx.patientName || '', tx.date || '', tx.time || '', created, tx.description || '', Object.keys(extra).length > 0 ? JSON.stringify(extra) : null]
     );
     await conn.commit();
     return true;
@@ -532,7 +770,9 @@ export async function insertTransaction(tx: any): Promise<boolean> {
   }
 }
 
-// INPATIENT STAY CRUD
+// ===================================================================
+// INPATIENT STAY CRUD — proper columns
+// ===================================================================
 
 export async function insertInpatientStay(stay: any): Promise<boolean> {
   if (!isDbActive || !pool) return false;
@@ -540,9 +780,13 @@ export async function insertInpatientStay(stay: any): Promise<boolean> {
   try {
     await conn.beginTransaction();
     const created = stay.createdAt ? new Date(stay.createdAt) : new Date();
+    let extra: any = {};
+    if (stay.prescriptions) extra.prescriptions = stay.prescriptions;
+    if (stay.gender) extra.gender = stay.gender;
+    if (stay.phone) extra.phone = stay.phone;
     await conn.query(
-      `INSERT INTO inpatient_stays (id, patient_id, room_number, department_name, status, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
-      [stay.id, stay.patientId || '', stay.roomNumber || '', stay.departmentName || '', stay.status || 'Davolanmoqda', created, JSON.stringify(stay)]
+      `INSERT INTO inpatient_stays (id, patient_id, patient_name, room_id, room_number, department_id, department_name, doctor_name, status, check_in_date, check_out_date, planned_days, price_per_day, total_cost, amount_paid, remaining_debt, diagnosis, created_at, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE status=VALUES(status), amount_paid=VALUES(amount_paid), remaining_debt=VALUES(remaining_debt), diagnosis=VALUES(diagnosis)`,
+      [stay.id, stay.patientId || '', `${stay.lastName||''} ${stay.firstName||''}`, stay.roomId || '', stay.roomNumber || '', stay.departmentId || '', stay.departmentName || '', stay.doctorName || '', stay.status || 'Davolanmoqda', stay.checkInDate || '', stay.checkOutDate || '', stay.plannedDays || 0, stay.pricePerDay || 0, stay.totalCost || 0, stay.amountPaid || 0, stay.remainingDebt || 0, stay.diagnosis || '', created, Object.keys(extra).length > 0 ? JSON.stringify(extra) : null]
     );
     await conn.commit();
     return true;
@@ -560,14 +804,20 @@ export async function updateInpatientStay(id: string, updates: any): Promise<boo
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
-    const [rows]: any[] = await conn.query('SELECT data FROM inpatient_stays WHERE id = ? FOR UPDATE', [id]);
+    const [rows]: any[] = await conn.query('SELECT * FROM inpatient_stays WHERE id = ? FOR UPDATE', [id]);
     if (rows.length === 0) { await conn.rollback(); return false; }
-    const current = JSON.parse(typeof rows[0].data === 'string' ? rows[0].data : JSON.stringify(rows[0].data));
-    const updated = { ...current, ...updates, id };
-    await conn.query(
-      `UPDATE inpatient_stays SET patient_id = ?, room_number = ?, department_name = ?, status = ?, data = ? WHERE id = ?`,
-      [updated.patientId || '', updated.roomNumber || '', updated.departmentName || '', updated.status || 'Davolanmoqda', JSON.stringify(updated), id]
-    );
+    const STAY_MAP: Record<string,string> = { patientId:'patient_id', patientName:'patient_name', roomId:'room_id', roomNumber:'room_number', departmentId:'department_id', departmentName:'department_name', doctorName:'doctor_name', checkInDate:'check_in_date', checkOutDate:'check_out_date', plannedDays:'planned_days', pricePerDay:'price_per_day', totalCost:'total_cost', amountPaid:'amount_paid', remainingDebt:'remaining_debt' };
+    const setClauses: string[] = [];
+    const values: any[] = [];
+    for (const [k,v] of Object.entries(updates)) {
+      if (k === 'id') continue;
+      const col = STAY_MAP[k] || k;
+      setClauses.push(`${col} = ?`);
+      values.push(v);
+    }
+    if (setClauses.length === 0) { await conn.commit(); return true; }
+    values.push(id);
+    await conn.query(`UPDATE inpatient_stays SET ${setClauses.join(', ')} WHERE id = ?`, values);
     await conn.commit();
     return true;
   } catch (err: any) {
@@ -596,27 +846,38 @@ export async function deleteInpatientStay(id: string): Promise<boolean> {
   }
 }
 
-// BARCHA bemorlarni o'qish — relational jadvaldan
+// ===================================================================
+// LOAD ALL — proper columns, rowToPatient reconstruction
+// ===================================================================
+
 export async function loadAllPatients(): Promise<any[]> {
   if (!isDbActive || !pool) return [];
   try {
-    const [rows]: any[] = await pool.query('SELECT data FROM patients ORDER BY created_at');
-    return rows.map((r: any) => {
-      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
-    }).filter(Boolean);
+    const [rows]: any[] = await pool.query('SELECT * FROM patients ORDER BY created_at');
+    return rows.map((r: any) => rowToPatient(r)).filter(Boolean);
   } catch (err: any) {
     console.error('❌ [Load Patients]:', err.message);
     return [];
   }
 }
 
-// BARCHA tranzaksiyalarni o'qish
 export async function loadAllTransactions(): Promise<any[]> {
   if (!isDbActive || !pool) return [];
   try {
-    const [rows]: any[] = await pool.query('SELECT data FROM transactions ORDER BY created_at');
+    const [rows]: any[] = await pool.query('SELECT * FROM transactions ORDER BY created_at');
     return rows.map((r: any) => {
-      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
+      let extra: any = {};
+      if (r.extra_data) {
+        try { extra = JSON.parse(typeof r.extra_data === 'string' ? r.extra_data : JSON.stringify(r.extra_data)); } catch {}
+      }
+      return {
+        id: r.id, type: r.type, amount: r.amount, category: r.category,
+        patientId: r.patient_id, patientName: r.patient_name,
+        date: r.date, time: r.time,
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        description: r.description || '',
+        ...extra,
+      };
     }).filter(Boolean);
   } catch (err: any) {
     console.error('❌ [Load Transactions]:', err.message);
@@ -624,13 +885,29 @@ export async function loadAllTransactions(): Promise<any[]> {
   }
 }
 
-// BARCHA statsionar bemorlarni o'qish
 export async function loadAllInpatientStays(): Promise<any[]> {
   if (!isDbActive || !pool) return [];
   try {
-    const [rows]: any[] = await pool.query('SELECT data FROM inpatient_stays ORDER BY created_at');
+    const [rows]: any[] = await pool.query('SELECT * FROM inpatient_stays ORDER BY created_at');
     return rows.map((r: any) => {
-      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
+      let extra: any = {};
+      if (r.extra_data) {
+        try { extra = JSON.parse(typeof r.extra_data === 'string' ? r.extra_data : JSON.stringify(r.extra_data)); } catch {}
+      }
+      const nameParts = (r.patient_name || '').split(' ');
+      return {
+        id: r.id, patientId: r.patient_id,
+        lastName: nameParts[0] || '', firstName: nameParts[1] || '',
+        roomId: r.room_id, roomNumber: r.room_number,
+        departmentId: r.department_id, departmentName: r.department_name,
+        doctorName: r.doctor_name, status: r.status,
+        checkInDate: r.check_in_date, checkOutDate: r.check_out_date,
+        plannedDays: r.planned_days, pricePerDay: r.price_per_day,
+        totalCost: r.total_cost, amountPaid: r.amount_paid, remainingDebt: r.remaining_debt,
+        diagnosis: r.diagnosis || '',
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+        ...extra,
+      };
     }).filter(Boolean);
   } catch (err: any) {
     console.error('❌ [Load InpatientStays]:', err.message);

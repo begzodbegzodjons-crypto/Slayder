@@ -626,3 +626,62 @@ PRODUCTION-READY:
 - JSON merge yo'q — faqat SQL INSERT/UPDATE/DELETE
 - Xato bo'lsa transaction bekor qilinadi (ROLLBACK), foydalanuvchiga xato qaytariladi
 - 1000 parallel so'rov bilan tasdiqlangan
+
+---
+Task ID: RELATIONAL-FINAL
+Agent: Main (orchestrator)
+Task: Professional relational database standard — proper columns, no JSON for main data, full stress test.
+
+SCHEMA (professional relational standart):
+patients jadvali — 19 ta alohida ustun:
+  id (PK), patient_code (UNIQUE), full_name, phone, birth_date, gender,
+  department_id, doctor_id, doctor_name, status, payment_status,
+  payment_amount, queue_number, diagnosis, called_at, completed_at,
+  created_at, updated_at, extra_data (LONGTEXT — faqat qo'shimcha maydonlar)
+
+  INDEKSLAR (7 ta):
+  - idx_patient_code (UNIQUE)
+  - idx_phone
+  - idx_department
+  - idx_doctor
+  - idx_status
+  - idx_payment_status
+  - idx_created
+
+transactions jadvali — proper ustunlar:
+  id (PK), type, amount, category, patient_id, patient_name,
+  date, time, created_at, description, extra_data
+  INDEKSLAR: idx_type, idx_patient, idx_category, idx_created
+
+ASOSIY MA'LUMOTLAR JSON ICHIDA EMAS:
+- Avval: barcha ma'lumot `data LONGTEXT` (JSON blob) ichida edi
+- Endi: full_name, phone, status, payment_status, department_id — alohida ustunlarda
+- extra_data faqat: prescriptions, complaints, testResults, selectedServices, refund info, patientHistory
+- SQL SELECT/INSERT/UPDATE/DELETE to'g'ridan-to'g'ri proper ustunlar bilan ishlaydi
+
+STRESS-TEST NATIJALARI:
+1. 200 parallel INSERT → 200/200 saqlandi ✅
+2. 200 parallel UPDATE → 200/200 tasdiqlandi ✅ (status+diagnosis o'zgardi)
+3. 200 parallel DELETE → 200/200 o'chirildi ✅
+4. 90 aralash (INSERT+UPDATE+DELETE) → 88/90 muvaffaqiyatli
+   (2 ta FAIL — UPDATE/DELETE bemor hali INSERT qilinmaganida, kutilgan holat)
+5. Duplicate patient_code: 0 ta (UNIQUE index ishlamoqda) ✅
+6. Bitta ham yozuv yo'qolmadi — 217 bemor saqlandi ✅
+
+VERIFIED:
+- ✅ proper ustunlar: full_name, phone, status, payment_status alohida
+- ✅ patient_code UNIQUE — duplicate yo'q
+- ✅ 7 ta indeks ishlamoqda
+- ✅ INSERT: bemor proper ustunlarda saqlandi
+- ✅ UPDATE: status+diagnosis o'zgardi
+- ✅ DELETE: bemor o'chirildi
+- ✅ 217 bemor TiDB da xavfsiz
+- ✅ Console xatolar yo'q
+- ✅ Haftalik hisobot: 217 bemor, 12,339,000 UZS
+
+PRODUCTION-READY:
+- TiDB professional relational standart
+- Asosiy ma'lumot alohida ustunlarda (JSON emas)
+- 7 ta indeks — tez so'rovlar
+- SQL Transactions (BEGIN/COMMIT/ROLLBACK)
+- Stress-test tasdiqlangan: bitta ham yozuv yo'qolmadi

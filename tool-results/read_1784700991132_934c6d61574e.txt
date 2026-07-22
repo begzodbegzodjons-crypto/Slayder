@@ -1,0 +1,678 @@
+     1→     1→import mysql from 'mysql2/promise';
+     2→     2→import fs from 'fs';
+     3→     3→import path from 'path';
+     4→     4→
+     5→     5→// Local file fallback path
+     6→     6→const FALLBACK_FILE_PATH = path.join(process.cwd(), 'clinic_data_fallback.json');
+     7→     7→
+     8→     8→// Interface for database/file storage
+     9→     9→export interface ClinicData {
+    10→    10→  patients: any[];
+    11→    11→  departments: any[];
+    12→    12→  receptionStaff: any[];
+    13→    13→  hospitalRooms: any[];
+    14→    14→  inpatientStays: any[];
+    15→    15→  transactions: any[];
+    16→    16→  diagnosisTemplates?: any[];
+    17→    17→  clinicSettings?: any;
+    18→    18→}
+    19→    19→
+    20→    20→// Pool reference
+    21→    21→let pool: mysql.Pool | null = null;
+    22→    22→let isDbActive = false;
+    23→    23→
+    24→    24→// Initialize connection and tables
+    25→    25→export async function initStorage() {
+    26→    26→  const host = process.env.TIDB_HOST || process.env.MYSQL_HOST;
+    27→    27→  const user = process.env.TIDB_USER || process.env.MYSQL_USER;
+    28→    28→  const password = process.env.TIDB_PASSWORD || process.env.MYSQL_PASSWORD;
+    29→    29→  const database = process.env.TIDB_DATABASE || process.env.MYSQL_DATABASE || 'dr_maruf_clinic';
+    30→    30→  const port = parseInt(process.env.TIDB_PORT || process.env.MYSQL_PORT || '4000');
+    31→    31→  const dbUrl = process.env.DATABASE_URL;
+    32→    32→
+    33→    33→  if (!dbUrl && !host) {
+    34→    34→    console.warn('⚠️ [DB Warning]: TiDB/MySQL connection parameters are not configured in environment variables. Falling back to local file persistence: clinic_data_fallback.json');
+    35→    35→    isDbActive = false;
+    36→    36→    return;
+    37→    37→  }
+    38→    38→
+    39→    39→  try {
+    40→    40→    console.log('🔄 [DB Connection]: Attempting to connect to TiDB/MySQL...');
+    41→    41→    
+    42→    42→    // Prefer explicit fields over URI for reliability with SSL
+    43→    43→    const useExplicit = host && user && password;
+    44→    44→    const config: mysql.PoolOptions = useExplicit ? {
+    45→    45→      host,
+    46→    46→      user,
+    47→    47→      password,
+    48→    48→      database,
+    49→    49→      port,
+    50→    50→      waitForConnections: true,
+    51→    51→      connectionLimit: 10,
+    52→    52→      queueLimit: 0,
+    53→    53→      ssl: {
+    54→    54→        rejectUnauthorized: false
+    55→    55→      }
+    56→    56→    } : (dbUrl ? {
+    57→    57→      uri: dbUrl,
+    58→    58→      waitForConnections: true,
+    59→    59→      connectionLimit: 10,
+    60→    60→      queueLimit: 0,
+    61→    61→      ssl: {
+    62→    62→        rejectUnauthorized: false
+    63→    63→      }
+    64→    64→    } : {
+    65→    65→      host,
+    66→    66→      user,
+    67→    67→      password,
+    68→    68→      database,
+    69→    69→      port,
+    70→    70→      waitForConnections: true,
+    71→    71→      connectionLimit: 10,
+    72→    72→      queueLimit: 0,
+    73→    73→      ssl: {
+    74→    74→        rejectUnauthorized: false
+    75→    75→      }
+    76→    76→    });
+    77→    77→
+    78→    78→    pool = mysql.createPool(config);
+    79→    79→
+    80→    80→    // Test connection
+    81→    81→    const conn = await pool.getConnection();
+    82→    82→    console.log('✅ [DB Connection]: Successfully connected to TiDB/MySQL Database.');
+    83→    83→
+    84→    84→    // =====================================================
+    85→    85→    // PROFESSIONAL RELATIONAL SCHEMA (3NF)
+    86→    86→    // Asosiy ma'lumotlar alohida ustunlarda — JSON emas.
+    87→    87→    // extra_data faqat kam ishlatiladigan qo'shimcha ma'lumotlar uchun.
+    88→    88→    // =====================================================
+    89→    89→
+    90→    90→    // 1. Bemorlar jadvali — professional ustunlar
+    91→    91→    await conn.query(`
+    92→    92→      CREATE TABLE IF NOT EXISTS patients (
+    93→    93→        id VARCHAR(50) PRIMARY KEY,
+    94→    94→        patient_code VARCHAR(50) UNIQUE,
+    95→    95→        full_name VARCHAR(255),
+    96→    96→        phone VARCHAR(30),
+    97→    97→        birth_date VARCHAR(20),
+    98→    98→        gender VARCHAR(10),
+    99→    99→        department_id VARCHAR(50),
+   100→   100→        doctor_id VARCHAR(50),
+   101→   101→        doctor_name VARCHAR(255),
+   102→   102→        status VARCHAR(50),
+   103→   103→        payment_status VARCHAR(50),
+   104→   104→        payment_amount INT,
+   105→   105→        queue_number INT,
+   106→   106→        diagnosis TEXT,
+   107→   107→        created_at TIMESTAMP,
+   108→   108→        updated_at TIMESTAMP,
+   109→   109→        called_at TIMESTAMP NULL,
+   110→   110→        completed_at TIMESTAMP NULL,
+   111→   111→        extra_data LONGTEXT,
+   112→   112→        UNIQUE INDEX idx_patient_code (patient_code),
+   113→   113→        INDEX idx_phone (phone),
+   114→   114→        INDEX idx_department (department_id),
+   115→   115→        INDEX idx_doctor (doctor_id),
+   116→   116→        INDEX idx_status (status),
+   117→   117→        INDEX idx_payment_status (payment_status),
+   118→   118→        INDEX idx_created (created_at)
+   119→   119→      );
+   120→   120→    `);
+   121→   121→
+   122→   122→    // Eski schema (data LONGTEXT) dan yangi schema ga migratsiya
+   123→   123→    await migratePatientsSchema(conn);
+   124→   124→
+   125→   125→    // 2. Tranzaksiyalar jadvali — proper ustunlar
+   126→   126→    await conn.query(`
+   127→   127→      CREATE TABLE IF NOT EXISTS transactions (
+   128→   128→        id VARCHAR(50) PRIMARY KEY,
+   129→   129→        type VARCHAR(20),
+   130→   130→        amount INT,
+   131→   131→        category VARCHAR(100),
+   132→   132→        patient_id VARCHAR(50),
+   133→   133→        patient_name VARCHAR(255),
+   134→   134→        date VARCHAR(20),
+   135→   135→        time VARCHAR(10),
+   136→   136→        created_at TIMESTAMP,
+   137→   137→        description TEXT,
+   138→   138→        extra_data LONGTEXT,
+   139→   139→        INDEX idx_type (type),
+   140→   140→        INDEX idx_patient (patient_id),
+   141→   141→        INDEX idx_category (category),
+   142→   142→        INDEX idx_created (created_at)
+   143→   143→      );
+   144→   144→    `);
+   145→   145→    await migrateTransactionsSchema(conn);
+   146→   146→
+   147→   147→    // 3. Statsionar bemorlar jadvali — proper ustunlar
+   148→   148→    await conn.query(`
+   149→   149→      CREATE TABLE IF NOT EXISTS inpatient_stays (
+   150→   150→        id VARCHAR(50) PRIMARY KEY,
+   151→   151→        patient_id VARCHAR(50),
+   152→   152→        patient_name VARCHAR(255),
+   153→   153→        room_id VARCHAR(50),
+   154→   154→        room_number VARCHAR(50),
+   155→   155→        department_id VARCHAR(50),
+   156→   156→        department_name VARCHAR(255),
+   157→   157→        doctor_name VARCHAR(255),
+   158→   158→        status VARCHAR(50),
+   159→   159→        check_in_date VARCHAR(20),
+   160→   160→        check_out_date VARCHAR(20),
+   161→   161→        planned_days INT,
+   162→   162→        price_per_day INT,
+   163→   163→        total_cost INT,
+   164→   164→        amount_paid INT,
+   165→   165→        remaining_debt INT,
+   166→   166→        diagnosis TEXT,
+   167→   167→        created_at TIMESTAMP,
+   168→   168→        extra_data LONGTEXT,
+   169→   169→        INDEX idx_status (status),
+   170→   170→        INDEX idx_patient (patient_id),
+   171→   171→        INDEX idx_room (room_number),
+   172→   172→        INDEX idx_department (department_id)
+   173→   173→      );
+   174→   174→    `);
+   175→   175→    await migrateInpatientStaysSchema(conn);
+   176→   176→
+   177→   177→    // 4. Eski JSON-blob jadval (departments, rooms, settings uchun hozircha qoladi)
+   178→   178→    await conn.query(`
+   179→   179→      CREATE TABLE IF NOT EXISTS clinic_erp_data (
+   180→   180→        key_name VARCHAR(100) PRIMARY KEY,
+   181→   181→        json_value LONGTEXT NOT NULL,
+   182→   182→        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+   183→   183→      ) ENGINE=InnoDB;
+   184→   184→    `);
+   185→   185→
+   186→   186→    // =====================================================
+   187→   187→    // MIGRATSIYA: JSON blob'dagi patients/transactions/inpatientStays
+   188→   188→    // ni relational jadvallarga ko'chirish (bir marta)
+   189→   189→    // =====================================================
+   190→   190→    await migrateJsonToRelational(conn);
+   191→   191→
+   192→   192→    conn.release();
+   193→   193→    isDbActive = true;
+   194→   194→    // Old migration below — migrateJsonToRelational handles JSON blob → relational
+   195→   195→    // ⚠️ MUHIM: Demo ma'lumotlarni tozalash OLIB TASHLANDI!
+   196→   196→    // Bu kod har safar server ishga tushganda "Azizbek" ismli bemor topilsa
+   197→   197→    // BARCHA bemorlar/tranzaksiyalar ma'lumotlarini O'CHIRIB TASHLARDI.
+   198→   198→    // Bu data loss (ma'lumot yo'qolishi) ning asosiy sababi edi.
+   199→   199→    // Endi hech qanday ma'lumot avtomatik o'chirilmaydi — 100% xavfsiz.
+   200→   200→  } catch (error: any) {
+   201→   201→    console.error('❌ [DB Connection Error]: Could not connect to TiDB/MySQL Cloud database. Error:', error.message);
+   202→   202→    console.warn('⚠️ [DB Fallback]: Switching to local file persistence: clinic_data_fallback.json');
+   203→   203→    isDbActive = false;
+   204→   204→  }
+   205→   205→}
+   206→   206→
+   207→   207→// Load data — patients/transactions/inpatientStays relational jadvallardan,
+   208→   208→// qolganlari (departments, rooms, settings) JSON blob'dan
+   209→   209→export async function loadData(): Promise<ClinicData> {
+   210→   210→  if (isDbActive && pool) {
+   211→   211→    try {
+   212→   212→      // Relational jadvallardan o'qish (professional)
+   213→   213→      const [patients, transactions, inpatientStays] = await Promise.all([
+   214→   214→        loadAllPatients(),
+   215→   215→        loadAllTransactions(),
+   216→   216→        loadAllInpatientStays(),
+   217→   217→      ]);
+   218→   218→
+   219→   219→      // JSON blob'dan qolgan ma'lumotlarni o'qish
+   220→   220→      const [rows]: any[] = await pool.query('SELECT key_name, json_value FROM clinic_erp_data');
+   221→   221→      const dataMap = new Map<string, any>();
+   222→   222→      for (const row of rows) {
+   223→   223→        dataMap.set(row.key_name, JSON.parse(row.json_value));
+   224→   224→      }
+   225→   225→
+   226→   226→      const hospitalRooms: any[] = dataMap.get('hospitalRooms') || [];
+   227→   227→
+   228→   228→      // PALATA BED STATUS — har doim to'g'ri hisoblanadi
+   229→   229→      const recalculatedRooms = hospitalRooms.map(room => {
+   230→   230→        const activeCount = inpatientStays.filter(s => {
+   231→   231→          if (s.status !== 'Davolanmoqda') return false;
+   232→   232→          if (s.roomId && s.roomId === room.id) return true;
+   233→   233→          if (s.roomNumber && s.roomNumber === room.roomNumber) return true;
+   234→   234→          return false;
+   235→   235→        }).length;
+   236→   236→        return { ...room, occupiedBeds: activeCount };
+   237→   237→      });
+   238→   238→
+   239→   239→      return {
+   240→   240→        patients,
+   241→   241→        departments: dataMap.get('departments') || [],
+   242→   242→        receptionStaff: dataMap.get('receptionStaff') || [],
+   243→   243→        hospitalRooms: recalculatedRooms,
+   244→   244→        inpatientStays,
+   245→   245→        transactions,
+   246→   246→        diagnosisTemplates: dataMap.get('diagnosisTemplates') || [],
+   247→   247→        clinicSettings: dataMap.get('clinicSettings') || null,
+   248→   248→      };
+   249→   249→    } catch (err: any) {
+   250→   250→      console.error('❌ [DB Load Error]: Error reading from database, using file fallback:', err.message);
+   251→   251→    }
+   252→   252→  }
+   253→   253→
+   254→   254→  // Load from local JSON file
+   255→   255→  if (fs.existsSync(FALLBACK_FILE_PATH)) {
+   256→   256→    try {
+   257→   257→      const raw = fs.readFileSync(FALLBACK_FILE_PATH, 'utf-8');
+   258→   258→      return JSON.parse(raw);
+   259→   259→    } catch (err) {
+   260→   260→      console.error('❌ [File Load Error]: Error reading fallback file, returning empty lists:', err);
+   261→   261→    }
+   262→   262→  }
+   263→   263→
+   264→   264→  // Return empty data structure so App can populate with initial static arrays
+   265→   265→  return {
+   266→   266→    patients: [],
+   267→   267→    departments: [],
+   268→   268→    receptionStaff: [],
+   269→   269→    hospitalRooms: [],
+   270→   270→    inpatientStays: [],
+   271→   271→    transactions: [],
+   272→   272→    diagnosisTemplates: [],
+   273→   273→    clinicSettings: null,
+   274→   274→  };
+   275→   275→}
+   276→   276→
+   277→   277→// ===================================================================
+   278→   278→// MUTEX LOCK — 5 xodim bir vaqtda saqlaganda ma'lumot yo'qolmasligi uchun
+   279→   279→// Har bir key (patients, transactions, ...) uchun save operatsiyalari
+   280→   280→// KETMA-KET bajariladi. Race condition butunlay bartaraf etiladi.
+   281→   281→// ===================================================================
+   282→   282→const saveLocks = new Map<string, Promise<any>>();
+   283→   283→
+   284→   284→async function withSaveLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+   285→   285→  const prev = saveLocks.get(key) || Promise.resolve();
+   286→   286→  let resolveNext: () => void;
+   287→   287→  const next = new Promise<void>((resolve) => { resolveNext = resolve; });
+   288→   288→  saveLocks.set(key, prev.then(() => next));
+   289→   289→  await prev; // oldingi operatsiya tugashini kutamiz
+   290→   290→  try {
+   291→   291→    return await fn();
+   292→   292→  } finally {
+   293→   293→    resolveNext!(); // keyingi operatsiyaga ruxsat
+   294→   294→  }
+   295→   295→}
+   296→   296→
+   297→   297→// Save specific key's data — supports both arrays AND objects (for clinicSettings)
+   298→   298→// MUHIM: patients va transactions uchun MERGE-ON-WRITE ishlaydi:
+   299→   299→// - Mavjud yozuvlar (ID bo'yicha) yangi ma'lumot bilan almashtiriladi
+   300→   300→// - Yangi yozuvlar qo'shiladi
+   301→   301→// - Eski yozuvlar (yangi ma'lumotda yo'q) SAQLANIB QOLADI
+   302→   302→// MUTEX LOCK orqali 5 xodim bir vaqtda saqlasa ham ma'lumot yo'qolmaydi.
+   303→   303→export async function saveCollection(key: string, items: any, forceReplace: boolean = false): Promise<boolean> {
+   304→   304→  return withSaveLock(key, async () => {
+   305→   305→  let finalData = items;
+   306→   306→
+   307→   307→  // patients va transactions uchun merge-on-write (forceReplace=false bo'lsa)
+   308→   308→  // forceReplace=true bo'lsa — to'liq almashtirish (o'chirish/restore uchun)
+   309→   309→  // PATIENTS uchun: updatedAt bo'yicha "YANGISI G'ALABA" — 4 doktor bir vaqtda
+   310→   310→  // saqlasa ham hech qanday ma'lumot yo'qolmaydi. Stale (eski) ma'lumot yangi
+   311→   311→  // ma'lumotni o'chirmaydi. Tranzaksiyalar faqat qo'shiladi (append-only).
+   312→   312→  if (!forceReplace && isDbActive && pool && (key === 'patients' || key === 'transactions') && Array.isArray(items)) {
+   313→   313→    try {
+   314→   314→      const [existing]: any[] = await pool.query(
+   315→   315→        'SELECT json_value FROM clinic_erp_data WHERE key_name = ?', [key]
+   316→   316→      );
+   317→   317→      if (existing.length > 0) {
+   318→   318→        const existingItems = JSON.parse(existing[0].json_value);
+   319→   319→        if (Array.isArray(existingItems) && existingItems.length > 0) {
+   320→   320→          const mergedMap = new Map<string, any>();
+   321→   321→          // Avval eski (bazadagi) ma'lumotni qo'shamiz
+   322→   322→          for (const item of existingItems) {
+   323→   323→            if (item && item.id) mergedMap.set(item.id, item);
+   324→   324→          }
+   325→   325→          // Keyin yangi ma'lumotni ID bo'yicha birlashtiramiz
+   326→   326→          for (const item of items) {
+   327→   327→            if (!item || !item.id) continue;
+   328→   328→            const old = mergedMap.get(item.id);
+   329→   329→            if (!old) {
+   330→   330→              // Yangi yozuv — qo'shamiz
+   331→   331→              mergedMap.set(item.id, item);
+   332→   332→            } else if (key === 'patients') {
+   333→   333→              // MAVJUD bemor — updatedAt bo'yicha "yangisi g'alaba"
+   334→   334→              // Bu 4 doktor bir vaqtda saqlaganda stale overwrite oldini oladi
+   335→   335→              const oldTs = old.updatedAt ? new Date(old.updatedAt).getTime() : 0;
+   336→   336→              const newTs = item.updatedAt ? new Date(item.updatedAt).getTime() : 0;
+   337→   337→              if (newTs >= oldTs) {
+   338→   338→                // Yangi ma'lumot yangiroq — lekin eski ma'lumotdagi BO'SH
+   339→   339→                // bo'lmagan maydonlarni saqlaymiz (field-level merge)
+   340→   340→                mergedMap.set(item.id, { ...old, ...item });
+   341→   341→              }
+   342→   342→              // Aks holda eski (yangiroq) ma'lumot saqlanadi
+   343→   343→            } else {
+   344→   344→              // transactions — incoming wins (append-only, o'zgartirilmaydi)
+   345→   345→              mergedMap.set(item.id, item);
+   346→   346→            }
+   347→   347→          }
+   348→   348→          finalData = Array.from(mergedMap.values());
+   349→   349→        }
+   350→   350→      }
+   351→   351→    } catch (err: any) {
+   352→   352→      console.warn(`⚠️ [Merge]: Could not merge "${key}", using direct save:`, err.message);
+   353→   353→    }
+   354→   354→  }
+   355→   355→
+   356→   356→  const jsonStr = JSON.stringify(finalData);
+   357→   357→
+   358→   358→  if (isDbActive && pool) {
+   359→   359→    try {
+   360→   360→      await pool.query(
+   361→   361→        'INSERT INTO clinic_erp_data (key_name, json_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE json_value = ?',
+   362→   362→        [key, jsonStr, jsonStr]
+   363→   363→      );
+   364→   364→      return true;
+   365→   365→    } catch (err: any) {
+   366→   366→      console.error(`❌ [DB Save Error]: Failed to save key "${key}" to TiDB/MySQL:`, err.message);
+   367→   367→    }
+   368→   368→  }
+   369→   369→
+   370→   370→  // Fallback save to file
+   371→   371→  try {
+   372→   372→    let currentData: any = {
+   373→   373→      patients: [],
+   374→   374→      departments: [],
+   375→   375→      receptionStaff: [],
+   376→   376→      hospitalRooms: [],
+   377→   377→      inpatientStays: [],
+   378→   378→      transactions: [],
+   379→   379→      diagnosisTemplates: [],
+   380→   380→      clinicSettings: null,
+   381→   381→    };
+   382→   382→
+   383→   383→    if (fs.existsSync(FALLBACK_FILE_PATH)) {
+   384→   384→      try {
+   385→   385→        currentData = JSON.parse(fs.readFileSync(FALLBACK_FILE_PATH, 'utf-8'));
+   386→   386→      } catch (e) {}
+   387→   387→    }
+   388→   388→
+   389→   389→    currentData[key] = items;
+   390→   390→    fs.writeFileSync(FALLBACK_FILE_PATH, JSON.stringify(currentData, null, 2), 'utf-8');
+   391→   391→    return true;
+   392→   392→  } catch (err: any) {
+   393→   393→    console.error(`❌ [File Save Error]: Failed to save key "${key}" to local fallback:`, err.message);
+   394→   394→    return false;
+   395→   395→  }
+   396→   396→  }); // withSaveLock tugadi
+   397→   397→}
+   398→   398→
+   399→   399→// ===================================================================
+   400→   400→// PROFESSIONAL CRUD — SQL Transactions bilan
+   401→   401→// Har bir operatsiya BEGIN → COMMIT/ROLLBACK ichida
+   402→   402→// JSON merge YO'Q — faqat row-level INSERT/UPDATE/DELETE
+   403→   403→// ===================================================================
+   404→   404→
+   405→   405→// Migratsiya: JSON blob'dan relational jadvallarga (bir marta)
+   406→   406→async function migrateJsonToRelational(conn: mysql.PoolConnection) {
+   407→   407→  try {
+   408→   408→    // patients migratsiyasi
+   409→   409→    const [patRows]: any[] = await conn.query("SELECT json_value FROM clinic_erp_data WHERE key_name = 'patients'");
+   410→   410→    if (patRows.length > 0) {
+   411→   411→      const patients = JSON.parse(patRows[0].json_value);
+   412→   412→      if (Array.isArray(patients) && patients.length > 0) {
+   413→   413→        // Jadvallarda nechta bemor borligini tekshiramiz
+   414→   414→        const [countRow]: any[] = await conn.query("SELECT COUNT(*) as cnt FROM patients");
+   415→   415→        if (countRow[0].cnt === 0) {
+   416→   416→          console.log(`📦 [Migration]: ${patients.length} ta bemor relational jadvalga ko'chirilmoqda...`);
+   417→   417→          for (const p of patients) {
+   418→   418→            if (!p.id) continue;
+   419→   419→            const created = p.createdAt ? new Date(p.createdAt) : new Date();
+   420→   420→            const updated = p.updatedAt ? new Date(p.updatedAt) : created;
+   421→   421→            await conn.query(
+   422→   422→              `INSERT IGNORE INTO patients (id, queue_number, status, department_id, payment_status, payment_amount, doctor_name, created_at, updated_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+   423→   423→              [p.id, p.queueNumber || 0, p.status || 'Kutmoqda', p.departmentId || '', p.paymentStatus || '', p.paymentAmount || 0, p.doctorName || '', created, updated, JSON.stringify(p)]
+   424→   424→            );
+   425→   425→          }
+   426→   426→          console.log(`✅ [Migration]: patients jadvali tayyor`);
+   427→   427→        }
+   428→   428→      }
+   429→   429→    }
+   430→   430→
+   431→   431→    // transactions migratsiyasi
+   432→   432→    const [txRows]: any[] = await conn.query("SELECT json_value FROM clinic_erp_data WHERE key_name = 'transactions'");
+   433→   433→    if (txRows.length > 0) {
+   434→   434→      const txs = JSON.parse(txRows[0].json_value);
+   435→   435→      if (Array.isArray(txs) && txs.length > 0) {
+   436→   436→        const [countRow]: any[] = await conn.query("SELECT COUNT(*) as cnt FROM transactions");
+   437→   437→        if (countRow[0].cnt === 0) {
+   438→   438→          console.log(`📦 [Migration]: ${txs.length} ta tranzaksiya relational jadvalga ko'chirilmoqda...`);
+   439→   439→          for (const t of txs) {
+   440→   440→            if (!t.id) continue;
+   441→   441→            const created = t.createdAt ? new Date(t.createdAt) : new Date();
+   442→   442→            await conn.query(
+   443→   443→              `INSERT IGNORE INTO transactions (id, type, amount, category, patient_id, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+   444→   444→              [t.id, t.type || 'Kirim', t.amount || 0, t.category || '', t.patientId || '', created, JSON.stringify(t)]
+   445→   445→            );
+   446→   446→          }
+   447→   447→          console.log(`✅ [Migration]: transactions jadvali tayyor`);
+   448→   448→        }
+   449→   449→      }
+   450→   450→    }
+   451→   451→
+   452→   452→    // inpatient_stays migratsiyasi
+   453→   453→    const [stayRows]: any[] = await conn.query("SELECT json_value FROM clinic_erp_data WHERE key_name = 'inpatientStays'");
+   454→   454→    if (stayRows.length > 0) {
+   455→   455→      const stays = JSON.parse(stayRows[0].json_value);
+   456→   456→      if (Array.isArray(stays) && stays.length > 0) {
+   457→   457→        const [countRow]: any[] = await conn.query("SELECT COUNT(*) as cnt FROM inpatient_stays");
+   458→   458→        if (countRow[0].cnt === 0) {
+   459→   459→          console.log(`📦 [Migration]: ${stays.length} ta statsionar bemor relational jadvalga ko'chirilmoqda...`);
+   460→   460→          for (const s of stays) {
+   461→   461→            if (!s.id) continue;
+   462→   462→            const created = s.createdAt || s.checkInDate ? new Date(s.createdAt || s.checkInDate) : new Date();
+   463→   463→            await conn.query(
+   464→   464→              `INSERT IGNORE INTO inpatient_stays (id, patient_id, room_number, department_name, status, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+   465→   465→              [s.id, s.patientId || '', s.roomNumber || '', s.departmentName || '', s.status || 'Davolanmoqda', created, JSON.stringify(s)]
+   466→   466→            );
+   467→   467→          }
+   468→   468→          console.log(`✅ [Migration]: inpatient_stays jadvali tayyor`);
+   469→   469→        }
+   470→   470→      }
+   471→   471→    }
+   472→   472→  } catch (err: any) {
+   473→   473→    console.warn(`⚠️ [Migration]:`, err.message);
+   474→   474→  }
+   475→   475→}
+   476→   476→
+   477→   477→// PATIENT CRUD — SQL Transaction bilan
+   478→   478→
+   479→   479→// Bemor qo'shish (INSERT) — transaction ichida
+   480→   480→export async function insertPatient(patient: any): Promise<boolean> {
+   481→   481→  if (!isDbActive || !pool) return false;
+   482→   482→  const conn = await pool.getConnection();
+   483→   483→  try {
+   484→   484→    await conn.beginTransaction();
+   485→   485→    const created = patient.createdAt ? new Date(patient.createdAt) : new Date();
+   486→   486→    const updated = patient.updatedAt ? new Date(patient.updatedAt) : created;
+   487→   487→    await conn.query(
+   488→   488→      `INSERT INTO patients (id, queue_number, status, department_id, payment_status, payment_amount, doctor_name, created_at, updated_at, data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data), updated_at = VALUES(updated_at)`,
+   489→   489→      [patient.id, patient.queueNumber || 0, patient.status || 'Kutmoqda', patient.departmentId || '', patient.paymentStatus || '', patient.paymentAmount || 0, patient.doctorName || '', created, updated, JSON.stringify(patient)]
+   490→   490→    );
+   491→   491→    await conn.commit();
+   492→   492→    return true;
+   493→   493→  } catch (err: any) {
+   494→   494→    await conn.rollback();
+   495→   495→    console.error(`❌ [INSERT Patient]:`, err.message);
+   496→   496→    return false;
+   497→   497→  } finally {
+   498→   498→    conn.release();
+   499→   499→  }
+   500→   500→}
+   501→   501→
+   502→   502→// Bemor yangilash (UPDATE) — transaction ichida, faqat shu ID
+   503→   503→export async function updatePatient(id: string, updates: any): Promise<boolean> {
+   504→   504→  if (!isDbActive || !pool) return false;
+   505→   505→  const conn = await pool.getConnection();
+   506→   506→  try {
+   507→   507→    await conn.beginTransaction();
+   508→   508→    // Joriy ma'lumotni o'qish (FOR UPDATE — row lock, race condition yo'q)
+   509→   509→    const [rows]: any[] = await conn.query('SELECT data FROM patients WHERE id = ? FOR UPDATE', [id]);
+   510→   510→    if (rows.length === 0) {
+   511→   511→      await conn.rollback();
+   512→   512→      return false;
+   513→   513→    }
+   514→   514→    const current = JSON.parse(typeof rows[0].data === 'string' ? rows[0].data : JSON.stringify(rows[0].data));
+   515→   515→    const updated = { ...current, ...updates, id };
+   516→   516→    const ts = new Date();
+   517→   517→    await conn.query(
+   518→   518→      `UPDATE patients SET status = ?, department_id = ?, payment_status = ?, payment_amount = ?, doctor_name = ?, updated_at = ?, data = ? WHERE id = ?`,
+   519→   519→      [updated.status || 'Kutmoqda', updated.departmentId || '', updated.paymentStatus || '', updated.paymentAmount || 0, updated.doctorName || '', ts, JSON.stringify(updated), id]
+   520→   520→    );
+   521→   521→    await conn.commit();
+   522→   522→    return true;
+   523→   523→  } catch (err: any) {
+   524→   524→    await conn.rollback();
+   525→   525→    console.error(`❌ [UPDATE Patient ${id}]:`, err.message);
+   526→   526→    return false;
+   527→   527→  } finally {
+   528→   528→    conn.release();
+   529→   529→  }
+   530→   530→}
+   531→   531→
+   532→   532→// Bemor o'chirish (DELETE) — transaction ichida, faqat shu ID
+   533→   533→export async function deletePatient(id: string): Promise<boolean> {
+   534→   534→  if (!isDbActive || !pool) return false;
+   535→   535→  const conn = await pool.getConnection();
+   536→   536→  try {
+   537→   537→    await conn.beginTransaction();
+   538→   538→    await conn.query('DELETE FROM patients WHERE id = ?', [id]);
+   539→   539→    await conn.commit();
+   540→   540→    return true;
+   541→   541→  } catch (err: any) {
+   542→   542→    await conn.rollback();
+   543→   543→    console.error(`❌ [DELETE Patient ${id}]:`, err.message);
+   544→   544→    return false;
+   545→   545→  } finally {
+   546→   546→    conn.release();
+   547→   547→  }
+   548→   548→}
+   549→   549→
+   550→   550→// TRANSACTION CRUD (append-only — faqat INSERT)
+   551→   551→
+   552→   552→export async function insertTransaction(tx: any): Promise<boolean> {
+   553→   553→  if (!isDbActive || !pool) return false;
+   554→   554→  const conn = await pool.getConnection();
+   555→   555→  try {
+   556→   556→    await conn.beginTransaction();
+   557→   557→    const created = tx.createdAt ? new Date(tx.createdAt) : new Date();
+   558→   558→    await conn.query(
+   559→   559→      `INSERT INTO transactions (id, type, amount, category, patient_id, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+   560→   560→      [tx.id, tx.type || 'Kirim', tx.amount || 0, tx.category || '', tx.patientId || '', created, JSON.stringify(tx)]
+   561→   561→    );
+   562→   562→    await conn.commit();
+   563→   563→    return true;
+   564→   564→  } catch (err: any) {
+   565→   565→    await conn.rollback();
+   566→   566→    console.error(`❌ [INSERT Transaction]:`, err.message);
+   567→   567→    return false;
+   568→   568→  } finally {
+   569→   569→    conn.release();
+   570→   570→  }
+   571→   571→}
+   572→   572→
+   573→   573→// INPATIENT STAY CRUD
+   574→   574→
+   575→   575→export async function insertInpatientStay(stay: any): Promise<boolean> {
+   576→   576→  if (!isDbActive || !pool) return false;
+   577→   577→  const conn = await pool.getConnection();
+   578→   578→  try {
+   579→   579→    await conn.beginTransaction();
+   580→   580→    const created = stay.createdAt ? new Date(stay.createdAt) : new Date();
+   581→   581→    await conn.query(
+   582→   582→      `INSERT INTO inpatient_stays (id, patient_id, room_number, department_name, status, created_at, data) VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = VALUES(data)`,
+   583→   583→      [stay.id, stay.patientId || '', stay.roomNumber || '', stay.departmentName || '', stay.status || 'Davolanmoqda', created, JSON.stringify(stay)]
+   584→   584→    );
+   585→   585→    await conn.commit();
+   586→   586→    return true;
+   587→   587→  } catch (err: any) {
+   588→   588→    await conn.rollback();
+   589→   589→    console.error(`❌ [INSERT InpatientStay]:`, err.message);
+   590→   590→    return false;
+   591→   591→  } finally {
+   592→   592→    conn.release();
+   593→   593→  }
+   594→   594→}
+   595→   595→
+   596→   596→export async function updateInpatientStay(id: string, updates: any): Promise<boolean> {
+   597→   597→  if (!isDbActive || !pool) return false;
+   598→   598→  const conn = await pool.getConnection();
+   599→   599→  try {
+   600→   600→    await conn.beginTransaction();
+   601→   601→    const [rows]: any[] = await conn.query('SELECT data FROM inpatient_stays WHERE id = ? FOR UPDATE', [id]);
+   602→   602→    if (rows.length === 0) { await conn.rollback(); return false; }
+   603→   603→    const current = JSON.parse(typeof rows[0].data === 'string' ? rows[0].data : JSON.stringify(rows[0].data));
+   604→   604→    const updated = { ...current, ...updates, id };
+   605→   605→    await conn.query(
+   606→   606→      `UPDATE inpatient_stays SET patient_id = ?, room_number = ?, department_name = ?, status = ?, data = ? WHERE id = ?`,
+   607→   607→      [updated.patientId || '', updated.roomNumber || '', updated.departmentName || '', updated.status || 'Davolanmoqda', JSON.stringify(updated), id]
+   608→   608→    );
+   609→   609→    await conn.commit();
+   610→   610→    return true;
+   611→   611→  } catch (err: any) {
+   612→   612→    await conn.rollback();
+   613→   613→    console.error(`❌ [UPDATE InpatientStay ${id}]:`, err.message);
+   614→   614→    return false;
+   615→   615→  } finally {
+   616→   616→    conn.release();
+   617→   617→  }
+   618→   618→}
+   619→   619→
+   620→   620→export async function deleteInpatientStay(id: string): Promise<boolean> {
+   621→   621→  if (!isDbActive || !pool) return false;
+   622→   622→  const conn = await pool.getConnection();
+   623→   623→  try {
+   624→   624→    await conn.beginTransaction();
+   625→   625→    await conn.query('DELETE FROM inpatient_stays WHERE id = ?', [id]);
+   626→   626→    await conn.commit();
+   627→   627→    return true;
+   628→   628→  } catch (err: any) {
+   629→   629→    await conn.rollback();
+   630→   630→    console.error(`❌ [DELETE InpatientStay ${id}]:`, err.message);
+   631→   631→    return false;
+   632→   632→  } finally {
+   633→   633→    conn.release();
+   634→   634→  }
+   635→   635→}
+   636→   636→
+   637→   637→// BARCHA bemorlarni o'qish — relational jadvaldan
+   638→   638→export async function loadAllPatients(): Promise<any[]> {
+   639→   639→  if (!isDbActive || !pool) return [];
+   640→   640→  try {
+   641→   641→    const [rows]: any[] = await pool.query('SELECT data FROM patients ORDER BY created_at');
+   642→   642→    return rows.map((r: any) => {
+   643→   643→      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
+   644→   644→    }).filter(Boolean);
+   645→   645→  } catch (err: any) {
+   646→   646→    console.error('❌ [Load Patients]:', err.message);
+   647→   647→    return [];
+   648→   648→  }
+   649→   649→}
+   650→   650→
+   651→   651→// BARCHA tranzaksiyalarni o'qish
+   652→   652→export async function loadAllTransactions(): Promise<any[]> {
+   653→   653→  if (!isDbActive || !pool) return [];
+   654→   654→  try {
+   655→   655→    const [rows]: any[] = await pool.query('SELECT data FROM transactions ORDER BY created_at');
+   656→   656→    return rows.map((r: any) => {
+   657→   657→      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
+   658→   658→    }).filter(Boolean);
+   659→   659→  } catch (err: any) {
+   660→   660→    console.error('❌ [Load Transactions]:', err.message);
+   661→   661→    return [];
+   662→   662→  }
+   663→   663→}
+   664→   664→
+   665→   665→// BARCHA statsionar bemorlarni o'qish
+   666→   666→export async function loadAllInpatientStays(): Promise<any[]> {
+   667→   667→  if (!isDbActive || !pool) return [];
+   668→   668→  try {
+   669→   669→    const [rows]: any[] = await pool.query('SELECT data FROM inpatient_stays ORDER BY created_at');
+   670→   670→    return rows.map((r: any) => {
+   671→   671→      try { return JSON.parse(typeof r.data === 'string' ? r.data : JSON.stringify(r.data)); } catch { return null; }
+   672→   672→    }).filter(Boolean);
+   673→   673→  } catch (err: any) {
+   674→   674→    console.error('❌ [Load InpatientStays]:', err.message);
+   675→   675→    return [];
+   676→   676→  }
+   677→   677→}
+   678→   678→
