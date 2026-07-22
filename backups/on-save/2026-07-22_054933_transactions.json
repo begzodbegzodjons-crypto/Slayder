@@ -1,0 +1,2596 @@
+{
+  "_meta": {
+    "key": "transactions",
+    "savedAt": "2026-07-22T05:49:33.712Z",
+    "recordCount": 258
+  },
+  "data": [
+    {
+      "id": "TX-32085",
+      "type": "Kirim",
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "description": "CrudTest BemorFinal - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "date": "2026-07-22",
+      "time": "05:49",
+      "createdAt": "2026-07-22T05:49:00.000Z"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T09:45:00.000Z",
+      "date": "2026-07-20",
+      "description": "tfghjk hjhkl - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-578504",
+      "time": "09:45",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-20T09:45:00.000Z",
+      "date": "2026-07-20",
+      "description": "tfghjk hjhkl - LOR (Quloq-Burun-Tomoq) bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-586294",
+      "time": "09:45",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:24:00.000Z",
+      "date": "2026-07-20",
+      "description": "Eshmatov Islom - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-427580",
+      "time": "11:24",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:24:00.000Z",
+      "date": "2026-07-20",
+      "description": "Eshmatov Kamron - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-761321",
+      "time": "11:24",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:26:00.000Z",
+      "date": "2026-07-20",
+      "description": "To'xtasinov Sheroz - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-835635",
+      "time": "11:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:26:00.000Z",
+      "date": "2026-07-20",
+      "description": "Mahmudova Muhabbat - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-144086",
+      "time": "11:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:26:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'lmasova Yulduzxon - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-141858",
+      "time": "11:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:27:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ahmadjonov Latifjon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-168752",
+      "time": "11:27",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-20T11:27:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ahmadjonov Latifjon - LOR (Quloq-Burun-Tomoq) bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-390887",
+      "time": "11:27",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:28:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ahmadjonov Latifjon - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-117531",
+      "time": "11:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:28:00.000Z",
+      "date": "2026-07-20",
+      "description": "Alixonova Dilafruz - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-726144",
+      "time": "11:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:29:00.000Z",
+      "date": "2026-07-20",
+      "description": "Anorov Abduhoshim - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-193088",
+      "time": "11:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:29:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xaydarova Barno - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-455146",
+      "time": "11:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:29:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustamova Dilshoda - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-284842",
+      "time": "11:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:30:00.000Z",
+      "date": "2026-07-20",
+      "description": "Adxamjonov Zukrillo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-960026",
+      "time": "11:30",
+      "type": "Kirim"
+    },
+    {
+      "amount": 85000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:30:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sobirova Gulida - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-314741",
+      "time": "11:30",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:30:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rahmonqulov Abdumalik - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-855343",
+      "time": "11:30",
+      "type": "Kirim"
+    },
+    {
+      "amount": 55000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:32:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rahimova Navro'za - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-345856",
+      "time": "11:32",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:32:00.000Z",
+      "date": "2026-07-20",
+      "description": "Fozilov Omadbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-683026",
+      "time": "11:32",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:33:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova Lobar - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-482196",
+      "time": "11:33",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:34:00.000Z",
+      "date": "2026-07-20",
+      "description": "Adashaliyev Muhammadrizo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-295761",
+      "time": "11:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:34:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sobirova Gulida - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-126295",
+      "time": "11:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:35:00.000Z",
+      "date": "2026-07-20",
+      "description": "Qahromonjonova Gulsanam - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-443402",
+      "time": "11:35",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:35:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sotvoldiyev Muhammadaziz - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-198176",
+      "time": "11:35",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:36:00.000Z",
+      "date": "2026-07-20",
+      "description": "Umataliyev Firdavs - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-172698",
+      "time": "11:36",
+      "type": "Kirim"
+    },
+    {
+      "amount": 10000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:48:00.000Z",
+      "date": "2026-07-20",
+      "description": "Shamsiddinov Baxriddin - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-977470",
+      "time": "11:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:49:00.000Z",
+      "date": "2026-07-20",
+      "description": "Aliyeva Sevara - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-877960",
+      "time": "11:49",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:50:00.000Z",
+      "date": "2026-07-20",
+      "description": "Qosimjonov Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-283860",
+      "time": "11:50",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:51:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xolmuhammedov Shermuhammad - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-308724",
+      "time": "11:51",
+      "type": "Kirim"
+    },
+    {
+      "amount": 45000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:55:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ergasheva Shaxnoza - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-352399",
+      "time": "11:55",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:57:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ergasheva Shaxnoza - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-610639",
+      "time": "11:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 325000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:58:00.000Z",
+      "date": "2026-07-20",
+      "description": "To'xtasinov Sheroz - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-167030",
+      "time": "11:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "To'xtasinov Sheroz - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-744911",
+      "time": "11:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T11:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Abduraxmonov Muhammaddiyor - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-604988",
+      "time": "11:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:00:00.000Z",
+      "date": "2026-07-20",
+      "description": "Baxtiyorov fv - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-921147",
+      "time": "12:00",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:00:00.000Z",
+      "date": "2026-07-20",
+      "description": "Jabaraliyeva Laziza - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-383591",
+      "time": "12:00",
+      "type": "Kirim"
+    },
+    {
+      "amount": 180000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:01:00.000Z",
+      "date": "2026-07-20",
+      "description": "Yo'ldasheva Yoqut - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-571548",
+      "time": "12:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 204000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:02:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rajabboyeva Omina - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-980367",
+      "time": "12:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:03:00.000Z",
+      "date": "2026-07-20",
+      "description": "Maxmudova Xikmatxon - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-176198",
+      "time": "12:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "Murodjonova Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-696707",
+      "time": "12:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ochilov Oyatillo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-852645",
+      "time": "12:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ochilov Islom - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-471019",
+      "time": "12:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:05:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ochilov Oyatillo Oyatillo - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-237322",
+      "time": "12:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:06:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ismailova Nozima - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-723593",
+      "time": "12:06",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:06:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ixtiyorova Muslima - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-645045",
+      "time": "12:06",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:06:00.000Z",
+      "date": "2026-07-20",
+      "description": "Umonjonov Firdavs - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-226608",
+      "time": "12:06",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:07:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sattaraliyeva Durdona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-498946",
+      "time": "12:07",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:07:00.000Z",
+      "date": "2026-07-20",
+      "description": "Bo'ronova Maxpora - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-703926",
+      "time": "12:07",
+      "type": "Kirim"
+    },
+    {
+      "amount": 65000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:08:00.000Z",
+      "date": "2026-07-20",
+      "description": "Abduganiyev jh - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-294428",
+      "time": "12:08",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:10:00.000Z",
+      "date": "2026-07-20",
+      "description": "Usmonova Gulzira - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-600231",
+      "time": "12:10",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:10:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xatamjonova Mexribon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-152273",
+      "time": "12:10",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:10:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova Lobar - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-591577",
+      "time": "12:10",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:11:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ganiyeva Muslima - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-723287",
+      "time": "12:11",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:15:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nosirjonov Kamron - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-627912",
+      "time": "12:15",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:15:00.000Z",
+      "date": "2026-07-20",
+      "description": "To'lakov Muhammadali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-410207",
+      "time": "12:15",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:17:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ergashev Akmal - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-356978",
+      "time": "12:17",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:18:00.000Z",
+      "date": "2026-07-20",
+      "description": "G'aniyeva Ra'noxon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-445312",
+      "time": "12:18",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:18:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva Dilrabo - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-920424",
+      "time": "12:18",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:19:00.000Z",
+      "date": "2026-07-20",
+      "description": "Zokirjonov Asadullo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-388175",
+      "time": "12:19",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:21:00.000Z",
+      "date": "2026-07-20",
+      "description": "Tohirjonov Abdullox - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-263578",
+      "time": "12:21",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:21:00.000Z",
+      "date": "2026-07-20",
+      "description": "Tohirjonov Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-625389",
+      "time": "12:21",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:23:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva Dilrabo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-846808",
+      "time": "12:23",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:24:00.000Z",
+      "date": "2026-07-20",
+      "description": "Mamajonova Nargiza - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-750795",
+      "time": "12:24",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:24:00.000Z",
+      "date": "2026-07-20",
+      "description": "Azimova Soliha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-185482",
+      "time": "12:24",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:26:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova Robiya - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-476497",
+      "time": "12:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:27:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustamova Gulshoda - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-749178",
+      "time": "12:27",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:27:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova Robiya - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-895541",
+      "time": "12:27",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:28:00.000Z",
+      "date": "2026-07-20",
+      "description": "Mirzaraximova Cho'lponoy - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-939766",
+      "time": "12:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:29:00.000Z",
+      "date": "2026-07-20",
+      "description": "Tursinboyeva vhv - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-767047",
+      "time": "12:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:52:00.000Z",
+      "date": "2026-07-20",
+      "description": "Salimova xsx - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-128279",
+      "time": "12:52",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:53:00.000Z",
+      "date": "2026-07-20",
+      "description": "Abduraufova Shukrona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-299766",
+      "time": "12:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:53:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nabiyeva Muqaddas - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-990112",
+      "time": "12:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:54:00.000Z",
+      "date": "2026-07-20",
+      "description": "Tolipov jasur - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-445360",
+      "time": "12:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:55:00.000Z",
+      "date": "2026-07-20",
+      "description": "Muhammadjonov Imron - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-550088",
+      "time": "12:55",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:55:00.000Z",
+      "date": "2026-07-20",
+      "description": "Qazaqova Dildora - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-882270",
+      "time": "12:55",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:56:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova vh - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-556800",
+      "time": "12:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:56:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustanjonov jj - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-946626",
+      "time": "12:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:57:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nazarova rthsr - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-978978",
+      "time": "12:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:58:00.000Z",
+      "date": "2026-07-20",
+      "description": "Adashaliyev Muhammadyusuf - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-399787",
+      "time": "12:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Axmadjonova Yasmina - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-528373",
+      "time": "12:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Karimova Ziyoda - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-394226",
+      "time": "12:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T12:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rasuljonova Moxiniso - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-762689",
+      "time": "12:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:00:00.000Z",
+      "date": "2026-07-20",
+      "description": "Maxmudjonov Imronbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-110105",
+      "time": "13:00",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:01:00.000Z",
+      "date": "2026-07-20",
+      "description": "Yunusaliyev Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-308685",
+      "time": "13:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:02:00.000Z",
+      "date": "2026-07-20",
+      "description": "Mamasoliyeva huh - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-527345",
+      "time": "13:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:02:00.000Z",
+      "date": "2026-07-20",
+      "description": "Mamasoliyeva hyygfyu - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-201305",
+      "time": "13:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:03:00.000Z",
+      "date": "2026-07-20",
+      "description": "sdc Muhammaddiyor - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-135703",
+      "time": "13:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:03:00.000Z",
+      "date": "2026-07-20",
+      "description": "sc Muhammadyusuf - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-917711",
+      "time": "13:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "jnxj ,njasd - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-230982",
+      "time": "13:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xatamova jyhgy - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-412005",
+      "time": "13:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T13:05:00.000Z",
+      "date": "2026-07-20",
+      "description": "hjkbuk Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-211142",
+      "time": "13:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:34:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ro'zimatova Munojat - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-941012",
+      "time": "14:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:34:00.000Z",
+      "date": "2026-07-20",
+      "description": "hsgx Umida - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-371168",
+      "time": "14:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 50000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:35:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sohibjonov Abdullox - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-951626",
+      "time": "14:35",
+      "type": "Kirim"
+    },
+    {
+      "amount": 80000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:36:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva gyhng - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-594241",
+      "time": "14:36",
+      "type": "Kirim"
+    },
+    {
+      "amount": 80000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-20T14:37:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva gyhng - Nevrologiya bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-265881",
+      "time": "14:37",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:37:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva hjh - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-567928",
+      "time": "14:37",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:38:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustamjonov yguyj - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-589495",
+      "time": "14:38",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:39:00.000Z",
+      "date": "2026-07-20",
+      "description": "Egamberdiyeva rtg - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-896074",
+      "time": "14:39",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-20T14:42:00.000Z",
+      "date": "2026-07-20",
+      "description": "Egamberdiyeva rtg - Fizioterapiya bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-190368",
+      "time": "14:42",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:43:00.000Z",
+      "date": "2026-07-20",
+      "description": "Egamberdiyeva hgfvj - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-495987",
+      "time": "14:43",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:44:00.000Z",
+      "date": "2026-07-20",
+      "description": "Erkinova Umida - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-586668",
+      "time": "14:44",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:44:00.000Z",
+      "date": "2026-07-20",
+      "description": "Erkinova Odina - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-622223",
+      "time": "14:44",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:44:00.000Z",
+      "date": "2026-07-20",
+      "description": "Erkinov Abbubakr - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-414408",
+      "time": "14:44",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:45:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xudoyberdiyev Ali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-203995",
+      "time": "14:45",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:45:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sadriddinova Anvara - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-374487",
+      "time": "14:45",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:46:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ikromjonova Zuhra - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-738136",
+      "time": "14:46",
+      "type": "Kirim"
+    },
+    {
+      "amount": 270000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:46:00.000Z",
+      "date": "2026-07-20",
+      "description": "Vohidova Gavhar - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-652087",
+      "time": "14:46",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:47:00.000Z",
+      "date": "2026-07-20",
+      "description": "Solijonov Jasur - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-400234",
+      "time": "14:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 100000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:47:00.000Z",
+      "date": "2026-07-20",
+      "description": "Karimova Dilfuza - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-481111",
+      "time": "14:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:47:00.000Z",
+      "date": "2026-07-20",
+      "description": "Bo'ronova Maxpora - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-773329",
+      "time": "14:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:48:00.000Z",
+      "date": "2026-07-20",
+      "description": "Alimova Moxiniso - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-616598",
+      "time": "14:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:48:00.000Z",
+      "date": "2026-07-20",
+      "description": "Olimjonov Zubayr - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-428391",
+      "time": "14:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:49:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nabiyeva hfgy - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-165401",
+      "time": "14:49",
+      "type": "Kirim"
+    },
+    {
+      "amount": 325000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:49:00.000Z",
+      "date": "2026-07-20",
+      "description": "XAydaraliyev Salohiddin - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-821040",
+      "time": "14:49",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:49:00.000Z",
+      "date": "2026-07-20",
+      "description": "O'rinboyeva Dilrabo - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-480425",
+      "time": "14:49",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:50:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ismoilova Nozima - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-183287",
+      "time": "14:50",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:50:00.000Z",
+      "date": "2026-07-20",
+      "description": "Abdurovna Shukrona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-802772",
+      "time": "14:50",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:51:00.000Z",
+      "date": "2026-07-20",
+      "description": "Isroiljonov Izzatbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-809205",
+      "time": "14:51",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:51:00.000Z",
+      "date": "2026-07-20",
+      "description": "Ashurova Muharram - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-373352",
+      "time": "14:51",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:51:00.000Z",
+      "date": "2026-07-20",
+      "description": "Otamirzayeva Zuhra - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-316738",
+      "time": "14:51",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:52:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sharobiddinova Sumaya - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-915319",
+      "time": "14:52",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:52:00.000Z",
+      "date": "2026-07-20",
+      "description": "Valijonov Axror - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-228876",
+      "time": "14:52",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:53:00.000Z",
+      "date": "2026-07-20",
+      "description": "Baxromjonov Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-698317",
+      "time": "14:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:53:00.000Z",
+      "date": "2026-07-20",
+      "description": "Jo'rayev Jo'rabek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-841518",
+      "time": "14:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:53:00.000Z",
+      "date": "2026-07-20",
+      "description": "Karimov Ravshan - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-168099",
+      "time": "14:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:54:00.000Z",
+      "date": "2026-07-20",
+      "description": "Abdug'afforova Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-535848",
+      "time": "14:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:54:00.000Z",
+      "date": "2026-07-20",
+      "description": "Sohibjonov Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-264908",
+      "time": "14:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 285000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:54:00.000Z",
+      "date": "2026-07-20",
+      "description": "Bo'tayeva Nigora - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-235713",
+      "time": "14:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:55:00.000Z",
+      "date": "2026-07-20",
+      "description": "Qo'chqorov Axror - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-943198",
+      "time": "14:55",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:56:00.000Z",
+      "date": "2026-07-20",
+      "description": "Xusanova Mexribon - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-474678",
+      "time": "14:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:56:00.000Z",
+      "date": "2026-07-20",
+      "description": "Jalolova Xurshida - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-408753",
+      "time": "14:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:57:00.000Z",
+      "date": "2026-07-20",
+      "description": "uhuh Zuhriddin - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-111354",
+      "time": "14:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:57:00.000Z",
+      "date": "2026-07-20",
+      "description": "Zaylobiddinov Muhammadali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-144160",
+      "time": "14:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:57:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustambekov Diyorbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-319365",
+      "time": "14:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:58:00.000Z",
+      "date": "2026-07-20",
+      "description": "Rustambekov Diyorbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-856357",
+      "time": "14:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Nabiyev Diyorbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-161752",
+      "time": "14:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Tojiddinov Lazizbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-806522",
+      "time": "14:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T14:59:00.000Z",
+      "date": "2026-07-20",
+      "description": "Zaylobiddinov Muhammadali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-308620",
+      "time": "14:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T15:02:00.000Z",
+      "date": "2026-07-20",
+      "description": "Raxmatullayeva Muhayyo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-878086",
+      "time": "15:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-20T15:04:00.000Z",
+      "date": "2026-07-20",
+      "description": "Valijonov Diyorbek - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-977881",
+      "time": "15:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:30:00.000Z",
+      "date": "2026-07-21",
+      "description": "Sohibjonova Imona - LOR (Quloq-Burun-Tomoq) bo'limiga navbat to'lovi",
+      "id": "TX-67947",
+      "patientName": "Sohibjonova Imona",
+      "time": "07:30",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:37:00.000Z",
+      "date": "2026-07-21",
+      "description": "Karimova Mavluda - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-34580",
+      "time": "07:37",
+      "type": "Kirim"
+    },
+    {
+      "amount": 835000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:39:00.000Z",
+      "date": "2026-07-21",
+      "description": "Izzatullayeva Muqaddas - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-43688",
+      "time": "07:39",
+      "type": "Kirim"
+    },
+    {
+      "amount": 255000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:42:00.000Z",
+      "date": "2026-07-21",
+      "description": "Egamberdiyeva Dilnoza - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-19370",
+      "time": "07:42",
+      "type": "Kirim"
+    },
+    {
+      "amount": 80000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:53:00.000Z",
+      "date": "2026-07-21",
+      "description": "Toshtanova Zebo - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-18217",
+      "time": "07:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:54:00.000Z",
+      "date": "2026-07-21",
+      "description": "Axmadjonova Munisa - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-60785",
+      "time": "07:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:57:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ro'zimatova Munojat - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-56950",
+      "time": "07:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:57:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ro'zimatova Munojat - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-61753",
+      "time": "07:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:58:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ro'zimatova Munojat - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-12659",
+      "time": "07:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T07:59:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abduraximov Bexruz - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-53467",
+      "time": "07:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:00:00.000Z",
+      "date": "2026-07-21",
+      "description": "Alixonova Shaxnoza - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-25592",
+      "time": "08:00",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:01:00.000Z",
+      "date": "2026-07-21",
+      "description": "Rustamjonov Muhammadjon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-14864",
+      "time": "08:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:01:00.000Z",
+      "date": "2026-07-21",
+      "description": "Rustamjonov Muhammadjon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-30344",
+      "time": "08:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:02:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tojiboyev Anvar - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-15846",
+      "time": "08:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-21T08:02:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tojiboyev Anvar - LOR (Quloq-Burun-Tomoq) bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-47761",
+      "patientName": "Tojiboyev Anvar",
+      "time": "08:02",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:03:00.000Z",
+      "date": "2026-07-21",
+      "description": "Shamsiddinov Baxrom - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-74901",
+      "time": "08:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:03:00.000Z",
+      "date": "2026-07-21",
+      "description": "Nabiyeva Muqaddas - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-94287",
+      "time": "08:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:04:00.000Z",
+      "date": "2026-07-21",
+      "description": "Aliyeva Sevara - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-78602",
+      "time": "08:04",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:05:00.000Z",
+      "date": "2026-07-21",
+      "description": "Jumanazarova Odina - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-74501",
+      "time": "08:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:06:00.000Z",
+      "date": "2026-07-21",
+      "description": "Saidaxmadov Saidolim - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-19932",
+      "time": "08:06",
+      "type": "Kirim"
+    },
+    {
+      "amount": 105000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:09:00.000Z",
+      "date": "2026-07-21",
+      "description": "Qo'shmaqova Nargiza - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-30504",
+      "time": "08:09",
+      "type": "Kirim"
+    },
+    {
+      "amount": 325000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:12:00.000Z",
+      "date": "2026-07-21",
+      "description": "G'ofurjonova Fotima - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-15024",
+      "time": "08:12",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:13:00.000Z",
+      "date": "2026-07-21",
+      "description": "Arslonova Shaxzoda - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-50634",
+      "time": "08:13",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:13:00.000Z",
+      "date": "2026-07-21",
+      "description": "Alimova Zohida - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-23011",
+      "time": "08:13",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:14:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xoshimova Mastura - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-46272",
+      "time": "08:14",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:15:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abduraufova Shukrona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-23394",
+      "time": "08:15",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:17:00.000Z",
+      "date": "2026-07-21",
+      "description": "To'xtasinova Maxliyo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-53763",
+      "time": "08:17",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:18:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ilxomjonov Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-57005",
+      "time": "08:18",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:19:00.000Z",
+      "date": "2026-07-21",
+      "description": "Murodov Muhiddin - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-20853",
+      "time": "08:19",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:20:00.000Z",
+      "date": "2026-07-21",
+      "description": "Yunusaliyev Abdullox - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-58144",
+      "time": "08:20",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "Axmedova Munira - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-66164",
+      "time": "08:21",
+      "type": "Kirim"
+    },
+    {
+      "amount": 160000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:26:00.000Z",
+      "date": "2026-07-21",
+      "description": "Aliyeva Sevara - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-68728",
+      "time": "08:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:27:00.000Z",
+      "date": "2026-07-21",
+      "description": "Urayimjonov Dovud - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-33766",
+      "time": "08:27",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:28:00.000Z",
+      "date": "2026-07-21",
+      "description": "Mirzaolimova Nasiba - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-61058",
+      "time": "08:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:32:00.000Z",
+      "date": "2026-07-21",
+      "description": "Raxmonqulov Abdumalik - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-48308",
+      "time": "08:32",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:35:00.000Z",
+      "date": "2026-07-21",
+      "description": "Asronov Xabibullo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-40310",
+      "time": "08:35",
+      "type": "Kirim"
+    },
+    {
+      "amount": 325000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:40:00.000Z",
+      "date": "2026-07-21",
+      "description": "Rustamova Mubina - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-52760",
+      "time": "08:40",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:41:00.000Z",
+      "date": "2026-07-21",
+      "description": "Nabiyeva Muqaddas - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-45860",
+      "time": "08:41",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:41:00.000Z",
+      "date": "2026-07-21",
+      "description": "Mirzamamitov Adxam - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-10308",
+      "time": "08:41",
+      "type": "Kirim"
+    },
+    {
+      "amount": 150000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:43:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abduraximov Behruz - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-47064",
+      "time": "08:43",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:44:00.000Z",
+      "date": "2026-07-21",
+      "description": "Mamatova Odina - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-11945",
+      "time": "08:44",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:45:00.000Z",
+      "date": "2026-07-21",
+      "description": "Axmadjonova Umida - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-21142",
+      "time": "08:45",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:46:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tursunboyeva Zilola - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-96750",
+      "time": "08:46",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:47:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ne'matov A'zamat - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-32404",
+      "time": "08:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:47:00.000Z",
+      "date": "2026-07-21",
+      "description": "Sohibjonova Mexribon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-88953",
+      "time": "08:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 90000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:48:00.000Z",
+      "date": "2026-07-21",
+      "description": "Mirzarahimova Cho'lpanoy - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-23350",
+      "time": "08:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:50:00.000Z",
+      "date": "2026-07-21",
+      "description": "Nazarova Robiya - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-88982",
+      "time": "08:50",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:52:00.000Z",
+      "date": "2026-07-21",
+      "description": "Baxodirjonov Bilol - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-29784",
+      "time": "08:52",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-21T08:54:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ummataliyev Firdavsbek - LOR (Quloq-Burun-Tomoq) bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-87532",
+      "patientName": "Ummataliyev Firdavsbek",
+      "time": "08:54",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:54:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ummataliyev Firdavsbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-55148",
+      "time": "08:54",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:55:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ummataliyev Firdavs - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-17868",
+      "time": "08:55",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:56:00.000Z",
+      "date": "2026-07-21",
+      "description": "Omonova Safura - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-53478",
+      "time": "08:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:56:00.000Z",
+      "date": "2026-07-21",
+      "description": "G'ofurov Xasanboy - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-46927",
+      "time": "08:56",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:57:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abdullajonov Islombek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-87491",
+      "time": "08:57",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T08:59:00.000Z",
+      "date": "2026-07-21",
+      "description": "Azimova Shoira - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-58453",
+      "time": "08:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:02:00.000Z",
+      "date": "2026-07-21",
+      "description": "G'ofurov Xasanboy - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-36222",
+      "time": "09:02",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:06:00.000Z",
+      "date": "2026-07-21",
+      "description": "G'ofurova Muqaddas - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-25277",
+      "time": "09:06",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:07:00.000Z",
+      "date": "2026-07-21",
+      "description": "Alijonova Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-91989",
+      "time": "09:07",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:11:00.000Z",
+      "date": "2026-07-21",
+      "description": "Kozimjonov Muhammad - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-76891",
+      "time": "09:11",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:12:00.000Z",
+      "date": "2026-07-21",
+      "description": "Hoshimova Mahpiratxon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-78981",
+      "time": "09:12",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:15:00.000Z",
+      "date": "2026-07-21",
+      "description": "Mirsoliyeva Dilnura - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-65992",
+      "time": "09:15",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:17:00.000Z",
+      "date": "2026-07-21",
+      "description": "Adixanova Og'iloy - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-61165",
+      "time": "09:17",
+      "type": "Kirim"
+    },
+    {
+      "amount": 250000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xoshimova Mastura - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-50860",
+      "time": "09:21",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "Alimova Zoxida - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-37676",
+      "time": "09:21",
+      "type": "Kirim"
+    },
+    {
+      "amount": 65000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:22:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abdug'aniyev Rauf - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-64504",
+      "time": "09:22",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:23:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ro'ziyev Nurmuhammad - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-98996",
+      "time": "09:23",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:25:00.000Z",
+      "date": "2026-07-21",
+      "description": "Alijonova Nargiza - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-29224",
+      "time": "09:25",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:26:00.000Z",
+      "date": "2026-07-21",
+      "description": "Asranov Xabibullo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-49041",
+      "time": "09:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:26:00.000Z",
+      "date": "2026-07-21",
+      "description": "Abduraxmonova Farzona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-44530",
+      "time": "09:26",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:28:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xoliqova Xalima - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-79244",
+      "time": "09:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:29:00.000Z",
+      "date": "2026-07-21",
+      "description": "Dexqonboyeva Muslima - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-34602",
+      "time": "09:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:32:00.000Z",
+      "date": "2026-07-21",
+      "description": "Inomjonov Zubayr - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-56347",
+      "time": "09:32",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:33:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tohirov Muhammadziyo - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-62331",
+      "time": "09:33",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:34:00.000Z",
+      "date": "2026-07-21",
+      "description": "Anorova Xolida - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-18583",
+      "time": "09:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:36:00.000Z",
+      "date": "2026-07-21",
+      "description": "Qudratjonov Muhammad - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-58825",
+      "time": "09:36",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:48:00.000Z",
+      "date": "2026-07-21",
+      "description": "Madaminov Muxtorjon - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-16215",
+      "time": "09:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:49:00.000Z",
+      "date": "2026-07-21",
+      "description": "Ergasheva Dilnoza - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-10125",
+      "time": "09:49",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:50:00.000Z",
+      "date": "2026-07-21",
+      "description": "Atamirzayeva Mubina - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-76358",
+      "time": "09:50",
+      "type": "Kirim"
+    },
+    {
+      "amount": 90000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:51:00.000Z",
+      "date": "2026-07-21",
+      "description": "GHF Cho'lponoy - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-20121",
+      "time": "09:51",
+      "type": "Kirim"
+    },
+    {
+      "amount": 30000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-21T09:52:00.000Z",
+      "date": "2026-07-21",
+      "description": "ukh iuh - Fizioterapiya bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-30290",
+      "patientName": "ukh iuh",
+      "time": "09:52",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 30000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:52:00.000Z",
+      "date": "2026-07-21",
+      "description": "ukh iuh - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-64921",
+      "time": "09:52",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:53:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tavakkalov Muhammadqodir - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-55905",
+      "time": "09:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T09:53:00.000Z",
+      "date": "2026-07-21",
+      "description": "Obitjonov Muhammadali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-13454",
+      "time": "09:53",
+      "type": "Kirim"
+    },
+    {
+      "amount": 160000,
+      "category": "Boshqa harajat",
+      "createdAt": "2026-07-21T10:00:00.000Z",
+      "date": "2026-07-21",
+      "description": "Nafisaopa dejur",
+      "id": "TX-87972",
+      "time": "10:00",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 80000,
+      "category": "Boshqa harajat",
+      "createdAt": "2026-07-21T10:00:00.000Z",
+      "date": "2026-07-21",
+      "description": "Gulnoza dejur",
+      "id": "TX-90794",
+      "time": "10:00",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:01:00.000Z",
+      "date": "2026-07-21",
+      "description": "Maxmudova Maftuna - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-44034",
+      "time": "10:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:01:00.000Z",
+      "date": "2026-07-21",
+      "description": "Qodirjonov Asadbek - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-24212",
+      "time": "10:01",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:11:00.000Z",
+      "date": "2026-07-21",
+      "description": "Murodjonova Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-67576",
+      "time": "10:11",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:12:00.000Z",
+      "date": "2026-07-21",
+      "description": "Yunusov Akbar - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-36656",
+      "time": "10:12",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:14:00.000Z",
+      "date": "2026-07-21",
+      "description": "Qo'chqorov Azizbek - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-66185",
+      "time": "10:14",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:19:00.000Z",
+      "date": "2026-07-21",
+      "description": "Raxmonaliyeva Moxiniso - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-83919",
+      "time": "10:19",
+      "type": "Kirim"
+    },
+    {
+      "amount": 10000,
+      "category": "Klinika xarajati",
+      "createdAt": "2026-07-21T10:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "suxarik",
+      "id": "TX-61327",
+      "time": "10:21",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 5000,
+      "category": "Klinika xarajati",
+      "createdAt": "2026-07-21T10:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "marli",
+      "id": "TX-98582",
+      "time": "10:21",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 15000,
+      "category": "Klinika xarajati",
+      "createdAt": "2026-07-21T10:21:00.000Z",
+      "date": "2026-07-21",
+      "description": "non",
+      "id": "TX-92380",
+      "time": "10:21",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 90000,
+      "category": "To'lov qaytarildi",
+      "createdAt": "2026-07-21T10:24:00.000Z",
+      "date": "2026-07-21",
+      "description": "GHF Cho'lponoy - Fizioterapiya bo'limi uchun to'lov qaytarildi. Sabab: Bemor rad etildi - ko'rik bekor qilindi",
+      "id": "TX-64682",
+      "patientName": "GHF Cho'lponoy",
+      "time": "10:24",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 125000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:34:00.000Z",
+      "date": "2026-07-21",
+      "description": "Atamirzayeva Mubina - Laboratoriya (Tahlillar) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-54381",
+      "time": "10:34",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:40:00.000Z",
+      "date": "2026-07-21",
+      "description": "Jabaraliyev Bexzod - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-98916",
+      "time": "10:40",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:46:00.000Z",
+      "date": "2026-07-21",
+      "description": "Qo'chqarov Azizbek - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-93090",
+      "time": "10:46",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:47:00.000Z",
+      "date": "2026-07-21",
+      "description": "Axmedova Gavharoy - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-98790",
+      "time": "10:47",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:48:00.000Z",
+      "date": "2026-07-21",
+      "description": "Murodjonova Xadicha - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-57540",
+      "time": "10:48",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T10:58:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tursunboyeva Ruxshona - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-50363",
+      "time": "10:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T11:05:00.000Z",
+      "date": "2026-07-21",
+      "description": "Nishonov Sobirjon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-18518",
+      "time": "11:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 60000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T11:05:00.000Z",
+      "date": "2026-07-21",
+      "description": "O'rinova Dilbarxon - Nevrologiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-43052",
+      "time": "11:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T11:14:00.000Z",
+      "date": "2026-07-21",
+      "description": "Matyusupova Muxsina - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-92964",
+      "time": "11:14",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T14:28:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xusniddinova Muslima - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-90284",
+      "time": "14:28",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T14:29:00.000Z",
+      "date": "2026-07-21",
+      "description": "Zaylobiddinov Muhammadali - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-14603",
+      "time": "14:29",
+      "type": "Kirim"
+    },
+    {
+      "amount": 200000,
+      "category": "Klinika xarajati",
+      "createdAt": "2026-07-21T14:41:00.000Z",
+      "date": "2026-07-21",
+      "description": "gaz balonga",
+      "id": "TX-49906",
+      "time": "14:41",
+      "type": "Chiqim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T14:43:00.000Z",
+      "date": "2026-07-21",
+      "description": "Tursunaliyev Sanjar - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-46679",
+      "time": "14:43",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T14:58:00.000Z",
+      "date": "2026-07-21",
+      "description": "Yo'ldashev Orifjon - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-25270",
+      "time": "14:58",
+      "type": "Kirim"
+    },
+    {
+      "amount": 20000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T14:59:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xusniddinova Muslima - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-66250",
+      "time": "14:59",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T15:03:00.000Z",
+      "date": "2026-07-21",
+      "description": "Xusanov Faxriddin - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-65721",
+      "time": "15:03",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T15:05:00.000Z",
+      "date": "2026-07-21",
+      "description": "Rustambekov Diyorbk - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-20467",
+      "time": "15:05",
+      "type": "Kirim"
+    },
+    {
+      "amount": 15000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T15:14:00.000Z",
+      "date": "2026-07-21",
+      "description": "Rustambekov Diyorbek - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-99945",
+      "time": "15:14",
+      "type": "Kirim"
+    },
+    {
+      "amount": 25000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T15:17:00.000Z",
+      "date": "2026-07-21",
+      "description": "Yo'ldashev Orifjon - Fizioterapiya bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-37304",
+      "time": "15:17",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T16:12:00.000Z",
+      "date": "2026-07-21",
+      "description": "SuperTest FinalBemor - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+      "id": "TX-91239",
+      "time": "16:12",
+      "type": "Kirim"
+    },
+    {
+      "amount": 40000,
+      "category": "Ambulator ko'rik",
+      "createdAt": "2026-07-21T16:12:57.480Z",
+      "date": "2026-07-21",
+      "description": "SuperTest FinalBemor - LOR (Quloq-Burun-Tomoq) bo'limiga navbat to'lovi",
+      "id": "TX-71274",
+      "patientId": "P-1299",
+      "patientName": "SuperTest FinalBemor",
+      "time": "16:12",
+      "type": "Kirim"
+    }
+  ]
+}

@@ -358,36 +358,19 @@ export default function App() {
     }
   }, [session, activeTab]);
 
-  // Save patients — ASYNC + AWAIT. CRITICAL for data safety.
-  // 1. Ref DARHOL yangilanadi (eng yangi ma'lumot)
-  // 2. React state yangilanadi (UI tez yangilanadi)
-  // 3. Backend'ga AWAIT bilan saqlanadi (ma'lumot yo'qolmaydi)
-  // 4. Server saqlagandan keyin SSE orqali boshqa qurilmalarga yuboradi
-  // XAVFSIZLIK HIMOYASI: agar updatedPatients soni ref'dan 50%+ kam bo'lsa va
-  // bu forceReplace bo'lmasa — saqlash BLOKLANADI (stale ref sababli ma'lumot
-  // yo'qolishining oldini olish). Mijoz /api/data dan to'liq ma'lumotni qayta yuklaydi.
-  const savePatientsList = async (updatedPatients: Patient[], forceReplace: boolean = false) => {
-    const refCount = patientsRef.current.length;
-    // Agar ref to'liq yuklanmagan bo'lsa (0) yoki yangi ro'yxat 50%+ kamaygan bo'lsa
-    // va bu forceReplace emas bo'lsa — xavfsizlik bloklash
-    if (!forceReplace && refCount > 10 && updatedPatients.length < refCount * 0.5) {
-      console.warn(`⚠️ [SAFETY] savePatientsList bloklandi: ref=${refCount}, yangi=${updatedPatients.length}. Stale ref aniqlandi — /api/data dan resync qilinmoqda.`);
-      // To'liq ma'lumotni qayta yuklash
-      try {
-        const r = await fetch(`${API_BASE}/api/data`);
-        if (r.ok) {
-          const d = await r.json();
-          if (d.patients && d.patients.length > updatedPatients.length) {
-            patientsRef.current = d.patients;
-            setPatients(d.patients);
-            return; // saqlash bloklandi, lekin ref yangilandi
-          }
-        }
-      } catch {}
-    }
-    patientsRef.current = updatedPatients; // REF first
+  // ===================================================================
+  // PROFESSIONAL ROW-LEVEL API — JSON merge YO'Q
+  // savePatientsList endi faqat UI optimistic update qiladi.
+  // Real saqlash alohida CRUD funksiyalarda (INSERT/UPDATE/DELETE).
+  // Admin paneli uchun "forceReplace" (to'liq almashtirish) hali kerak —
+  // u /api/save orqali JSON blob ga yozadi (departments, rooms, settings).
+  // patients/transactions/inpatientStays uchun /api/save endi ishlatilmaydi.
+  // ===================================================================
+  const savePatientsList = async (updatedPatients: Patient[], _forceReplace: boolean = false) => {
+    patientsRef.current = updatedPatients;
     setPatients(updatedPatients);
-    await saveToBackend('patients', updatedPatients, forceReplace); // AWAIT — TiDB saqlaydi, server SSE broadcast qiladi
+    // Eslatma: real saqlash row-level CRUD da amalga oshiriladi
+    // (handleAddPatient=POST, handleUpdatePatientRecord=PUT, handleDeletePatient=DELETE)
   };
 
   // Save departments to backend
@@ -513,10 +496,26 @@ export default function App() {
       patientHistory,
     };
 
+    // PROFESSIONAL: Row-level INSERT (SQL Transaction)
+    // AWAIT — TiDB saqlagandan keyin davom etadi (navbat chop etishdan oldin)
+    try {
+      const resp = await fetch(`${API_BASE}/api/patients`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newPatient),
+      });
+      const result = await resp.json();
+      if (!result.success) {
+        console.error('Bemor saqlashda xatolik:', result.error);
+      }
+    } catch (e) {
+      console.error('Network xatolik:', e);
+    }
+
+    // UI optimistic update (SSE ham yangilaydi)
     const updated = [...currentPatients, newPatient];
-    // CRITICAL: AWAIT backend save before returning — ensures TiDB has the data
-    // before the caller (Reception.tsx) prints the queue number to XPrinter
-    await savePatientsList(updated);
+    patientsRef.current = updated;
+    setPatients(updated);
 
     // Dynamic automatic logging of outpatient payment!
     if (newPatient.paymentStatus === 'To\'langan' && newPatient.paymentAmount > 0) {
@@ -525,7 +524,7 @@ export default function App() {
       const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
       const newTx: ClinicTransaction = {
-        id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+        id: 'TX-' + Math.floor(Math.random() * 900000 + 100000),
         type: 'Kirim',
         amount: newPatient.paymentAmount,
         category: "Ambulator ko'rik",
@@ -537,25 +536,50 @@ export default function App() {
         patientName: `${newPatient.lastName} ${newPatient.firstName}`
       };
 
-      const updatedTx = [newTx, ...transactionsRef.current];
-      await saveTransactionsList(updatedTx);
+      // Row-level INSERT tranzaksiya
+      try {
+        await fetch(`${API_BASE}/api/transactions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newTx),
+        });
+        const updatedTx = [newTx, ...transactionsRef.current];
+        transactionsRef.current = updatedTx;
+        setTransactions(updatedTx);
+      } catch (e) {
+        console.error('Tranzaksiya saqlashda xatolik:', e);
+      }
     }
   };
 
-  // Toggle patient's payment status — uses REF for latest data
-  // ASYNC: savePatientsList AWAIT qilinadi — ma'lumot yo'qolmaydi
+  // Toggle patient's payment status — PROFESSIONAL row-level PUT + transaction POST
+  // Optimistic UI darhol, keyin REST API ga yozamiz (savePatientsList ishlatilmaydi)
   const handleUpdatePaymentStatus = async (patientId: string, status: 'To\'langan' | 'Kutilmoqda') => {
     const currentPatients = patientsRef.current;
     const ts = new Date().toISOString();
+
+    // 1) Optimistic UI update — paymentStatus darhol yangilanadi
     const updated = currentPatients.map((p) => {
       if (p.id === patientId) {
         return { ...p, paymentStatus: status, updatedAt: ts };
       }
       return p;
     });
-    await savePatientsList(updated);
+    patientsRef.current = updated;
+    setPatients(updated);
 
-    // If changing to 'To'langan', log a transaction!
+    // 2) Row-level PUT — faqat paymentStatus maydoni (SQL Transaction)
+    try {
+      await fetch(`${API_BASE}/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ paymentStatus: status }),
+      });
+    } catch (e) {
+      console.error('Payment status PUT xatolik:', e);
+    }
+
+    // 3) If changing to 'To'langan' va avval yozilmagan bo'lsa — tranzaksiya yozamiz
     const patient = currentPatients.find(p => p.id === patientId);
     const currentTx = transactionsRef.current;
     if (patient && status === 'To\'langan' && patient.paymentAmount > 0) {
@@ -566,7 +590,7 @@ export default function App() {
         const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
 
         const newTx: ClinicTransaction = {
-          id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+          id: 'TX-' + Math.floor(Math.random() * 900000 + 100000),
           type: 'Kirim',
           amount: patient.paymentAmount,
           category: "Ambulator ko'rik",
@@ -577,25 +601,40 @@ export default function App() {
           patientId: patient.id,
           patientName: `${patient.lastName} ${patient.firstName}`
         };
-        await saveTransactionsList([newTx, ...currentTx]);
+        // Optimistic update transactionsRef + setTransactions
+        const updatedTx = [newTx, ...currentTx];
+        transactionsRef.current = updatedTx;
+        setTransactions(updatedTx);
+        // Row-level INSERT transaction (SQL Transaction)
+        try {
+          await fetch(`${API_BASE}/api/transactions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newTx),
+          });
+        } catch (e) {
+          console.error('Transaction POST xatolik:', e);
+        }
       }
     }
   };
 
-  // Call / Accept Patient to Doctor Cabinet — uses REF
-  // ASYNC: save AWAIT qilinadi — status darhol TiDB'ga yoziladi
+  // Call / Accept Patient to Doctor Cabinet — PROFESSIONAL row-level PUT (parallel)
+  // Avvalgi 'Qabulda' bemorni avtomatik 'Yakunlangan' qiladi, yangi bemorni 'Qabulda' qiladi
   const handleCallPatient = async (calledPatient: Patient) => {
     const ts = new Date().toISOString();
+
+    // Shu bo'limda 'Qabulda' holatida turgan avvalgi bemorni topamiz (avtomatik yakunlash uchun)
+    const prevPatient = patientsRef.current.find(
+      (p) => p.departmentId === calledPatient.departmentId && p.status === 'Qabulda' && p.id !== calledPatient.id
+    );
+
+    // 1) Optimistic UI update — called patient -> Qabulda; prev -> Yakunlangan
     const updated = patientsRef.current.map((p) => {
       if (p.id === calledPatient.id) {
-        return {
-          ...p,
-          status: 'Qabulda' as const,
-          calledAt: ts,
-          updatedAt: ts,
-        };
+        return { ...p, status: 'Qabulda' as const, calledAt: ts, updatedAt: ts };
       }
-      if (p.departmentId === calledPatient.departmentId && p.status === 'Qabulda') {
+      if (prevPatient && p.id === prevPatient.id) {
         return {
           ...p,
           status: 'Yakunlangan' as const,
@@ -606,21 +645,61 @@ export default function App() {
       }
       return p;
     });
+    patientsRef.current = updated;
+    setPatients(updated);
 
-    await savePatientsList(updated);
+    // 2) Row-level PUT — called patient (SQL Transaction)
+    const putCalled = fetch(`${API_BASE}/api/patients/${calledPatient.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'Qabulda', calledAt: ts }),
+    }).catch((e) => console.error('Call patient PUT xatolik:', e));
+
+    // 3) Row-level PUT — previous patient (parallel)
+    const putPrev = prevPatient
+      ? fetch(`${API_BASE}/api/patients/${prevPatient.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            status: 'Yakunlangan',
+            completedAt: ts,
+            diagnosis: prevPatient.diagnosis || 'Ko\'rik yakunlandi',
+          }),
+        }).catch((e) => console.error('Prev patient PUT xatolik:', e))
+      : Promise.resolve();
+
+    try {
+      await Promise.all([putCalled, putPrev]);
+    } catch (e) {
+      console.error('handleCallPatient xatolik:', e);
+    }
   };
 
-  // Save diagnostic checkup records and prescriptions — uses REF
-  // ASYNC: save AWAIT qilinadi — tashxis/dori darhol saqlanadi
+  // Save diagnostic checkup records and prescriptions — PROFESSIONAL row-level PUT
+  // Optimistic merge darhol, keyin partial updates REST API ga yoziladi
   const handleUpdatePatientRecord = async (patientId: string, updates: Partial<Patient>) => {
     const ts = new Date().toISOString();
+
+    // 1) Optimistic UI update — merge updates into patient
     const updated = patientsRef.current.map((p) => {
       if (p.id === patientId) {
         return { ...p, ...updates, updatedAt: ts };
       }
       return p;
     });
-    await savePatientsList(updated);
+    patientsRef.current = updated;
+    setPatients(updated);
+
+    // 2) Row-level PUT — partial updates object (SQL Transaction)
+    try {
+      await fetch(`${API_BASE}/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...updates, updatedAt: ts }),
+      });
+    } catch (e) {
+      console.error('Patient record PUT xatolik:', e);
+    }
   };
 
   // Reset or clear clinical database history is disabled for safety and audit compliance
@@ -628,18 +707,22 @@ export default function App() {
     alert("Arxiv o'chirilmaydi!");
   };
 
-  // Bemorni rad etish — ma'lumotni O'CHIRMAYDI, faqat "Bekor qilingan" statusiga o'tkazadi.
-  // MUHIM: forceReplace ishlatmaymiz — bu xavfsiz, chunki patientsRef.current to'liq
-  // bo'lmasa ham server merge eski bemorlarni saqlaydi.
+  // Bemorni O'CHIRISH — PROFESSIONAL row-level DELETE (SQL Transaction)
+  // Ma'lumot butunlay o'chiriladi (foydalanuvchi talabiga ko'ra).
   const handleDeletePatient = async (patientId: string) => {
-    const ts = new Date().toISOString();
-    const updated = patientsRef.current.map((p) => {
-      if (p.id === patientId) {
-        return { ...p, status: 'Bekor qilingan' as const, updatedAt: ts };
-      }
-      return p;
-    });
-    await savePatientsList(updated);
+    // 1) Optimistic UI — bemorni ro'yxatdan o'chiramiz
+    const updated = patientsRef.current.filter((p) => p.id !== patientId);
+    patientsRef.current = updated;
+    setPatients(updated);
+
+    // 2) Row-level DELETE — SQL Transaction
+    try {
+      await fetch(`${API_BASE}/api/patients/${patientId}`, {
+        method: 'DELETE',
+      });
+    } catch (e) {
+      console.error('Patient DELETE xatolik:', e);
+    }
   };
 
   // To'lov qaytarish (refund) - bemor to'lov qilgan, lekin davolanishdan bosh tortgan
@@ -671,14 +754,16 @@ export default function App() {
       return;
     }
 
-    // 1. Bemor ma'lumotlarini yangilash
     const refundTs = new Date().toISOString();
+    const refundStatus: 'Qaytarildi' | 'Qisman' = refundAmount === patient.paymentAmount ? 'Qaytarildi' : 'Qisman';
+
+    // 1) Optimistic UI — bemor statusini 'Bekor qilingan' ga o'tkazamiz
     const updatedPatients = patientsRef.current.map((p) => {
       if (p.id === patientId) {
         return {
           ...p,
           status: 'Bekor qilingan' as const,
-          refundStatus: (refundAmount === p.paymentAmount ? 'Qaytarildi' : 'Qisman') as 'Qaytarildi' | 'Qisman',
+          refundStatus,
           refundedAmount: refundAmount,
           refundedAt: refundTs,
           refundedReason: reason.trim(),
@@ -687,15 +772,33 @@ export default function App() {
       }
       return p;
     });
-    await savePatientsList(updatedPatients);
+    patientsRef.current = updatedPatients;
+    setPatients(updatedPatients);
 
-    // 2. Kassaga Chiqim (xarajat) tranzaksiyasini qo'shish
+    // 2) Row-level PUT — bemorning refund maydonlari (SQL Transaction)
+    try {
+      await fetch(`${API_BASE}/api/patients/${patientId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'Bekor qilingan',
+          refundStatus,
+          refundedAmount: refundAmount,
+          refundedAt: refundTs,
+          refundedReason: reason.trim(),
+        }),
+      });
+    } catch (e) {
+      console.error('Refund PUT xatolik:', e);
+    }
+
+    // 3) Kassaga Chiqim (xarajat) tranzaksiyasini qo'shish
     const todayDate = new Date().toISOString().split('T')[0];
     const todayTime = new Date().toTimeString().split(' ')[0].substring(0, 5);
     const getDeptNameLocal = (id: string) => departmentsRef.current.find((d) => d.id === id)?.name || id;
 
     const refundTx: ClinicTransaction = {
-      id: 'TX-' + Math.floor(Math.random() * 90000 + 10000),
+      id: 'TX-' + Math.floor(Math.random() * 900000 + 100000),
       type: 'Chiqim',
       amount: refundAmount,
       category: "To'lov qaytarildi",
@@ -707,8 +810,21 @@ export default function App() {
       patientName: `${patient.lastName} ${patient.firstName}`,
     };
 
+    // Optimistic update transactionsRef + setTransactions
     const updatedTx = [refundTx, ...transactionsRef.current];
-    await saveTransactionsList(updatedTx);
+    transactionsRef.current = updatedTx;
+    setTransactions(updatedTx);
+
+    // Row-level INSERT transaction (SQL Transaction)
+    try {
+      await fetch(`${API_BASE}/api/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(refundTx),
+      });
+    } catch (e) {
+      console.error('Refund transaction POST xatolik:', e);
+    }
   };
 
   // Open the HDMI TV queue monitor in a separate tab

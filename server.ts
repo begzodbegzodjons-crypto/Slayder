@@ -2,8 +2,13 @@ import express from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-import { initStorage, loadData, saveCollection, ClinicData } from './db-store';
-// Note: ClinicData is kept for type compatibility; saveCollection now accepts any JSON value
+import {
+  initStorage, loadData, saveCollection, ClinicData,
+  insertPatient, updatePatient, deletePatient,
+  insertTransaction,
+  insertInpatientStay, updateInpatientStay, deleteInpatientStay,
+  loadAllPatients, loadAllTransactions, loadAllInpatientStays,
+} from './db-store';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -267,6 +272,156 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error('API Error /api/save:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ===================================================================
+  // PROFESSIONAL CRUD API — row-level INSERT/UPDATE/DELETE
+  // Har bir operatsiya SQL Transaction ichida. JSON merge YO'Q.
+  // ===================================================================
+
+  // PATIENT: INSERT (yangi bemor)
+  app.post('/api/patients', async (req, res) => {
+    try {
+      const patient = req.body;
+      if (!patient || !patient.id) {
+        return res.status(400).json({ error: 'Patient va id kerak' });
+      }
+      const success = await insertPatient(patient);
+      if (success) {
+        // SSE broadcast — barcha mijozlarga yangi bemor
+        const allPatients = await loadAllPatients();
+        broadcastChange('patients', allPatients);
+        res.json({ success: true, message: `Bemor qo'shildi: ${patient.id}` });
+      } else {
+        res.status(500).json({ error: 'Bemor qo\'shishda xatolik (transaction bekor qilindi)' });
+      }
+    } catch (err: any) {
+      console.error('API Error POST /api/patients:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATIENT: UPDATE (bemor tahrirlash — tashxis, status, to'lov, ...)
+  app.put('/api/patients/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const success = await updatePatient(id, updates);
+      if (success) {
+        const allPatients = await loadAllPatients();
+        broadcastChange('patients', allPatients);
+        res.json({ success: true, message: `Bemor yangilandi: ${id}` });
+      } else {
+        res.status(404).json({ error: 'Bemor topilmadi yoki transaction bekor qilindi' });
+      }
+    } catch (err: any) {
+      console.error('API Error PUT /api/patients:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // PATIENT: DELETE (bemor o'chirish)
+  app.delete('/api/patients/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await deletePatient(id);
+      if (success) {
+        const allPatients = await loadAllPatients();
+        broadcastChange('patients', allPatients);
+        res.json({ success: true, message: `Bemor o'chirildi: ${id}` });
+      } else {
+        res.status(500).json({ error: 'O\'chirishda xatolik (transaction bekor qilindi)' });
+      }
+    } catch (err: any) {
+      console.error('API Error DELETE /api/patients:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // TRANSACTION: INSERT (append-only — faqat qo'shish)
+  app.post('/api/transactions', async (req, res) => {
+    try {
+      const tx = req.body;
+      if (!tx || !tx.id) {
+        return res.status(400).json({ error: 'Transaction va id kerak' });
+      }
+      const success = await insertTransaction(tx);
+      if (success) {
+        const allTx = await loadAllTransactions();
+        broadcastChange('transactions', allTx);
+        res.json({ success: true, message: `Tranzaksiya qo'shildi: ${tx.id}` });
+      } else {
+        res.status(500).json({ error: 'Tranzaksiya qo\'shishda xatolik' });
+      }
+    } catch (err: any) {
+      console.error('API Error POST /api/transactions:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // INPATIENT STAY: INSERT
+  app.post('/api/inpatient-stays', async (req, res) => {
+    try {
+      const stay = req.body;
+      if (!stay || !stay.id) {
+        return res.status(400).json({ error: 'Stay va id kerak' });
+      }
+      const success = await insertInpatientStay(stay);
+      if (success) {
+        const allStays = await loadAllInpatientStays();
+        broadcastChange('inpatientStays', allStays);
+        // hospitalRooms ham yangilanishi kerak (occupiedBeds)
+        const fresh = await loadData();
+        broadcastChange('hospitalRooms', fresh.hospitalRooms);
+        res.json({ success: true, message: `Statsionar bemor qo'shildi: ${stay.id}` });
+      } else {
+        res.status(500).json({ error: 'Statsionar bemor qo\'shishda xatolik' });
+      }
+    } catch (err: any) {
+      console.error('API Error POST /api/inpatient-stays:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // INPATIENT STAY: UPDATE
+  app.put('/api/inpatient-stays/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const success = await updateInpatientStay(id, updates);
+      if (success) {
+        const allStays = await loadAllInpatientStays();
+        broadcastChange('inpatientStays', allStays);
+        const fresh = await loadData();
+        broadcastChange('hospitalRooms', fresh.hospitalRooms);
+        res.json({ success: true, message: `Statsionar bemor yangilandi: ${id}` });
+      } else {
+        res.status(404).json({ error: 'Statsionar bemor topilmadi' });
+      }
+    } catch (err: any) {
+      console.error('API Error PUT /api/inpatient-stays:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // INPATIENT STAY: DELETE
+  app.delete('/api/inpatient-stays/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = await deleteInpatientStay(id);
+      if (success) {
+        const allStays = await loadAllInpatientStays();
+        broadcastChange('inpatientStays', allStays);
+        const fresh = await loadData();
+        broadcastChange('hospitalRooms', fresh.hospitalRooms);
+        res.json({ success: true, message: `Statsionar bemor o'chirildi: ${id}` });
+      } else {
+        res.status(500).json({ error: 'O\'chirishda xatolik' });
+      }
+    } catch (err: any) {
+      console.error('API Error DELETE /api/inpatient-stays:', err);
       res.status(500).json({ error: err.message });
     }
   });
