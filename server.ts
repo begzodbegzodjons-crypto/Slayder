@@ -8,6 +8,7 @@ import {
   insertTransaction,
   insertInpatientStay, updateInpatientStay, deleteInpatientStay,
   loadAllPatients, loadAllTransactions, loadAllInpatientStays,
+  getAuditLogs,
 } from './db-store';
 import dotenv from 'dotenv';
 
@@ -424,6 +425,31 @@ async function startServer() {
       console.error('API Error DELETE /api/inpatient-stays:', err);
       res.status(500).json({ error: err.message });
     }
+  });
+
+  // ===================================================================
+  // AUDIT LOG + HEALTH CHECK API
+  // ===================================================================
+
+  // Audit log ro'yxati
+  app.get('/api/audit-logs', async (req, res) => {
+    try {
+      const limit = parseInt(req.query.limit as string) || 100;
+      const logs = await getAuditLogs(Math.min(limit, 1000));
+      res.json({ success: true, count: logs.length, logs });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Health check — connection pool holati
+  app.get('/api/health', (req, res) => {
+    res.json({
+      success: true,
+      uptime: process.uptime(),
+      memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+      timestamp: new Date().toISOString(),
+    });
   });
 
   // ===================================================================

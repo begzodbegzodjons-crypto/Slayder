@@ -183,6 +183,28 @@ export async function initStorage() {
       ) ENGINE=InnoDB;
     `);
 
+    // 5. AUDIT LOG jadvali — har bir muhim amal log qilinadi
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        tx_id VARCHAR(100),
+        request_id VARCHAR(100),
+        table_name VARCHAR(50),
+        record_id VARCHAR(50),
+        action VARCHAR(20),
+        actor VARCHAR(100),
+        old_value LONGTEXT,
+        new_value LONGTEXT,
+        changed_fields TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_table (table_name),
+        INDEX idx_record (record_id),
+        INDEX idx_action (action),
+        INDEX idx_created (created_at),
+        INDEX idx_tx (tx_id)
+      );
+    `);
+
     // =====================================================
     // MIGRATSIYA: JSON blob'dagi patients/transactions/inpatientStays
     // ni relational jadvallarga ko'chirish (bir marta)
@@ -650,24 +672,66 @@ async function migrateInpatientStaysSchema(conn: mysql.PoolConnection) {
 }
 
 // ===================================================================
-// PATIENT CRUD — PROFESSIONAL COLUMNS + SQL Transaction
+// AUDIT LOG — har bir muhim amal log qilinadi
+// kim bajardi, qachon, nima o'zgardi, eski/yangi qiymat, tx id
+// ===================================================================
+async function auditLog(conn: mysql.PoolConnection, opts: {
+  txId: string; requestId?: string; tableName: string; recordId: string;
+  action: string; actor?: string; oldValue?: any; newValue?: any;
+}) {
+  try {
+    const changedFields = opts.oldValue && opts.newValue
+      ? Object.keys(opts.newValue).filter(k => JSON.stringify(opts.oldValue[k]) !== JSON.stringify(opts.newValue?.[k])).join(',')
+      : Object.keys(opts.newValue || {}).join(',');
+    await conn.query(
+      `INSERT INTO audit_logs (tx_id, request_id, table_name, record_id, action, actor, old_value, new_value, changed_fields) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        opts.txId,
+        opts.requestId || opts.txId,
+        opts.tableName,
+        opts.recordId,
+        opts.action,
+        opts.actor || 'system',
+        opts.oldValue ? JSON.stringify(opts.oldValue) : null,
+        opts.newValue ? JSON.stringify(opts.newValue) : null,
+        changedFields || null,
+      ]
+    );
+  } catch (e) {
+    // Audit log xatosi asosiy operatsiyani to'xtatmasin
+  }
+}
+
+export async function getAuditLogs(limit: number = 100): Promise<any[]> {
+  if (!isDbActive || !pool) return [];
+  try {
+    const [rows]: any[] = await pool.query('SELECT * FROM audit_logs ORDER BY created_at DESC LIMIT ?', [limit]);
+    return rows;
+  } catch { return []; }
+}
+
+// ===================================================================
+// PATIENT CRUD — PROFESSIONAL COLUMNS + SQL Transaction + AUDIT
 // ===================================================================
 
-// INSERT — proper columns
-export async function insertPatient(patient: any): Promise<boolean> {
+// INSERT — proper columns + audit log
+export async function insertPatient(patient: any, actor?: string): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
+  const txId = 'TX-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
   try {
     await conn.beginTransaction();
     const r = patientToRow(patient);
     await conn.query(
-      `INSERT INTO patients (id, patient_code, full_name, phone, birth_date, gender, department_id, doctor_id, doctor_name, status, payment_status, payment_amount, queue_number, diagnosis, created_at, updated_at, called_at, completed_at, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE full_name=VALUES(full_name), phone=VALUES(phone), status=VALUES(status), payment_status=VALUES(payment_status), payment_amount=VALUES(payment_amount), diagnosis=VALUES(diagnosis), updated_at=VALUES(updated_at), extra_data=VALUES(extra_data)`,
+      `INSERT INTO patients (id, patient_code, full_name, phone, birth_date, gender, department_id, doctor_id, doctor_name, status, payment_status, payment_amount, queue_number, diagnosis, created_at, updated_at, called_at, completed_at, extra_data) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [r.id, r.patient_code, r.full_name, r.phone, r.birth_date, r.gender, r.department_id, r.doctor_id, r.doctor_name, r.status, r.payment_status, r.payment_amount, r.queue_number, r.diagnosis, r.created_at, r.updated_at, r.called_at, r.completed_at, r.extra_data]
     );
+    await auditLog(conn, { txId, tableName: 'patients', recordId: r.id, action: 'INSERT', actor, newValue: patient });
     await conn.commit();
     return true;
   } catch (err: any) {
     await conn.rollback();
+    await auditLog(conn, { txId, tableName: 'patients', recordId: patient.id, action: 'INSERT_FAILED', actor, newValue: patient });
     console.error(`❌ [INSERT Patient]:`, err.message);
     return false;
   } finally {
@@ -675,23 +739,24 @@ export async function insertPatient(patient: any): Promise<boolean> {
   }
 }
 
-// UPDATE — proper columns, FOR UPDATE row lock
-export async function updatePatient(id: string, updates: any): Promise<boolean> {
+// UPDATE — proper columns, FOR UPDATE row lock + audit log
+export async function updatePatient(id: string, updates: any, actor?: string): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
+  const txId = 'TX-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
   try {
     await conn.beginTransaction();
-    // Row lock
-    const [rows]: any[] = await conn.query('SELECT extra_data FROM patients WHERE id = ? FOR UPDATE', [id]);
+    // Row lock — pessimistic locking
+    const [rows]: any[] = await conn.query('SELECT * FROM patients WHERE id = ? FOR UPDATE', [id]);
     if (rows.length === 0) {
       await conn.rollback();
       return false;
     }
+    const oldPatient = rowToPatient(rows[0]);
     // SET clause ni quramiz
     const setClauses: string[] = ['updated_at = ?'];
     const values: any[] = [new Date()];
     let extraUpdates: any = {};
-    // existing extra_data ni parse
     let existingExtra: any = {};
     if (rows[0].extra_data) {
       try { existingExtra = JSON.parse(typeof rows[0].extra_data === 'string' ? rows[0].extra_data : JSON.stringify(rows[0].extra_data)); } catch {}
@@ -706,7 +771,6 @@ export async function updatePatient(id: string, updates: any): Promise<boolean> 
         values.push(val);
       }
     }
-    // extra_data merge
     if (Object.keys(extraUpdates).length > 0) {
       const mergedExtra = { ...existingExtra, ...extraUpdates };
       setClauses.push('extra_data = ?');
@@ -714,10 +778,13 @@ export async function updatePatient(id: string, updates: any): Promise<boolean> 
     }
     values.push(id);
     await conn.query(`UPDATE patients SET ${setClauses.join(', ')} WHERE id = ?`, values);
+    const newPatient = { ...oldPatient, ...updates };
+    await auditLog(conn, { txId, tableName: 'patients', recordId: id, action: 'UPDATE', actor, oldValue: oldPatient, newValue: newPatient });
     await conn.commit();
     return true;
   } catch (err: any) {
     await conn.rollback();
+    await auditLog(conn, { txId, tableName: 'patients', recordId: id, action: 'UPDATE_FAILED', actor, newValue: updates });
     console.error(`❌ [UPDATE Patient ${id}]:`, err.message);
     return false;
   } finally {
@@ -725,17 +792,26 @@ export async function updatePatient(id: string, updates: any): Promise<boolean> 
   }
 }
 
-// DELETE
-export async function deletePatient(id: string): Promise<boolean> {
+// DELETE + audit log
+export async function deletePatient(id: string, actor?: string): Promise<boolean> {
   if (!isDbActive || !pool) return false;
   const conn = await pool.getConnection();
+  const txId = 'TX-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
   try {
     await conn.beginTransaction();
+    const [rows]: any[] = await conn.query('SELECT * FROM patients WHERE id = ? FOR UPDATE', [id]);
+    if (rows.length === 0) {
+      await conn.rollback();
+      return false;
+    }
+    const oldPatient = rowToPatient(rows[0]);
     await conn.query('DELETE FROM patients WHERE id = ?', [id]);
+    await auditLog(conn, { txId, tableName: 'patients', recordId: id, action: 'DELETE', actor, oldValue: oldPatient });
     await conn.commit();
     return true;
   } catch (err: any) {
     await conn.rollback();
+    await auditLog(conn, { txId, tableName: 'patients', recordId: id, action: 'DELETE_FAILED', actor });
     console.error(`❌ [DELETE Patient ${id}]:`, err.message);
     return false;
   } finally {
