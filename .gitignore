@@ -6,3 +6,21 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Backup fayllar (local saqlanadi, git ga emas)
+backups/
+
+# Vaqtinchalik test fayllar
+test_*.mjs
+test_*.sh
+*_test.mjs
+*_test.sh
+stress*.mjs
+clean*.mjs
+fix*.mjs
+verify*.mjs
+diag*.mjs
+remigrate*.mjs
+check*.mjs
+restore-backup.ts
+backup-service.ts
