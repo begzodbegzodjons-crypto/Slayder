@@ -1,8 +1,8 @@
 {
   "_meta": {
     "key": "patients",
-    "savedAt": "2026-07-21T17:08:15.689Z",
-    "recordCount": 218
+    "savedAt": "2026-07-22T05:24:39.147Z",
+    "recordCount": 217
   },
   "data": [
     {
@@ -4170,25 +4170,9 @@
       "createdAt": "2026-07-21T10:17:00.000Z",
       "selectedServices": [],
       "isReturning": false,
-      "visitCount": 1
-    },
-    {
-      "firstName": "BemorSSe",
-      "lastName": "RealtimeTest",
-      "middleName": "",
-      "birthDate": "1990-01-01",
-      "phone": "+998909990001",
-      "gender": "Erkak",
-      "departmentId": "lor",
-      "doctorName": "Dr. Qambaraliyev Ma'rufjon",
-      "paymentStatus": "To'langan",
-      "paymentAmount": 40000,
-      "id": "P-1299",
-      "queueNumber": 299,
-      "status": "Kutmoqda",
-      "createdAt": "2026-07-21T15:23:07.828Z",
-      "isReturning": false,
-      "visitCount": 1
+      "visitCount": 1,
+      "diagnosis": "Ostrýy rinit",
+      "updatedAt": "2026-07-21T16:05:50.965Z"
     }
   ]
 }

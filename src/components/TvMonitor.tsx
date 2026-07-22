@@ -193,76 +193,9 @@ export const TvMonitor: React.FC<TvMonitorProps> = ({ patients, inlineMode = fal
       console.log('Audio error:', e);
     }
 
-    // 2. Bemor nomini toza o'zbek tilida ovozli e'lon qilish (TTS)
-    // ABSOLUT QOIDA: RUSCHA OVOZ BUTUNLAY BLOKLANADI.
-    // Agar o'zbek ovozi topilmasa — INGLIZ ovozi ishlatiladi (ruscha emas!).
-    // Ingliz ovozi lotin yozuvidagi o'zbekchani ancha to'g'ri o'qiydi.
-    // Raqamlar SO'Z bilan yoziladi (113 → "yuz o'n uch").
-    try {
-      const deptName = getDeptName(patient.departmentId);
-      const room = getRoomNumber(patient.departmentId);
-
-      const numberToUzbek = (num: number): string => {
-        if (num === 0) return 'nol';
-        const birliklar = ['', 'bir', 'ikki', 'uch', 'to\'rt', 'besh', 'olti', 'yetti', 'sakkiz', 'to\'qqiz'];
-        const onliklar = ['', 'o\'n', 'yigirma', 'o\'ttiz', 'qirq', 'ellik', 'oltmish', 'yetmish', 'sakson', 'to\'qson'];
-        let result = '';
-        if (num >= 1000) { const m = Math.floor(num / 1000); result += (m === 1 ? '' : birliklar[m] + ' ') + 'ming '; num %= 1000; }
-        if (num >= 100) { const y = Math.floor(num / 100); result += (y === 1 ? '' : birliklar[y] + ' ') + 'yuz '; num %= 100; }
-        if (num >= 10) { const on = Math.floor(num / 10); result += onliklar[on] + ' '; num %= 10; }
-        if (num > 0) { result += birliklar[num]; }
-        return result.trim();
-      };
-
-      const queueStr = numberToUzbek(patient.queueNumber);
-      const roomNumMatch = room.match(/\d+/);
-      const roomStr = roomNumMatch ? numberToUzbek(parseInt(roomNumMatch[0])) : room;
-      const speechText = `Navbat ${queueStr}. ${patient.lastName} ${patient.firstName}. ${deptName}, ${roomStr} xonaga marhamat!`;
-
-      // OVOZ TANLASH — RUSCHA OVOZ BUTUNLAY BLOKLANADI
-      const pickSafeVoice = (): SpeechSynthesisVoice | null => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length === 0) return null;
-        // 1-prioritet: o'zbek ovozi
-        const uz = voices.find(v => v.lang.toLowerCase().startsWith('uz'));
-        if (uz) return uz;
-        // 2-prioritet: ingliz ovozi (ruscha emas!) — lotin o'zbekchani yaxshi o'qiydi
-        const en = voices.find(v => v.lang.toLowerCase().startsWith('en'));
-        if (en) return en;
-        // 3-prioritet: istalgan ovoz, faqat RUSCHA va TURKCHA bo'lmasin
-        const safe = voices.find(v => {
-          const l = v.lang.toLowerCase();
-          return !l.startsWith('ru') && !l.startsWith('tr');
-        });
-        if (safe) return safe;
-        // Oxirgi chora: birinchi ovoz (lekin ruscha bo'lmasa)
-        return voices.find(v => !v.lang.toLowerCase().startsWith('ru')) || null;
-      };
-
-      const doSpeak = () => {
-        const voice = pickSafeVoice();
-        const u = new SpeechSynthesisUtterance(speechText);
-        if (voice) {
-          u.voice = voice;
-          u.lang = voice.lang; // ovoz tiliga moslangan — brauzer ruschaga qaytib ketmaydi
-        } else {
-          // Hech qanday ovoz topilmasa — umuman o'qimaslik (ruscha o'qishdan ko'ra yaxshiroq)
-          console.warn('⚠️ [TTS] Xavfsiz ovoz topilmadi — ovozli e\'lon o\'tkazib yuborildi');
-          return;
-        }
-        u.rate = 0.82;
-        u.pitch = 1.0;
-        u.volume = 1.0;
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.speak(u);
-      };
-
-      // Ovozlarni majbur yuklash
-      window.speechSynthesis.getVoices();
-      setTimeout(doSpeak, 1200);
-    } catch (e) {
-      console.log('TTS error:', e);
-    }
+    // 2. OVOZLI E'LON (TTS) BUTUNLAY O'CHIRILDI.
+    // Foydalanuvchi so'rovi bilan — faqat chime (musiqa) tovushi qoladi.
+    // Bemor nomi ekranda ko'rinadi, ovoz bilan o'qilmaydi.
   };
 
   // Helper to retrieve color coding and styling for each department

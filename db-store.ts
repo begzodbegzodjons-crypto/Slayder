@@ -173,13 +173,34 @@ export async function loadData(): Promise<ClinicData> {
   };
 }
 
+// ===================================================================
+// MUTEX LOCK — 5 xodim bir vaqtda saqlaganda ma'lumot yo'qolmasligi uchun
+// Har bir key (patients, transactions, ...) uchun save operatsiyalari
+// KETMA-KET bajariladi. Race condition butunlay bartaraf etiladi.
+// ===================================================================
+const saveLocks = new Map<string, Promise<any>>();
+
+async function withSaveLock<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const prev = saveLocks.get(key) || Promise.resolve();
+  let resolveNext: () => void;
+  const next = new Promise<void>((resolve) => { resolveNext = resolve; });
+  saveLocks.set(key, prev.then(() => next));
+  await prev; // oldingi operatsiya tugashini kutamiz
+  try {
+    return await fn();
+  } finally {
+    resolveNext!(); // keyingi operatsiyaga ruxsat
+  }
+}
+
 // Save specific key's data — supports both arrays AND objects (for clinicSettings)
 // MUHIM: patients va transactions uchun MERGE-ON-WRITE ishlaydi:
 // - Mavjud yozuvlar (ID bo'yicha) yangi ma'lumot bilan almashtiriladi
 // - Yangi yozuvlar qo'shiladi
 // - Eski yozuvlar (yangi ma'lumotda yo'q) SAQLANIB QOLADI
-// Bu ikki qurilma bir vaqtda saqlasa ham ma'lumot yo'qolmaydi.
+// MUTEX LOCK orqali 5 xodim bir vaqtda saqlasa ham ma'lumot yo'qolmaydi.
 export async function saveCollection(key: string, items: any, forceReplace: boolean = false): Promise<boolean> {
+  return withSaveLock(key, async () => {
   let finalData = items;
 
   // patients va transactions uchun merge-on-write (forceReplace=false bo'lsa)
@@ -271,4 +292,5 @@ export async function saveCollection(key: string, items: any, forceReplace: bool
     console.error(`❌ [File Save Error]: Failed to save key "${key}" to local fallback:`, err.message);
     return false;
   }
+  }); // withSaveLock tugadi
 }

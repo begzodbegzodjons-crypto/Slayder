@@ -1,9 +1,9 @@
 {
   "_meta": {
-    "backupType": "hourly-auto",
-    "createdAt": "2026-07-21T17:57:10.947Z",
-    "patientCount": 218,
-    "transactionCount": 256,
+    "backupType": "manual",
+    "createdAt": "2026-07-22T05:24:38.989Z",
+    "patientCount": 217,
+    "transactionCount": 257,
     "inpatientCount": 3,
     "keys": [
       "patients",
@@ -4183,25 +4183,9 @@
         "createdAt": "2026-07-21T10:17:00.000Z",
         "selectedServices": [],
         "isReturning": false,
-        "visitCount": 1
-      },
-      {
-        "firstName": "BemorSSe",
-        "lastName": "RealtimeTest",
-        "middleName": "",
-        "birthDate": "1990-01-01",
-        "phone": "+998909990001",
-        "gender": "Erkak",
-        "departmentId": "lor",
-        "doctorName": "Dr. Qambaraliyev Ma'rufjon",
-        "paymentStatus": "To'langan",
-        "paymentAmount": 40000,
-        "id": "P-1299",
-        "queueNumber": 299,
-        "status": "Kutmoqda",
-        "createdAt": "2026-07-21T15:23:07.828Z",
-        "isReturning": false,
-        "visitCount": 1
+        "visitCount": 1,
+        "diagnosis": "Ostrýy rinit",
+        "updatedAt": "2026-07-21T16:05:50.965Z"
       }
     ],
     "departments": [
@@ -4451,16 +4435,6 @@
       }
     ],
     "transactions": [
-      {
-        "id": "TX-87668",
-        "type": "Kirim",
-        "amount": 40000,
-        "category": "Ambulator ko'rik",
-        "description": "RealtimeTest BemorSSe - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
-        "date": "2026-07-21",
-        "time": "15:23",
-        "createdAt": "2026-07-21T15:23:00.000Z"
-      },
       {
         "id": "TX-977881",
         "type": "Kirim",
@@ -7015,6 +6989,28 @@
         "time": "07:30",
         "createdAt": "2026-07-21T07:30:00.000Z",
         "patientName": "Sohibjonova Imona"
+      },
+      {
+        "id": "TX-71274",
+        "type": "Kirim",
+        "amount": 40000,
+        "category": "Ambulator ko'rik",
+        "description": "SuperTest FinalBemor - LOR (Quloq-Burun-Tomoq) bo'limiga navbat to'lovi",
+        "date": "2026-07-21",
+        "time": "16:12",
+        "createdAt": "2026-07-21T16:12:57.480Z",
+        "patientId": "P-1299",
+        "patientName": "SuperTest FinalBemor"
+      },
+      {
+        "id": "TX-91239",
+        "type": "Kirim",
+        "amount": 40000,
+        "category": "Ambulator ko'rik",
+        "description": "SuperTest FinalBemor - LOR (Quloq-Burun-Tomoq) bo'limi shifokor ko'rigi uchun navbat to'lovi",
+        "date": "2026-07-21",
+        "time": "16:12",
+        "createdAt": "2026-07-21T16:12:00.000Z"
       }
     ],
     "diagnosisTemplates": [
